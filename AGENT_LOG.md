@@ -203,3 +203,11 @@
 - 深度纪律：用 mutation/fault injection 证明测试有效，不通过新增通用 Agent 功能堆叠代码量。
 - 演示纪律：一个离线命令、失败非零、连续三次一致，无演示专用生产分支。
 - UI 纪律：后端唯一裁决、DTO 白名单、断线无假成功、键盘流程和严重 a11y 错误为零。
+
+### 2026-07-16 · T03 规划 T17–T20
+
+- 上一提交：`051775a`（`docs: 规划主要贡献演示与界面任务`）。
+- 产出：凭据/Provider、GitLab CI、Docker/线上部署、最终文档与审计的精确步骤和 G6/G7 证据。
+- 凭据边界：Argon2id + AES-GCM + Secret 分离；fake Key 全通道测试；真实调用仅受控 smoke。
+- 交付边界：平台能力不足时保守不部署；CI 失败不可 `allow_failure`；最终历史问题只能人工批准处置。
+- 终态：T20 需要 `dev → main` MR 后 `main` 最新 Pipeline passed，才可宣称 G7。

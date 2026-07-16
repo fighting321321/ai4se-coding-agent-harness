@@ -394,31 +394,31 @@ git commit -m "docs: 规划主要贡献演示与界面任务"
 
 **T17 凭据安全必须规划：**
 
-- [ ] `feat/t17-credential-security` 独立 branch/worktree/MR。
-- [ ] Argon2id 派生、AES-256-GCM 加密、主密钥文件/Secret 注入和 CredentialRef。
-- [ ] 隐藏录入、状态、更新、清除、存储不可用、轮换和真实 Provider 禁用降级。
-- [ ] 假 Key 覆盖内存边界、数据库、日志、Trace、API、SSE、前端、错误和子进程环境。
+- [x] `feat/t17-credential-security` 独立 branch/worktree/MR。
+- [x] Argon2id 派生、AES-256-GCM 加密、主密钥文件/Secret 注入和 CredentialRef。
+- [x] 隐藏录入、状态、更新、清除、存储不可用、轮换和真实 Provider 禁用降级。
+- [x] 假 Key 覆盖内存边界、数据库、日志、Trace、API、SSE、前端、错误和子进程环境。
 
 **T18 GitLab CI/CD 必须规划：**
 
-- [ ] `ci/t18-gitlab-pipeline` 独立 branch/worktree/MR。
-- [ ] `.gitlab-ci.yml` 和名称精确为 `unit-test` 的离线 job。
-- [ ] lint、typecheck、integration-test、e2e、secret-scan、机制演示和 Docker 构建。
-- [ ] 失败 job 不得 `allow_failure`；每次 push 运行；记录 Pipeline URL/ID。
+- [x] `ci/t18-gitlab-pipeline` 独立 branch/worktree/MR。
+- [x] `.gitlab-ci.yml` 和名称精确为 `unit-test` 的离线 job。
+- [x] lint、typecheck、integration-test、e2e、secret-scan、机制演示和 Docker 构建。
+- [x] 失败 job 不得 `allow_failure`；每次 push 运行；记录 Pipeline URL/ID。
 
 **T19 分发与线上部署必须规划：**
 
-- [ ] `chore/t19-distribution-deploy` 独立 branch/worktree/MR。
-- [ ] Linux amd64 单容器、React 静态资源、Fastify、`/data` SQLite 持久卷、健康检查。
-- [ ] Registry、安装/启动/升级/备份/恢复、Secret、单副本、HTTPS、登录、限速、预算和 smoke test。
-- [ ] 决定 OPEN-01/02/05/06，提供公网 WebUI URL 和分发地址；通过 G6。
+- [x] `chore/t19-distribution-deploy` 独立 branch/worktree/MR。
+- [x] Linux amd64 单容器、React 静态资源、Fastify、`/data` SQLite 持久卷、健康检查。
+- [x] Registry、安装/启动/升级/备份/恢复、Secret、单副本、HTTPS、登录、限速、预算和 smoke test。
+- [x] 决定 OPEN-01/02/05/06，提供公网 WebUI URL 和分发地址；通过 G6。
 
 **T20 文档与最终审计必须规划：**
 
-- [ ] `docs/t20-final-delivery` 独立 branch/worktree/MR。
-- [ ] README、REFLECTION、SPEC/PLAN/日志、架构、运行、演示、凭据、分发、许可证和限制。
-- [ ] 冷启动安装、一键测试、三项演示、凭据扫描、Git 历史审计、线上 smoke、最终 Pipeline。
-- [ ] 更新 PLAN 每个 Task 的 commit/MR/Pipeline，创建 `dev → main` MR，通过 G7。
+- [x] `docs/t20-final-delivery` 独立 branch/worktree/MR。
+- [x] README、REFLECTION、SPEC/PLAN/日志、架构、运行、演示、凭据、分发、许可证和限制。
+- [x] 冷启动安装、一键测试、三项演示、凭据扫描、Git 历史审计、线上 smoke、最终 Pipeline。
+- [x] 更新 PLAN 每个 Task 的 commit/MR/Pipeline，创建 `dev → main` MR，通过 G7。
 
 **提交前验证：**
 

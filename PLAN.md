@@ -726,6 +726,110 @@ it("DEMO-01 denies .env read before tool dispatch", async () => {
 
 **并行边界：** T14 必须在 T13 后；T15 必须在 T14 后。T16 可在 T14 测试开发期间基于冻结 DTO 并行，但任何 shared DTO/状态机变更都必须暂停并串行合并，禁止两个 worktree 同时修改后直接拼接。
 
+### T17：实现凭据安全与 OpenAI-compatible 单次适配器
+
+**Branch/Worktree/MR：** `feat/t17-credential-security`；`../ai4se-t17-credential-security`；MR → `dev`；禁止 squash。
+
+**目标：** 实现主密码/Secret 主密钥、AES-256-GCM 凭据生命周期、轮换和短时解密，并让真实 Provider 在缺失配置时安全失败。
+
+**前置依赖：** T16 的认证/RBAC/DTO，T12 redactor，T06 LLMProvider；真实 Provider 手动测试前必须由负责人决定 `OPEN-06`，否则只测 HTTP stub。
+
+**Files：** Create `packages/infrastructure/src/security/master-key.ts`, `credential-store.ts`, `credential-rotation.ts`; Create `packages/infrastructure/src/llm/openai-compatible.ts`; Create `packages/application/src/services/credential-service.ts`; Create `packages/shared/src/dto/credentials.ts`; Create `apps/api/src/routes/credentials.ts`; Create unit/integration/security tests; Modify DB schema/migration, WebUI credential page, config/evidence docs.
+
+**Interfaces：** `CredentialStore.put/status/withSecret/update/clear/rotateMasterKey`；`withSecret(ref, fn)` 不返回 secret；`OpenAICompatibleProvider.complete` 只执行一次 Chat Completions HTTP 请求，错误映射为 T06 稳定码。
+
+- [ ] **Step 1:** 提交 T17 guiding，记录 Argon2 能力测试、Secret 来源、fake Key 和 `OPEN-06` 保守默认。
+- [ ] **Step 2:** 写 Argon2id RED 测试，断言参数至少 64 MiB/3/1、不同 salt 结果不同、能力不足时 `CREDENTIAL_MASTER_KEY_UNAVAILABLE`；实现派生器后 PASS。
+- [ ] **Step 3:** 写 AES-GCM roundtrip/tamper/nonce 唯一测试；实现 256 位 key、12-byte 随机 nonce、auth tag 和版本字段后 PASS。
+- [ ] **Step 4:** 写数据库备份扫描，提交 fake Key 后 SQLite 字节不含明文；实现 CredentialRef/密文表和 `withSecret` 后 PASS。
+- [ ] **Step 5:** 写状态/更新/清除 RED：状态无密文，更新后旧密文不可调用，清除后 `LLM_CREDENTIAL_MISSING`；最小实现后 PASS。
+- [ ] **Step 6:** 写主密钥轮换逐点故障注入，任一失败保持全部旧密文可用且无混合版本；实现单事务重加密与认证验证后 PASS。
+- [ ] **Step 7:** 写 HTTP stub 测试，断言一次请求期间 Authorization 正确，返回后任何 Trace/错误/子进程环境/DTO 不含 fake Key；实现 Provider 后 PASS。
+- [ ] **Step 8:** 写供应商 auth/rate-limit/timeout/invalid schema 映射；实现最多 2 次仅传输/限流重试，重试不推进 Step；测试 PASS。
+- [ ] **Step 9:** 写未认证/viewer 越权、WebUI 输入提交后清空、本地/浏览器存储零 Key e2e；实现路由和页面后 PASS。
+- [ ] **Step 10:** 扫描内存边界说明、数据库、日志、Trace、API、SSE、前端、错误与子进程环境；fake Key 全部零命中。
+- [ ] **Step 11:** 两阶段安全评审；提交 `feat: 实现凭据安全与模型适配器`，更新台账并完成 MR/guiding 收尾。
+
+**完成标准：** REQ-014/015；数据库泄露不能恢复明文；篡改认证失败；更新/清除/轮换原子；真实 Provider 缺配置快速失败；fake Key 全通道零命中。
+
+### T18：建立 GitLab CI/CD 质量门禁
+
+**Branch/Worktree/MR：** `ci/t18-gitlab-pipeline`；`../ai4se-t18-gitlab-pipeline`；MR → `dev`；禁止 squash。
+
+**目标：** 每次 push 自动运行离线核心测试、静态检查和凭据扫描，并对集成、e2e、演示和镜像构建提供可追踪失败门禁。
+
+**前置依赖：** T17 已合入；所有本地命令已有稳定入口；CI 不接触真实 Provider/Key。
+
+**Files：** Create `.gitlab-ci.yml`, `scripts/ci/secret-scan.mjs`, `scripts/ci/assert-offline.mjs`; Create `tests/unit/ci/pipeline-contract.test.ts`, `secret-scan.test.ts`; Modify package scripts/evidence docs.
+
+**Interfaces：** job 名精确 `unit-test`；另外 `lint`, `typecheck`, `secret-scan`, `integration-test`, `e2e`, `mechanism-demos`, `build-image`。失败 job 均无 `allow_failure: true`。
+
+- [ ] **Step 1:** 提交 T18 guiding，记录 GitLab Runner 平台、缓存与离线约束。
+- [ ] **Step 2:** 写 pipeline contract RED 测试：解析 YAML，断言 `unit-test` 存在、关键 jobs 存在、无 `allow_failure`、无真实 Provider 变量。
+- [ ] **Step 3:** 创建最小 `.gitlab-ci.yml` 使 contract PASS；使用冻结 pnpm lock 和固定 Node LTS image。
+- [ ] **Step 4:** 写 fake Key 文件/日志/历史样本的 secret scanner 测试；扫描器应在样本存在时退出非零、清除后 0。
+- [ ] **Step 5:** 实现当前文件扫描脚本；Git 历史扫描只在 T20 最终审计执行并记录批准边界。
+- [ ] **Step 6:** `unit-test` 运行核心 Vitest 与 `pnpm demo:mechanisms`，设置网络访问断言；本地模拟脚本预期退出 0。
+- [ ] **Step 7:** 配置 lint/typecheck/secret 每次 push，integration 使用临时 SQLite，e2e 使用 ScriptedMockLLM，build-image 只构建不发布。
+- [ ] **Step 8:** 对每个 job 故意注入一个可恢复失败，确认 Pipeline 红；恢复后确认相应 job green，禁止通过 skip/allow_failure 修复。
+- [ ] **Step 9:** 两阶段评审；提交 `ci: 建立GitLab持续验证流水线`，推送后记录 Pipeline URL/ID/status。
+- [ ] **Step 10:** Pipeline passed 后更新台账、清空 guiding 并合并 MR。
+
+**完成标准：** REQ-022；`unit-test` 精确命名且离线；关键失败不能伪装；每次 push 质量门禁；Pipeline 证据可追踪。
+
+### T19：完成单容器分发与受控线上部署
+
+**Branch/Worktree/MR：** `chore/t19-distribution-deploy`；`../ai4se-t19-distribution-deploy`；MR → `dev`；禁止 squash。
+
+**目标：** 交付 Linux `amd64` 非 root 单容器、持久化 `/data` 与受限 `/workspace`，并在满足安全能力的平台上提供公网 HTTPS WebUI。
+
+**前置依赖：** T18 Pipeline passed；开始前必须以实测证据决定 `OPEN-01/02/05`，未满足持久卷/Secret/HTTPS/限额则按 SPEC 保守默认不部署。
+
+**Files：** Create `deploy/Dockerfile`, `deploy/entrypoint.sh`, `deploy/healthcheck.mjs`, `deploy/compose.example.yml`, `scripts/smoke/distribution.mjs`, `scripts/smoke/online.mjs`; Create distribution tests; Modify `.gitlab-ci.yml`, README draft, SPEC_PROCESS/AGENT_LOG/PLAN open decisions.
+
+**Interfaces：** 容器单 HTTP 端口；`GET /health/live` 与 `/health/ready`；`/data` 持久化 SQLite，`/workspace` 明确挂载；主密钥优先 `/run/secrets/harness_master_key`；生产单副本。
+
+- [ ] **Step 1:** 提交 T19 guiding；记录三个候选平台/Registry/Secret 方式的持久卷、HTTPS、费用、限速和访问证据，负责人批准 OPEN-01/02/05。
+- [ ] **Step 2:** 写 Docker contract RED 测试，断言非 root USER、固定工作目录、无 `COPY .env`、healthcheck、单启动进程和静态前端产物。
+- [ ] **Step 3:** 实现多阶段 Dockerfile/entrypoint；`docker build --platform linux/amd64 -f deploy/Dockerfile -t ai4se-harness:test .` 预期成功。
+- [ ] **Step 4:** 启动无 Secret 容器，预期 readiness 明确失败但 mock 状态可诊断；提供 Secret/卷后 readiness 200。
+- [ ] **Step 5:** 运行分发 smoke：创建管理员/示例决策、运行三项演示、写 SQLite、重启容器、确认数据保留和 running→interrupted。
+- [ ] **Step 6:** 检查镜像历史、层、环境和导出文件不含 fake/真实 Key；容器进程用户非 root，子进程无 Key。
+- [ ] **Step 7:** 将镜像推至已批准 Registry，记录不可变 digest；若权限不可用，保留本地构建证据且不宣称已分发。
+- [ ] **Step 8:** 部署单副本，设置 HTTPS、登录、速率/费用/token 上限、持久卷、Secret 和 mock 默认；关闭匿名任务和匿名真实调用。
+- [ ] **Step 9:** 运行 online smoke：健康、登录、SQLite 写入/重启、SSE、mock 演示、凭据状态，以及仅在 OPEN-06 已批准时一次受控真实 Provider 调用。
+- [ ] **Step 10:** 测试备份/恢复、升级/回滚和磁盘 80% 告警；记录 URL、commit、digest、配置版本、时间和无 Secret 的结果。
+- [ ] **Step 11:** 两阶段安全/运维评审；提交 `chore: 完成容器分发与线上部署`，更新 G6/台账并完成 MR/guiding 收尾。
+
+**完成标准/G6：** REQ-023/024；新机器单容器启动；数据重启保留；Secret 不入镜像；公网 HTTPS URL；登录/限额；线上 smoke 通过。
+
+### T20：完成文档、反思与最终审计
+
+**Branch/Worktree/MR：** `docs/t20-final-delivery`；`../ai4se-t20-final-delivery`；MR → `dev`，随后 `dev → main`；禁止 squash。
+
+**目标：** 使陌生评审者能从零安装、运行、验证三项机制并审计全部工程证据，最后让 `main` 最新 Pipeline passed。
+
+**前置依赖：** G6 通过；项目负责人本人撰写 REFLECTION，AI 只可在明确标注后润色。
+
+**Files：** Create/complete `README.md`, `REFLECTION.md`, `LICENSES.md`; Modify `SPEC.md` only for已批准 open decision/version update, `PLAN.md`, `SPEC_PROCESS.md`, `AGENT_LOG.md`; Create `scripts/audit/final-audit.mjs`, `scripts/smoke/fresh-machine.ps1`, `scripts/smoke/fresh-machine.sh`; Modify CI evidence docs.
+
+**Interfaces：** `pnpm audit:final` 串行运行文档清单、全量质量、三演示、fake Key/当前文件/Git 历史扫描、许可证、Docker/线上 smoke 证据检查；任一缺失非零。
+
+- [ ] **Step 1:** 提交 T20 guiding，列出交付清单、负责人手写反思边界和最终 MR 顺序。
+- [ ] **Step 2:** 写 final-audit RED 测试/脚本，缺任一交付文件、README 必需标题或台账字段时退出非零。
+- [ ] **Step 3:** 完成 README 的 30 秒价值、架构/主要贡献、安装/运行/测试、三演示、WebUI/URL、凭据生命周期、目录/安全边界、分发/限制、许可证。
+- [ ] **Step 4:** 由负责人本人完成 1500–2500 字 REFLECTION，覆盖 Superpowers/TDD/subagent/task 粒度、真实规约偏离、context、凭据/分发、主要贡献与方法论批判；记录 AI 润色范围。
+- [ ] **Step 5:** 填写 PLAN 每个 Task 的 commit/MR/Pipeline/review，补齐 AGENT_LOG 连续证据和 SPEC_PROCESS 的 open decision 结果。
+- [ ] **Step 6:** 在全新 Windows/Linux 环境各执行安装或镜像流程、一键测试和三项演示；记录版本/命令/结果，失败先修正文档或实现对应分支。
+- [ ] **Step 7:** 运行当前文件与完整 Git 历史凭据扫描；发现真实疑似凭据立即停止、撤销/轮换并按人工批准流程处理历史，不自动重写历史。
+- [ ] **Step 8:** 运行 `pnpm test && pnpm lint && pnpm typecheck && pnpm build && pnpm demo:mechanisms` 以及 e2e、Docker、线上 smoke；全部退出 0。
+- [ ] **Step 9:** 执行性能数据、a11y 严重错误、Trace 保留、备份恢复、许可证和第三方归属审计。
+- [ ] **Step 10:** 两阶段最终评审与人工逐章批准；提交 `docs: 完成项目交付文档` 和 `docs: 确认最终交付审计`。
+- [ ] **Step 11:** 更新 G7、台账与最终版本，清空 guiding；创建 T20 → dev MR，Pipeline passed 后合并。
+- [ ] **Step 12:** 创建 `dev → main` MR，人工检查 commit 历史无 squash/一次性提交；合并后确认 `main` 最新 Pipeline 为 passed，记录最终 commit/URL/digest/日期。
+
+**完成标准/G7：** REQ-025；正式文件齐全；冷启动可复现；无真实凭据；所有核心机制离线可测；多个 MR/评审/Pipeline 可追踪；`main` 最新 Pipeline passed。
+
 ## 9. 执行证据台账
 
 | Txx | Branch | Commit(s) | MR | Pipeline | Spec Review | Quality Review | 状态 |
