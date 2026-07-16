@@ -130,3 +130,13 @@
 - 人工确认：学校 API Key 可用于手动集成和 smoke test，但不得进入代码、聊天、Git、CI、日志或核心测试。
 - 保守行为：数据库、Trace、Git 状态、主密钥或外部供应商不可用时明确失败或降级，不伪装成功。
 - 下一步：确定技术组件、WebUI、分发、GitLab CI 和部署约束。
+
+### 2026-07-16 · T02 技术、分发与部署方案
+
+- 上一提交：`1976ee6`（`docs: 明确非功能需求与凭据安全`）
+- 人工批准技术栈：TypeScript、Node.js、Fastify、React/Vite、SQLite/Drizzle、Zod、Vitest、Playwright、Open Design、SSE。
+- Provider：核心使用脚本化 mock，首个真实适配器为 OpenAI-compatible 单次调用。
+- 分发：Docker/OCI 单容器为主，本地 Node.js 开发运行为辅；持久化 `/data`、受限 `/workspace` 和独立 Secret。
+- CI：采用南京大学 GitLab；`.gitlab-ci.yml` 必须包含名称精确为 `unit-test` 的离线 job，并包含 lint、类型、凭据、集成、e2e 和构建检查。
+- 部署：具体平台延后至 T19，保守默认是不部署、不上传学校 Key；平台必须满足持久卷、HTTPS、Secret、限额和单副本。
+- 下一步：建立需求追踪矩阵、风险与未决问题，然后做规约审计。

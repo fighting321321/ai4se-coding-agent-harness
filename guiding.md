@@ -348,19 +348,19 @@ git commit -m "docs: 明确非功能需求与凭据安全"
 
 **必须作出的决策：**
 
-- [ ] 语言、后端/WebUI 框架、测试框架、配置格式、持久化方案及选择理由。
-- [ ] LLM 供应商适配策略、默认开发方式和 mock 优先原则；内核不得依赖供应商 Agent SDK。
-- [ ] WebUI 信息架构：任务、步骤、工具结果、反馈、审批、决策差异、Trace、停机原因和凭据状态。
-- [ ] 是否采用 Open Design；如不采用，写明设计系统替代方案和理由。
-- [ ] 分发形态、目标操作系统与 CPU 架构、获取方式、安装、启动和卸载边界。
-- [ ] CI/CD：GitLab `.gitlab-ci.yml`、名称精确为 `unit-test` 的 job、离线测试、lint、类型检查、凭据扫描和分发构建。
-- [ ] 线上 WebUI 部署架构、公开 URL 目标、服务端密钥配置、成本/速率/资源上限和 smoke test。
-- [ ] 全新机器冷启动流程，以及用户如何安全录入自己的 key。
+- [x] 语言、后端/WebUI 框架、测试框架、配置格式、持久化方案及选择理由。
+- [x] LLM 供应商适配策略、默认开发方式和 mock 优先原则；内核不得依赖供应商 Agent SDK。
+- [x] WebUI 信息架构：任务、步骤、工具结果、反馈、审批、决策差异、Trace、停机原因和凭据状态。
+- [x] 是否采用 Open Design；如不采用，写明设计系统替代方案和理由。
+- [x] 分发形态、目标操作系统与 CPU 架构、获取方式、安装、启动和卸载边界。
+- [x] CI/CD：GitLab `.gitlab-ci.yml`、名称精确为 `unit-test` 的 job、离线测试、lint、类型检查、凭据扫描和分发构建。
+- [x] 线上 WebUI 部署架构、公开 URL 目标、服务端密钥配置、成本/速率/资源上限和 smoke test。
+- [x] 全新机器冷启动流程，以及用户如何安全录入自己的 key。
 
 **规范差异处理：**
 
-- [ ] 记录课程材料中 GitHub/Actions 与最终 GitLab/`.gitlab-ci.yml` 要求的差异。
-- [ ] 结合当前 NJU GitLab 远端，明确本项目以 GitLab MR、Pipeline 和 `unit-test` job 为准。
+- [x] 记录课程材料中 GitHub/Actions 与最终 GitLab/`.gitlab-ci.yml` 要求的差异。
+- [x] 结合当前 NJU GitLab 远端，明确本项目以 GitLab MR、Pipeline 和 `unit-test` job 为准。
 
 **提交前验证：**
 

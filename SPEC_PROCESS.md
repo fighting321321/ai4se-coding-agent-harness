@@ -357,3 +357,13 @@
 - 项目负责人采纳：使用 AES-256-GCM 加密凭据；本地主密码隐藏输入，容器/线上使用 Secret，明文只在一次后端模型请求中短暂存在。
 - 项目负责人修改：学校 Key 只用于手动真实适配器测试和受控 smoke test，核心测试、演示和 `unit-test` job 不得使用。
 - 项目负责人拒绝：不把 `.env` 作为默认安全存储，不让子进程继承模型 Key，不在重启后自动重放副作用。
+
+### 2026-07-16 · 技术、分发与部署决策
+
+- AI 推荐：TypeScript、Node.js、Fastify、React/Vite、SQLite/Drizzle、Zod、Vitest、Playwright，使用 Docker 作为主要分发；项目负责人全部采纳。
+- 数据库比较：JSON 文件缺少事务、索引和并发保护；PostgreSQL 对首版单实例增加运维。项目负责人确认 SQLite 单实例边界，并保留 Repository 迁移接口。
+- LLM 决策：`ScriptedMockLLM + OpenAI-compatible`；学校 Key 只用于手动测试，供应商 Agent Runner 被拒绝。
+- 前后端决策：逻辑分离，开发可分进程，生产单容器；共享 DTO/Schema，不共享数据库访问代码。
+- Git 平台差异：课程通用章节提及 GitHub/Actions，但最终清单、当前远端和项目流程要求 GitLab、MR、`.gitlab-ci.yml` 与精确名称 `unit-test`；项目负责人采纳 GitLab 作为本项目规范。
+- 部署修改：具体平台按负责人要求推迟到 T19；当前只批准平台能力门槛、单副本架构、mock 公网演示和真实调用受控要求。
+- 拒绝项：首版不做微服务、独立 Worker、向量库、单文件二进制、多项目和匿名真实模型调用。

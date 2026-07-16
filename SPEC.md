@@ -1089,3 +1089,122 @@ stateDiagram-v2
 
 `.env` 仅作为显式启用的开发兼容来源，不是推荐安全存储。系统和 README 必须说明：文件是明文、可能被备份或误提交，进程环境也可能被同权限进程读取。默认配置不读取 `.env`；若用户启用，文件必须被 Git 忽略，值仍不得进入日志、Trace、记忆或子进程环境。
 
+## 10. 技术选型、WebUI 与交付方案
+
+### 10.1 技术选型
+
+| 领域 | 选择 | 理由与边界 |
+| --- | --- | --- |
+| 语言 | TypeScript | 前后端共享类型和 Schema；严格模式帮助状态机和 Action 边界；不以类型替代运行时校验 |
+| 运行时 | 项目锁定的 Node.js LTS | 支持 Fastify、受控子进程和单容器分发；具体小版本由锁文件固定 |
+| 包管理 | pnpm 与锁文件 | 节省依赖空间并保证 CI/本地可重复安装；CI 使用冻结锁文件 |
+| 后端 | Fastify | 明确的插件边界、Schema 与流式响应；业务逻辑不得写入路由处理器 |
+| 前端 | React + Vite | 适合状态丰富的任务、审批和 Trace UI；生产构建为静态资源 |
+| API/共享 Schema | Zod + TypeScript DTO | 同一 Schema 用于 API 输入、Action 和配置验证；前端 DTO 使用白名单排除密文字段 |
+| 持久化 | SQLite + Drizzle ORM | 单实例、事务、关联查询、临时测试库和单文件分发；领域规则不放入 ORM hook |
+| 配置 | YAML 文件 + Zod Schema | 人类可读，启动时严格校验；凭据不写入 YAML，未知安全字段默认拒绝 |
+| 单元/集成测试 | Vitest | TypeScript 原生体验，适合 mock LLM、内存 Repository 和临时 SQLite |
+| 端到端测试 | Playwright | 覆盖浏览器、SSE、审批和 Rebaseline 主要流程 |
+| 密码/派生 | 维护良好的 Argon2 实现 | 使用 Argon2id；参数满足本规约最低值并通过环境测试 |
+| 对称加密 | Node.js `crypto` AES-256-GCM | 标准库认证加密，避免自定义密码算法 |
+| 实时更新 | Server-Sent Events | 首版主要为服务端单向推送；比 WebSocket 更简单，支持事件序号恢复 |
+| 视觉设计 | Open Design | 前端按其设计系统和可访问性原则实现；若具体组件与安全需求冲突，以本规约和明确记录的偏离为准 |
+
+系统采用模块化单体，不引入微服务、消息队列、向量数据库或独立 Worker。所有外部库必须记录许可证；实现前在 T03 明确版本和供应链检查。
+
+### 10.2 LLM 供应商策略
+
+- `LLMProvider` 保持供应商无关，只允许一次消息调用。
+- `ScriptedMockLLM` 是核心测试、CI 和机制演示的默认实现。
+- 首个真实实现为 OpenAI-compatible Chat Completions Adapter，配置 `baseURL`、模型名、超时和 `CredentialRef`。
+- Adapter 不调用供应商 Agent SDK 的循环、工具、memory 或 guardrail。
+- 真实调用必须配置单任务 token/费用上限、最大重试和速率；学校 Key 只用于手动集成测试或受控 smoke test。
+- 供应商不兼容、认证失败或响应 Schema 错误必须转换为稳定错误，不影响 mock 路径。
+
+### 10.3 WebUI 信息架构
+
+| 页面 | 必须展示/支持 |
+| --- | --- |
+| 登录与首次启动 | 管理员创建、数据库/主密钥/LLM 状态、明确的未配置提示 |
+| 任务列表与创建 | 目标、文件、模块、标签、预算、Provider、状态和停机原因 |
+| 任务运行详情 | 当前快照、Step、Action、策略、工具摘要、反馈、预算和 SSE 状态 |
+| 决策列表与详情 | 状态、范围、来源、结构化约束、版本历史、提议、激活和替代 |
+| ContextSnapshot | Git commit、dirty 摘要、选择/排除理由、规范内容和指纹 |
+| 差异与 Rebaseline | 旧/新版本、约束 diff、代码状态、失效 Action 和重新规划状态 |
+| 冲突与审批 | 冲突规则、风险、动作参数、文件摘要、有效期、批准/拒绝理由 |
+| Trace | 按任务和事件类型过滤的脱敏时间线、导出和停机证据 |
+| 成员与权限 | 管理员创建/禁用成员、角色和最近安全事件 |
+| 配置与凭据 | 非敏感配置、Provider 状态、隐藏录入、更新和清除；永不回显 Key |
+
+首版不包含移动端 App、聊天记录管理、可视化工作流编辑器、多个项目切换和用户自助注册。公网部署必须关闭匿名任务运行和匿名真实模型调用。
+
+### 10.4 分发形态
+
+#### 主要分发：Docker/OCI 镜像
+
+- 单个 Linux `amd64` 镜像包含 Fastify 服务和 React 静态构建产物。
+- `/data` 挂载持久卷保存 SQLite 和允许持久化的运行数据。
+- `/workspace` 挂载被管理的项目工作区；默认只允许一个明确工作区根目录。
+- 主密钥从 `/run/secrets/...` 或等价平台 Secret 读取，不烘焙进镜像。
+- 镜像以非 root 用户运行，公开单个 HTTP 端口，由部署平台终止 TLS。
+- README 必须给出单条构建命令、单条启动命令、卷/工作区/Secret 配置、健康检查、备份和已知限制。
+
+#### 辅助分发：本地 Node.js 开发运行
+
+- 支持 Windows 11 x86-64 与 Linux x86-64 的源码安装和开发启动。
+- 使用锁定 Node LTS、pnpm 冻结锁文件和明确的数据库迁移命令。
+- 本地首次启动通过终端隐藏输入配置主密码和管理员，不要求把 Key 写入命令参数或历史。
+
+首版不承诺单文件二进制、npm 全局包、macOS 签名应用或多架构生产镜像。
+
+### 10.5 GitLab CI/CD
+
+本项目远端位于南京大学 GitLab，过程与交付以 GitLab MR、Pipeline 和 `.gitlab-ci.yml` 为准。课程通用材料中出现的 GitHub、PR 和 GitHub Actions 是通用表述；当其与最终清单冲突时，本项目采用 GitLab、MR 和 GitLab CI 的明确要求。
+
+Pipeline 至少包含：
+
+1. **`unit-test`**：名称必须精确匹配；运行全部核心 mock LLM 单元测试和机制演示，不联网、不使用真实模型或 Key，失败不得 `allow_failure`。
+2. `lint`：代码风格与静态规则。
+3. `typecheck`：TypeScript 严格类型检查。
+4. `secret-scan`：扫描当前文件；最终审计另外扫描 Git 历史。
+5. `integration-test`：使用临时 SQLite，不依赖外部服务。
+6. `e2e`：使用 mock Provider 运行关键 Playwright 流程。
+7. `build`：构建前后端和生产镜像；选定 Registry 后才执行发布。
+
+每次 push 自动运行至少 `unit-test`、`lint`、`typecheck` 和 `secret-scan`。MR 合并到 `dev` 前相关 Pipeline 必须通过；最终 `dev → main` MR 后 `main` 最新 Pipeline 必须为 passed。
+
+### 10.6 线上部署架构
+
+具体公网平台在 T19 前由项目负责人选择。候选平台必须满足：单容器、持久卷、HTTPS、平台 Secret、健康检查、日志访问、费用/速率上限和截止前稳定公网 URL。未决时采用保守默认：不部署，不上传学校 Key，不用临时无持久磁盘服务伪装完成。
+
+部署形态固定为：
+
+```mermaid
+flowchart LR
+    Internet["HTTPS User"] --> TLS["Platform TLS / Access Control"]
+    TLS --> App["Single Harness Container"]
+    App --> Volume[("Persistent /data SQLite")]
+    App --> Workspace["Restricted Workspace Volume"]
+    Secret["Platform Secret"] --> App
+    App -->|"bounded HTTPS"| LLM["OpenAI-compatible Provider"]
+```
+
+- 生产只运行一个应用副本；平台不得自动扩为多个写共享 SQLite 的副本。
+- 公网演示默认支持 mock 演示；真实 Provider 必须登录、限速、限制预算并受管理员控制。
+- 生产配置不得使用开发 `.env` 文件作为推荐方案。
+- 上线前运行健康检查、数据库写入、SSE、登录、mock 演示、凭据状态和一次受控真实 Provider smoke test。
+- 记录部署 URL、镜像/commit、配置版本、smoke test 时间和结果；不记录 Secret 值。
+
+### 10.7 全新机器冷启动
+
+1. 获取仓库或已发布镜像并核对版本。
+2. 创建持久化数据目录和受限项目工作区。
+3. 生成或提供主密钥 Secret；不得在命令行参数中直接写学校 Key。
+4. 启动单容器并通过健康检查。
+5. 通过隐藏流程创建首个管理员。
+6. 在 HTTPS WebUI 中录入用户自己的 Provider Key，或保持 mock 模式。
+7. 创建示例决策、运行三项机制演示和一次端到端任务。
+8. 验证重启后数据库持久化、运行中任务中断语义和 Trace 查询。
+
+全新机器流程必须由 README 给出可复制命令，并在发布前至少实际执行一次；不能只根据开发机器成功推断可分发。
+
