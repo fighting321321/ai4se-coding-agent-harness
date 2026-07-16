@@ -470,3 +470,16 @@
 - 拒绝：没有新的拒绝项；执行阶段仍不得把待定平台、版本或真实 Provider 参数猜测成已批准事实。
 - 修改：仅将 `1.0.0-rc1` 晋升为 `1.0.0` 并写入批准时间与 G2 结论，不改变 SPEC 1.0.0 产品边界。
 - 后续纪律：下一提交只清空 `guiding.md`；T03 合入 `dev` 后进行 T04，G3 通过前不得创建实现代码或工程配置。
+
+### 2026-07-16 23:52:23 +08:00 · T04 主控预审修订
+
+- 来源：以下问题由主控在 T04 冷启动前复核 T03 产物时发现，不是陌生智能体发现，也不会计入冷启动发现数量。
+- 原问题一：T13 的 G4 命令引用未在该 Task `Files` 中声明的 `tests/integration/runtime/core-loop.test.ts`，执行者无法从计划确认其创建责任。
+- 修订一：G4 改为运行 T13 已声明的 `tests/integration/agent/loop.test.ts`、`stale-rebaseline.test.ts` 和 `restart-recovery.test.ts`。
+- 原问题二：T15 的验证命令保留 `demos/mechanisms/<name>.test.ts` 占位路径，无法直接复制执行。
+- 修订二：将占位路径展开为 deny-dangerous-action、feedback-recovery、stale-rebaseline 三个明确测试文件。
+- 原问题三：部分 Step 把测试、实现、评审、修复、提交、台账、清空 guiding、等待 Pipeline 或合并 MR 等多个可独立验证的动作捆绑在一起。
+- 修订三：统一显式标注每个 Step 为 2–5 分钟，并重点拆分 T05、T06、T07、T09、T10、T11、T13、T14、T16、T17、T18、T19、T20 的复合动作；评审、Critical 修复、回归、提交与收尾分别留下独立结果。
+- 边界判断：本次只修复 `PLAN.md` 内部路径和执行粒度，不修改 `SPEC.md`，不改变产品范围、接口语义、Txx 分工、依赖 DAG 或主要贡献。
+- 版本判断：`PLAN.md` 从 1.0.0 修订为 1.0.1；项目负责人已明确要求在 T04 第二个提交先修复 T03 问题，因此 G2 保持通过，G3 仍未通过。
+- 冷启动纪律：后续陌生智能体只能接收修订后冻结的 `SPEC.md` 与 `PLAN.md`；不得把本节已知问题包装成其独立发现。
