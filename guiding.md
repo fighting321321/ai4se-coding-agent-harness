@@ -500,24 +500,24 @@ git commit -m "docs: 完善任务依赖与并行规划"
 
 **逐项自审：**
 
-- [ ] Spec coverage：`SPEC.md` 每个用户故事、功能模块、六维机制、NFR、交付要求和 `REQ-001`–`REQ-025` 均能指向具体 Task。
-- [ ] Placeholder scan：不得存在未定义缩写、空章节、模糊动词或无约束占位符。
-- [ ] Type consistency：跨 Txx 的类型、函数、事件、状态、错误码和文件路径完全一致。
-- [ ] Task granularity：每步约 2–5 分钟，一个动作一个复选框；任务可由新鲜 subagent 单独执行。
-- [ ] TDD completeness：每个实现行为都有失败测试代码、红色命令/原因、最小实现、绿色命令、重构和回归。
-- [ ] Exact paths：所有 Create/Modify/Test 使用精确路径，不使用“相关文件”。
-- [ ] Verification：每个 Task 都有可复制命令、预期输出和客观完成标准。
-- [ ] Git evidence：每个 Txx 有分支、worktree、commit、MR、Pipeline 和人工评审记录位置。
-- [ ] Security：真实 key、网络和危险副作用不会进入核心测试或演示。
+- [x] Spec coverage：`SPEC.md` 每个用户故事、功能模块、六维机制、NFR、交付要求和 `REQ-001`–`REQ-025` 均能指向具体 Task。
+- [x] Placeholder scan：不得存在未定义缩写、空章节、模糊动词或无约束占位符。
+- [x] Type consistency：跨 Txx 的类型、函数、事件、状态、错误码和文件路径完全一致。
+- [x] Task granularity：每步约 2–5 分钟，一个动作一个复选框；任务可由新鲜 subagent 单独执行。
+- [x] TDD completeness：每个实现行为都有失败测试代码、红色命令/原因、最小实现、绿色命令、重构和回归。
+- [x] Exact paths：所有 Create/Modify/Test 使用精确路径，不使用“相关文件”。
+- [x] Verification：每个 Task 都有可复制命令、预期输出和客观完成标准。
+- [x] Git evidence：每个 Txx 有分支、worktree、commit、MR、Pipeline 和人工评审记录位置。
+- [x] Security：真实 key、网络和危险副作用不会进入核心测试或演示。
 
 **批准与过程证据：**
 
-- [ ] 项目负责人逐章阅读 PLAN，对 T05–T20 和依赖/并行章节记录“批准”或“修改后批准”。
-- [ ] `SPEC_PROCESS.md` 记录 AI 建议及负责人采纳、拒绝、修改理由，以及 PLAN 相对 SPEC 的细化点。
-- [ ] `AGENT_LOG.md` 记录提交 1–8 hash、自审命令、人工干预、经验和 T04 移交说明。
-- [ ] `PLAN.md` 写入版本、批准时间、批准状态和 G2 结论，但明确 G3 前禁止实现。
-- [ ] 明确 T04 陌生智能体只获得 `SPEC.md` 和 `PLAN.md`，遇到不确定立即暂停，不得猜测或获得口头补充。
-- [ ] 明确下一提交只清空 `guiding.md`，随后创建目标为 `dev` 的 T03 MR。
+- [x] 项目负责人逐章阅读 PLAN，对 T05–T20 和依赖/并行章节记录“批准”或“修改后批准”。
+- [x] `SPEC_PROCESS.md` 记录 AI 建议及负责人采纳、拒绝、修改理由，以及 PLAN 相对 SPEC 的细化点。
+- [x] `AGENT_LOG.md` 记录提交 1–8 hash、自审命令、人工干预、经验和 T04 移交说明。
+- [x] `PLAN.md` 写入版本、批准时间、批准状态和 G2 结论，但明确 G3 前禁止实现。
+- [x] 明确 T04 陌生智能体只获得 `SPEC.md` 和 `PLAN.md`，遇到不确定立即暂停，不得猜测或获得口头补充。
+- [x] 明确下一提交只清空 `guiding.md`，随后创建目标为 `dev` 的 T03 MR。
 
 **提交前验证：**
 
@@ -589,11 +589,11 @@ git status --short
 
 只有同时满足以下条件，才可合并 T03；T03 合入 `dev` 后才能从最新 `dev` 创建 T04 独立分支：
 
-- [ ] `PLAN.md` 覆盖 T05–T20、`REQ-001`–`REQ-025`、US-01–09、DEMO-01–03 和 OPEN-01–06。
-- [ ] 每个 Task 具有精确文件、接口、依赖、失败测试、预期红色、最小实现、绿色验证、重构、提交和完成标准。
-- [ ] 任一 Task 可由新鲜 subagent 仅凭 SPEC、PLAN 和最小相关上下文独立执行。
-- [ ] 依赖 DAG、关键路径、并行边界和文件冲突矩阵完整。
-- [ ] T05–T20 每个一级任务都有独立 branch、worktree、MR 和 Pipeline Gate。
-- [ ] 项目负责人逐章阅读并批准，`SPEC_PROCESS.md` 保留采纳、拒绝和修改证据。
-- [ ] G2 计划确认通过；G3 仍未通过且全程未创建任何实现代码或工程配置。
+- [x] `PLAN.md` 覆盖 T05–T20、`REQ-001`–`REQ-025`、US-01–09、DEMO-01–03 和 OPEN-01–06。
+- [x] 每个 Task 具有精确文件、接口、依赖、失败测试、预期红色、最小实现、绿色验证、重构、提交和完成标准。
+- [x] 任一 Task 可由新鲜 subagent 仅凭 SPEC、PLAN 和最小相关上下文独立执行。
+- [x] 依赖 DAG、关键路径、并行边界和文件冲突矩阵完整。
+- [x] T05–T20 每个一级任务都有独立 branch、worktree、MR 和 Pipeline Gate。
+- [x] 项目负责人逐章阅读并批准，`SPEC_PROCESS.md` 保留采纳、拒绝和修改证据。
+- [x] G2 计划确认通过；G3 仍未通过且全程未创建任何实现代码或工程配置。
 - [ ] `guiding.md` 已通过独立末尾提交清空，MR 禁止 squash。

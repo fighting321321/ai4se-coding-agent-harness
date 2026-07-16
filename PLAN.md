@@ -10,7 +10,7 @@
 
 ## Global Constraints
 
-- 权威需求为 `SPEC.md` 1.0.0；状态为 G1 已通过、G2 待本计划审计、G3 未通过。
+- 权威需求为 `SPEC.md` 1.0.0；状态为 G1、G2 已通过，G3 未通过。
 - G3 通过前禁止创建本计划描述的源码、测试、依赖、Dockerfile 或 CI 文件。
 - 首版只支持一个项目、最多 10 名成员、单应用实例、4 个并发任务；SQLite 开启外键与 WAL。
 - Agent 每轮最多一个 `Action`，每任务最多 30 Step；连续验证失败或 Rebaseline 达到 3 次后升级给人。
@@ -30,9 +30,9 @@
 
 | 字段 | 值 |
 | --- | --- |
-| PLAN 版本 | 1.0.0-draft |
+| PLAN 版本 | 1.0.0 |
 | SPEC 基线 | `SPEC.md` 1.0.0，批准时间 2026-07-16 16:53:08 +08:00 |
-| 当前批准状态 | T03 编写中；G2 未通过 |
+| 当前批准状态 | 项目负责人已批准；G2 已通过 |
 | 实现权限 | 未开放；T04 冷启动与 G3 通过前禁止实现 |
 | 计划范围 | T05–T20；T04 只消费本计划并暴露规约缺陷 |
 | 目标平台 | Windows 11 x86-64、Linux x86-64；生产 Linux `amd64` |
@@ -167,7 +167,7 @@ interface Hasher { sha256(value: Uint8Array): Sha256; }
 
 每个 Txx 执行时必须复制以下检查项到其 `guiding.md`，并把精确命令输出写入 `AGENT_LOG.md`：
 
-1. **目标/依赖**：只加载 SPEC 对应章节、当前 Task、前序接口和相关文件。
+1. **目标/依赖**：只加载 SPEC 对应章节、当前 Task、前序接口和当前 Task 的 `Files` 清单。
 2. **Files**：逐项列出 Create、Modify、Test 精确路径。
 3. **Interfaces**：列出 Consumes/Produces 的精确签名和错误语义。
 4. **RED**：先写给定测试代码，运行给定命令，确认因目标行为缺失而失败。
@@ -220,6 +220,8 @@ pnpm build
 ## 8. T05–T20 原子任务
 
 后续章节逐项定义 T05–T20。未在当前 Txx 章节列出的行为不得由执行者顺手加入；发现缺口时停止并按变更纪律修订 SPEC/PLAN。
+
+除命令本身的运行等待外，下列每个 Step 的人工操作预算均为 2–5 分钟；若某 Step 无法在该预算内形成一个可验证结果，执行者必须先在本 Task 的 `guiding.md` 中拆成更小的 RED、GREEN 或验证子步骤再开始。
 
 ### T05：建立工程骨架和测试入口
 
@@ -393,9 +395,11 @@ it("converts handler failures into a structured ToolResult", async () => {
 
 **前置依赖：** T07 `ToolRegistry`/`ToolDispatcher`；只消费已授权 call，不能自行作 Policy 决策。
 
-**Files：** Create `packages/infrastructure/src/tools/path-guard.ts`, `file-tools.ts`, `process-runner.ts`, `environment.ts`; Create `tests/unit/infrastructure/path-guard.test.ts`, `file-tools.test.ts`, `process-runner.test.ts`; Create `tests/integration/tools/cross-platform-tools.test.ts`; Modify package exports and evidence documents.
+**Files：** Create `packages/infrastructure/package.json`, `packages/infrastructure/tsconfig.json`, `packages/infrastructure/src/index.ts`, `packages/infrastructure/src/tools/path-guard.ts`, `packages/infrastructure/src/tools/file-tools.ts`, `packages/infrastructure/src/tools/process-runner.ts`, `packages/infrastructure/src/tools/environment.ts`; Create `tests/unit/infrastructure/path-guard.test.ts`, `tests/unit/infrastructure/file-tools.test.ts`, `tests/unit/infrastructure/process-runner.test.ts`; Create `tests/integration/tools/cross-platform-tools.test.ts`; Modify `pnpm-lock.yaml`, `vitest.workspace.ts`, `guiding.md`, `PLAN.md`, `AGENT_LOG.md`.
 
 **Interfaces：** `PathGuard.resolveWorkspacePath(relative: string): Promise<ResolvedPath>`；`FileTools.read/write` 使用 `expectedSha256` compare-and-set；`ProcessRunner.run({ executable, args, cwd, timeoutMs, maxOutputBytes }, signal): Promise<ToolResult>`。拒绝码：`PATH_OUTSIDE_WORKSPACE`、`FILE_PRECONDITION_FAILED`、`TOOL_TIMEOUT`、`TOOL_OUTPUT_TRUNCATED`。
+
+**Verification：** RED/GREEN 均运行 `pnpm vitest run tests/unit/infrastructure/path-guard.test.ts tests/unit/infrastructure/file-tools.test.ts tests/unit/infrastructure/process-runner.test.ts`；收尾运行 `pnpm vitest run tests/integration/tools/cross-platform-tools.test.ts` 与四个全量质量命令，预期全部退出 0。
 
 - [ ] **Step 1:** 填写 T08 guiding，列出当前平台、另一平台验证方法和明确攻击样本；提交规划。
 - [ ] **Step 2:** 写表驱动 RED 测试：
@@ -430,9 +434,11 @@ it.each(["../outside.txt", "/absolute.txt", "C:/absolute.txt", ".env", "keys/pri
 
 **前置依赖：** T08 工具端口、T07 Action；消费 T11 将实现的 Context 类型时只依赖在本任务定义的最小 `SnapshotBinding` 值对象，T11 后续不得改语义。
 
-**Files：** Create `packages/domain/src/governance/types.ts`, `approval-state-machine.ts`, `packages/domain/src/context/conflict-detector.ts`; Create `packages/runtime/src/governance/policy-engine.ts`, `approval-gate.ts`; Create `packages/application/src/services/approval-service.ts`; Create unit/integration tests for policy/conflict/approval; Modify exports/evidence docs.
+**Files：** Create `packages/application/package.json`, `packages/application/tsconfig.json`, `packages/application/src/index.ts`, `packages/domain/src/ports.ts`, `packages/domain/src/governance/types.ts`, `packages/domain/src/governance/approval-state-machine.ts`, `packages/domain/src/context/conflict-detector.ts`; Create `packages/runtime/src/governance/policy-engine.ts`, `packages/runtime/src/governance/approval-gate.ts`; Create `packages/application/src/services/approval-service.ts`; Create `tests/unit/domain/conflict-detector.test.ts`, `tests/unit/domain/approval-state-machine.test.ts`, `tests/unit/runtime/policy-engine.test.ts`, `tests/integration/governance/approval-consumption.test.ts`; Modify `pnpm-lock.yaml`, `vitest.workspace.ts`, `packages/domain/src/index.ts`, `packages/runtime/src/index.ts`, `guiding.md`, `PLAN.md`, `AGENT_LOG.md`.
 
 **Interfaces：** `PolicyEngine.evaluate(input): PolicyDecision`；`detectConflicts(constraints): Conflict[]`；`ApprovalService.request/decide/consume`。`binding_hash = SHA256(canonical(action.type,args,targetFileHashes,snapshotFingerprint))`。
+
+**Verification：** 每个 RED/GREEN 循环运行 `pnpm vitest run tests/unit/runtime/policy-engine.test.ts tests/unit/domain/conflict-detector.test.ts tests/unit/domain/approval-state-machine.test.ts`；事务收尾运行 `pnpm vitest run tests/integration/governance/approval-consumption.test.ts`，预期全部 PASS 且拒绝样本的工具调用数为 0。
 
 - [ ] **Step 1:** 规划并提交 T09 guiding，列出不可覆盖 deny 表和批准合法状态。
 - [ ] **Step 2:** 写 Policy RED 测试：
@@ -466,9 +472,11 @@ it.each([makeReadEnvAction(), makeDeleteAction(), makeForcePushAction()])(
 
 **前置依赖：** T09 治理、T08 ProcessRunner、T07 Observation。外部文案中的 `CODE_FAIL` 映射为规范 `FAIL`，`POLICY_FAIL` 映射为规范 `CONFLICT`；持久化只用 SPEC 五类枚举。
 
-**Files：** Create `packages/domain/src/feedback/types.ts`; Create `packages/runtime/src/feedback/engine.ts`, `sensor-registry.ts`; Create `packages/infrastructure/src/feedback/decision-version-sensor.ts`, `contract-diff-sensor.ts`, `command-sensor.ts`; Create unit tests and `tests/integration/feedback/failure-recovery.test.ts`; Modify exports/evidence docs.
+**Files：** Create `packages/domain/src/feedback/types.ts`; Create `packages/runtime/src/feedback/engine.ts`, `packages/runtime/src/feedback/sensor-registry.ts`; Create `packages/infrastructure/src/feedback/decision-version-sensor.ts`, `packages/infrastructure/src/feedback/contract-diff-sensor.ts`, `packages/infrastructure/src/feedback/command-sensor.ts`; Create `tests/unit/runtime/feedback-engine.test.ts`, `tests/unit/runtime/sensor-registry.test.ts`, `tests/unit/infrastructure/decision-version-sensor.test.ts`, `tests/unit/infrastructure/contract-diff-sensor.test.ts`, `tests/unit/infrastructure/command-sensor.test.ts`, `tests/integration/feedback/failure-recovery.test.ts`; Modify `packages/domain/src/index.ts`, `packages/runtime/src/index.ts`, `packages/infrastructure/src/index.ts`, `guiding.md`, `PLAN.md`, `AGENT_LOG.md`.
 
 **Interfaces：** `FeedbackSensor.run(input, signal): Promise<FeedbackResult>`；`FeedbackEngine.verify(action, result, requiredSensors): Promise<{ results; observations; completionAllowed }>`。`ENV_ERROR` 不增加连续业务失败数；`FAIL|CONFLICT` 增加；达到 3 次返回 escalation Observation。
+
+**Verification：** RED/GREEN 运行 `pnpm vitest run tests/unit/runtime/feedback-engine.test.ts tests/unit/runtime/sensor-registry.test.ts tests/unit/infrastructure/*-sensor.test.ts`；恢复闭环运行 `pnpm vitest run tests/integration/feedback/failure-recovery.test.ts`，预期失败被回灌、修复后 PASS、第四次执行不会发生。
 
 - [ ] **Step 1:** 填写 T10 guiding，固定传感器名称、五类映射和副作用不重试规则。
 - [ ] **Step 2:** 写分类 RED 测试：
@@ -505,9 +513,11 @@ it.each([
 
 **前置依赖：** T10 已合入；消费 Clock/ID/Hasher、Action invalidation、审批 binding；不得引入 embedding、LLM 排名或完整聊天存储。
 
-**Files：** Create decision/context domain files from map; Create `packages/domain/src/decision/repository.ts`; Create `packages/infrastructure/src/db/schema.ts`, migrations, decision/snapshot repositories, Git code-state reader; Create `packages/application/src/services/decision-service.ts`, `context-service.ts`; Create unit/integration tests for version/selector/canonical/snapshot/rebaseline; Modify exports/evidence docs.
+**Files：** Create `packages/domain/src/decision/types.ts`, `packages/domain/src/decision/state-machine.ts`, `packages/domain/src/decision/repository.ts`, `packages/domain/src/context/types.ts`, `packages/domain/src/context/selector.ts`, `packages/domain/src/context/canonical-json.ts`, `packages/domain/src/context/snapshot-builder.ts`; Create `packages/infrastructure/src/db/schema.ts`, `packages/infrastructure/src/db/migrations/0001_decisions_context.sql`, `packages/infrastructure/src/db/repositories/sqlite-decision-repository.ts`, `packages/infrastructure/src/db/repositories/sqlite-snapshot-repository.ts`, `packages/infrastructure/src/git/code-state-reader.ts`; Create `packages/application/src/services/decision-service.ts`, `packages/application/src/services/context-service.ts`; Create `tests/unit/domain/decision-state-machine.test.ts`, `tests/unit/domain/context-selector.test.ts`, `tests/unit/domain/canonical-json.test.ts`, `tests/unit/domain/snapshot-builder.test.ts`, `tests/integration/decision/version-activation.test.ts`, `tests/integration/context/snapshot-persistence.test.ts`, `tests/integration/context/rebaseline.test.ts`; Modify `packages/domain/src/index.ts`, `packages/infrastructure/src/index.ts`, `packages/application/src/index.ts`, `guiding.md`, `PLAN.md`, `AGENT_LOG.md`.
 
 **Interfaces：** `DecisionRepository.createVersion/activate/getCandidates`；`ContextSelector.select(scope,candidates): SelectionResult`；`SnapshotBuilder.build(input): ContextSnapshot`；`ContextService.compareAndPrepareRebaseline(taskId,current): RebaselinePlan`。Repository 激活接收 `expectedActiveVersion` 并在事务中保证唯一活动版本。
+
+**Verification：** 领域 RED/GREEN 运行 `pnpm vitest run tests/unit/domain/decision-state-machine.test.ts tests/unit/domain/context-selector.test.ts tests/unit/domain/canonical-json.test.ts tests/unit/domain/snapshot-builder.test.ts`；持久化与 Rebaseline 运行 `pnpm vitest run tests/integration/decision/version-activation.test.ts tests/integration/context/snapshot-persistence.test.ts tests/integration/context/rebaseline.test.ts`，预期全部退出 0。
 
 - [ ] **Step 1:** 提交 T11 guiding，冻结表结构、索引、规范化规则和数据保留边界。
 - [ ] **Step 2:** 写不可变版本 RED 测试：创建版本后任何 update API 不存在；两个并发激活请求以同一旧版本为基线，断言恰一成功、另一个 `DECISION_VERSION_CONFLICT`、数据库恰一 active。
@@ -550,9 +560,11 @@ it("selects only active versions matching every declared dimension", () => {
 
 **前置依赖：** T11 数据库与 Task/Action ID；纯 `redactor.ts` 可先在本分支开发，但 Schema/Trace 合并必须基于最新 T11。
 
-**Files：** Create config schema/loader, trace types/store, security redactor; Create `packages/shared/src/dto/trace.ts`; Create `apps/api/src/sse/task-events.ts`; Create unit/integration tests for config/redaction/trace/SSE; Modify DB schema/migrations/exports/evidence docs.
+**Files：** Create `packages/runtime/src/config/schema.ts`, `packages/runtime/src/config/loader.ts`, `packages/domain/src/trace/types.ts`, `packages/infrastructure/src/security/redactor.ts`, `packages/infrastructure/src/trace/sqlite-trace-store.ts`, `packages/shared/src/dto/trace.ts`, `apps/api/src/sse/task-events.ts`; Create `packages/infrastructure/src/db/migrations/0002_trace.sql`; Create `tests/unit/runtime/config-loader.test.ts`, `tests/unit/infrastructure/redactor.test.ts`, `tests/unit/shared/trace-dto.test.ts`, `tests/integration/trace/sqlite-trace-store.test.ts`, `tests/integration/api/task-events-sse.test.ts`; Modify `packages/infrastructure/src/db/schema.ts`, `packages/domain/src/index.ts`, `packages/runtime/src/index.ts`, `packages/infrastructure/src/index.ts`, `packages/shared/src/index.ts`, `guiding.md`, `PLAN.md`, `AGENT_LOG.md`.
 
 **Interfaces：** `loadConfig(yaml): HarnessConfig`；`Redactor.redact<T>(value:T): T`；`TraceStore.append(eventWithoutSequence): Promise<TraceEvent>` 原子分配 task sequence；`TraceStore.listAfter(taskId,lastSequence,limit)`；SSE 只能消费已返回的 TraceEvent。
+
+**Verification：** RED/GREEN 运行 `pnpm vitest run tests/unit/runtime/config-loader.test.ts tests/unit/infrastructure/redactor.test.ts tests/unit/shared/trace-dto.test.ts`；事务/SSE 运行 `pnpm vitest run tests/integration/trace/sqlite-trace-store.test.ts tests/integration/api/task-events-sse.test.ts`；向全部通道注入 fake Key 后预期零明文命中。
 
 - [ ] **Step 1:** 提交 T12 guiding，列出默认 30/3/120000/65536/4/30 days 等精确安全值。
 - [ ] **Step 2:** 写错误配置 RED 测试，未知安全字段、超过系统上限、Shell 字符串和凭据出现在 YAML 时快速失败；实现 Zod `.strict()` 和默认值后 PASS。
@@ -586,9 +598,11 @@ it("removes a fake key from nested values without mutating input", () => {
 
 **前置依赖：** T11、T12 以及 T06–T10 全部已合入；消费既有端口，不引入 Agent SDK/Runner。
 
-**Files：** Create `packages/runtime/src/agent/context-builder.ts`, `agent-runtime.ts`, `completion-gate.ts`, `budget.ts`; Create `packages/domain/src/task/types.ts`, `state-machine.ts`; Create `packages/application/src/services/task-service.ts`, `task-scheduler.ts`; Create unit/integration tests for loop/states/stops/rebaseline/restart; Modify exports/evidence docs.
+**Files：** Create `packages/runtime/src/agent/context-builder.ts`, `packages/runtime/src/agent/agent-runtime.ts`, `packages/runtime/src/agent/completion-gate.ts`, `packages/runtime/src/agent/budget.ts`; Create `packages/domain/src/task/types.ts`, `packages/domain/src/task/state-machine.ts`; Create `packages/application/src/services/task-service.ts`, `packages/application/src/services/task-scheduler.ts`; Create `tests/unit/domain/task-state-machine.test.ts`, `tests/unit/runtime/context-builder.test.ts`, `tests/unit/runtime/completion-gate.test.ts`, `tests/unit/runtime/agent-runtime.test.ts`, `tests/unit/application/task-scheduler.test.ts`, `tests/integration/agent/loop.test.ts`, `tests/integration/agent/stale-rebaseline.test.ts`, `tests/integration/agent/restart-recovery.test.ts`; Modify `packages/domain/src/index.ts`, `packages/runtime/src/index.ts`, `packages/application/src/index.ts`, `guiding.md`, `PLAN.md`, `AGENT_LOG.md`.
 
 **Interfaces：** `AgentRuntime.run(taskId, signal): Promise<TaskRunResult>`；`CompletionGate.evaluate({ requested, feedback, conflicts, pendingApproval }): boolean`；`TaskScheduler` 同时最多 4 个；所有终态必须有 `stop_reason`。
+
+**Verification：** 单元 RED/GREEN 运行 `pnpm vitest run tests/unit/domain/task-state-machine.test.ts tests/unit/runtime/context-builder.test.ts tests/unit/runtime/completion-gate.test.ts tests/unit/runtime/agent-runtime.test.ts tests/unit/application/task-scheduler.test.ts`；闭环运行 `pnpm vitest run tests/integration/agent/loop.test.ts tests/integration/agent/stale-rebaseline.test.ts tests/integration/agent/restart-recovery.test.ts`，随后执行 G4 命令。
 
 - [ ] **Step 1:** 提交 T13 guiding，画出精确轮次顺序和每个端口的 fake；列出合法 TaskRun 转换。
 - [ ] **Step 2:** 写最小多轮 RED 测试：
@@ -632,9 +646,11 @@ it("runs one action per step and completes only after verified PASS", async () =
 
 **前置依赖：** G4/T13 通过；只深化 SPEC 5.5 已批准机制，停止扩展通用 Agent、策略语言和知识图谱。
 
-**Files：** Create `tests/unit/domain/context-selector.metamorphic.test.ts`, `canonical-json.metamorphic.test.ts`, `conflict-detector.property.test.ts`; Create `tests/integration/decision/activation-faults.test.ts`, `rebaseline-faults.test.ts`; Create `tests/performance/context-performance.test.ts`, `trace-performance.test.ts`, `tests/test-support/large-fixtures.ts`; Modify algorithms only where test exposes defect; Modify evidence docs.
+**Files：** Create `tests/unit/domain/context-selector.metamorphic.test.ts`, `tests/unit/domain/canonical-json.metamorphic.test.ts`, `tests/unit/domain/conflict-detector.property.test.ts`, `tests/integration/decision/activation-faults.test.ts`, `tests/integration/decision/rebaseline-faults.test.ts`, `tests/performance/context-performance.test.ts`, `tests/performance/trace-performance.test.ts`, `tests/test-support/large-fixtures.ts`; Modify `packages/domain/src/context/selector.ts`, `packages/domain/src/context/canonical-json.ts`, `packages/domain/src/context/conflict-detector.ts`, `packages/application/src/services/context-service.ts`, `packages/infrastructure/src/trace/sqlite-trace-store.ts` only when a new test exposes a defect; Modify `guiding.md`, `PLAN.md`, `AGENT_LOG.md`.
 
 **Interfaces：** 不新增公共产品能力；允许新增纯测试辅助 `permutations(seed,input)` 和 `measurePercentiles(samples)`。冲突超过配置阈值返回 `CONFLICT_LIMIT_EXCEEDED`；连续 Rebaseline 第 3 次后 Task 停机升级。
+
+**Verification：** 运行 `pnpm vitest run tests/unit/domain/context-selector.metamorphic.test.ts tests/unit/domain/canonical-json.metamorphic.test.ts tests/unit/domain/conflict-detector.property.test.ts tests/integration/decision/activation-faults.test.ts tests/integration/decision/rebaseline-faults.test.ts`；性能基线运行 `pnpm vitest run tests/performance/context-performance.test.ts tests/performance/trace-performance.test.ts`，记录样本环境和分位数。
 
 - [ ] **Step 1:** 提交 T14 guiding，明确三个深度特性：确定性变形、事务/故障原子性、冲突/Rebaseline 爆炸保护。
 - [ ] **Step 2:** 写 100 个固定 seed 的候选顺序/集合顺序变形测试：
@@ -669,9 +685,11 @@ it("is invariant under candidate and scope ordering", () => {
 
 **前置依赖：** T14 已合入，所有生产机制已存在；演示只能装配现有接口，不能放宽断言或增加只供演示的生产分支。
 
-**Files：** Create `demos/mechanisms/deny-dangerous-action.test.ts`, `feedback-recovery.test.ts`, `stale-rebaseline.test.ts`; Create `demos/mechanisms/fixtures.ts`, `scripts/run-mechanism-demos.mjs`; Modify root `package.json`, evidence docs.
+**Files：** Create `demos/mechanisms/deny-dangerous-action.test.ts`, `demos/mechanisms/feedback-recovery.test.ts`, `demos/mechanisms/stale-rebaseline.test.ts`, `demos/mechanisms/fixtures.ts`, `scripts/run-mechanism-demos.mjs`; Modify `package.json`, `guiding.md`, `PLAN.md`, `AGENT_LOG.md`.
 
 **Interfaces：** 根命令 `pnpm demo:mechanisms` 调用 Vitest 精确目录；任一断言失败或测试未发现时退出非零；固定 Clock/ID/Hasher/fixtures 保证重复输出一致。
+
+**Verification：** 分别运行三个 `pnpm vitest run demos/mechanisms/<name>.test.ts` 完成 RED/GREEN；再连续三次运行 `pnpm demo:mechanisms`，三次均应退出 0 且规范化输出完全一致。
 
 - [ ] **Step 1:** 提交 T15 guiding，列出 DEMO-01–03 与 REQ-017–019 一一映射。
 - [ ] **Step 2:** 写 DEMO-01：
@@ -705,9 +723,11 @@ it("DEMO-01 denies .env read before tool dispatch", async () => {
 
 **前置依赖：** T13 API/状态接口冻结；T14/T15 可先行，T16 只有在 shared DTO 合并稳定后合并。`OPEN-04` 在本任务开始时从 Open Design 选择适合高信息密度的可访问主题并记录批准。
 
-**Files：** Create shared DTO schemas for auth/tasks/decisions/snapshots/approvals/trace/credentials; Create Fastify app/routes/auth/RBAC/CSRF/idempotency/SSE; Create React pages/components/api client; Create integration API tests and Playwright e2e/a11y tests; Modify build configuration/evidence docs.
+**Files：** Create `packages/shared/src/dto/auth.ts`, `packages/shared/src/dto/tasks.ts`, `packages/shared/src/dto/decisions.ts`, `packages/shared/src/dto/snapshots.ts`, `packages/shared/src/dto/approvals.ts`; Create `apps/api/src/app.ts`, `apps/api/src/plugins/auth.ts`, `apps/api/src/plugins/rbac.ts`, `apps/api/src/plugins/csrf.ts`, `apps/api/src/plugins/idempotency.ts`, `apps/api/src/routes/auth.ts`, `apps/api/src/routes/tasks.ts`, `apps/api/src/routes/decisions.ts`, `apps/api/src/routes/snapshots.ts`, `apps/api/src/routes/approvals.ts`, `apps/api/src/routes/trace.ts`; Create `apps/web/src/api/client.ts`, `apps/web/src/app.tsx`, `apps/web/src/pages/login.tsx`, `apps/web/src/pages/tasks.tsx`, `apps/web/src/pages/decisions.tsx`, `apps/web/src/pages/snapshots.tsx`, `apps/web/src/pages/approvals.tsx`, `apps/web/src/pages/trace.tsx`; Create `tests/integration/api/auth.test.ts`, `tests/integration/api/tasks.test.ts`, `tests/integration/api/decisions.test.ts`, `tests/integration/api/approvals.test.ts`, `tests/integration/api/trace.test.ts`, `tests/e2e/operator-flow.spec.ts`, `tests/e2e/accessibility.spec.ts`; Modify `packages/shared/src/index.ts`, `apps/web/src/main.tsx`, `apps/web/vite.config.ts`, `guiding.md`, `PLAN.md`, `AGENT_LOG.md`.
 
 **Interfaces：** 所有写 API 返回 `{ data?, error?: { error_code; message; trace_id } }`；SSE event ID 为 Trace sequence；前端只导入 `packages/shared` DTO，不导入 domain/infrastructure；后端是唯一裁决方。
+
+**Verification：** API RED/GREEN 运行 `pnpm vitest run tests/integration/api/auth.test.ts tests/integration/api/tasks.test.ts tests/integration/api/decisions.test.ts tests/integration/api/approvals.test.ts tests/integration/api/trace.test.ts`；UI 运行 `pnpm playwright test tests/e2e/operator-flow.spec.ts tests/e2e/accessibility.spec.ts`，预期退出 0、严重 a11y 错误为 0。
 
 - [ ] **Step 1:** 提交 T16 guiding 和 `OPEN-04` 决策，建立页面—DTO—API—服务映射。
 - [ ] **Step 2:** 先写 Fastify inject RED 测试：未认证、viewer 写入、缺 CSRF、非法 Schema、重复幂等键；实现认证/RBAC/CSRF/幂等插件后 PASS。
@@ -734,9 +754,11 @@ it("DEMO-01 denies .env read before tool dispatch", async () => {
 
 **前置依赖：** T16 的认证/RBAC/DTO，T12 redactor，T06 LLMProvider；真实 Provider 手动测试前必须由负责人决定 `OPEN-06`，否则只测 HTTP stub。
 
-**Files：** Create `packages/infrastructure/src/security/master-key.ts`, `credential-store.ts`, `credential-rotation.ts`; Create `packages/infrastructure/src/llm/openai-compatible.ts`; Create `packages/application/src/services/credential-service.ts`; Create `packages/shared/src/dto/credentials.ts`; Create `apps/api/src/routes/credentials.ts`; Create unit/integration/security tests; Modify DB schema/migration, WebUI credential page, config/evidence docs.
+**Files：** Create `packages/domain/src/credential/types.ts`, `packages/infrastructure/src/security/master-key.ts`, `packages/infrastructure/src/security/credential-store.ts`, `packages/infrastructure/src/security/credential-rotation.ts`, `packages/infrastructure/src/llm/openai-compatible.ts`, `packages/application/src/services/credential-service.ts`, `packages/shared/src/dto/credentials.ts`, `apps/api/src/routes/credentials.ts`, `apps/web/src/pages/credentials.tsx`; Create `packages/infrastructure/src/db/migrations/0003_credentials.sql`; Create `tests/unit/infrastructure/master-key.test.ts`, `tests/unit/infrastructure/credential-store.test.ts`, `tests/unit/infrastructure/credential-rotation.test.ts`, `tests/unit/infrastructure/openai-compatible.test.ts`, `tests/integration/api/credentials.test.ts`, `tests/security/credential-leakage.test.ts`; Modify `packages/domain/src/index.ts`, `packages/infrastructure/src/db/schema.ts`, `packages/infrastructure/src/index.ts`, `packages/application/src/index.ts`, `packages/shared/src/index.ts`, `apps/api/src/app.ts`, `apps/web/src/app.tsx`, `packages/runtime/src/config/schema.ts`, `guiding.md`, `PLAN.md`, `AGENT_LOG.md`.
 
 **Interfaces：** `CredentialStore.put/status/withSecret/update/clear/rotateMasterKey`；`withSecret(ref, fn)` 不返回 secret；`OpenAICompatibleProvider.complete` 只执行一次 Chat Completions HTTP 请求，错误映射为 T06 稳定码。
+
+**Verification：** RED/GREEN 运行 `pnpm vitest run tests/unit/infrastructure/master-key.test.ts tests/unit/infrastructure/credential-store.test.ts tests/unit/infrastructure/credential-rotation.test.ts tests/unit/infrastructure/openai-compatible.test.ts tests/integration/api/credentials.test.ts tests/security/credential-leakage.test.ts`；预期全部退出 0 且 fake Key 扫描零命中。
 
 - [ ] **Step 1:** 提交 T17 guiding，记录 Argon2 能力测试、Secret 来源、fake Key 和 `OPEN-06` 保守默认。
 - [ ] **Step 2:** 写 Argon2id RED 测试，断言参数至少 64 MiB/3/1、不同 salt 结果不同、能力不足时 `CREDENTIAL_MASTER_KEY_UNAVAILABLE`；实现派生器后 PASS。
@@ -760,9 +782,11 @@ it("DEMO-01 denies .env read before tool dispatch", async () => {
 
 **前置依赖：** T17 已合入；所有本地命令已有稳定入口；CI 不接触真实 Provider/Key。
 
-**Files：** Create `.gitlab-ci.yml`, `scripts/ci/secret-scan.mjs`, `scripts/ci/assert-offline.mjs`; Create `tests/unit/ci/pipeline-contract.test.ts`, `secret-scan.test.ts`; Modify package scripts/evidence docs.
+**Files：** Create `.gitlab-ci.yml`, `scripts/ci/secret-scan.mjs`, `scripts/ci/assert-offline.mjs`, `tests/unit/ci/pipeline-contract.test.ts`, `tests/unit/ci/secret-scan.test.ts`; Modify `package.json`, `guiding.md`, `PLAN.md`, `AGENT_LOG.md`.
 
 **Interfaces：** job 名精确 `unit-test`；另外 `lint`, `typecheck`, `secret-scan`, `integration-test`, `e2e`, `mechanism-demos`, `build-image`。失败 job 均无 `allow_failure: true`。
+
+**Verification：** 本地 contract 运行 `pnpm vitest run tests/unit/ci/pipeline-contract.test.ts tests/unit/ci/secret-scan.test.ts`；推送后检查上述 job 全部存在并 passed，任一故障注入必须使对应 job 和 Pipeline 失败。
 
 - [ ] **Step 1:** 提交 T18 guiding，记录 GitLab Runner 平台、缓存与离线约束。
 - [ ] **Step 2:** 写 pipeline contract RED 测试：解析 YAML，断言 `unit-test` 存在、关键 jobs 存在、无 `allow_failure`、无真实 Provider 变量。
@@ -785,9 +809,11 @@ it("DEMO-01 denies .env read before tool dispatch", async () => {
 
 **前置依赖：** T18 Pipeline passed；开始前必须以实测证据决定 `OPEN-01/02/05`，未满足持久卷/Secret/HTTPS/限额则按 SPEC 保守默认不部署。
 
-**Files：** Create `deploy/Dockerfile`, `deploy/entrypoint.sh`, `deploy/healthcheck.mjs`, `deploy/compose.example.yml`, `scripts/smoke/distribution.mjs`, `scripts/smoke/online.mjs`; Create distribution tests; Modify `.gitlab-ci.yml`, README draft, SPEC_PROCESS/AGENT_LOG/PLAN open decisions.
+**Files：** Create `deploy/Dockerfile`, `deploy/entrypoint.sh`, `deploy/healthcheck.mjs`, `deploy/compose.example.yml`, `scripts/smoke/distribution.mjs`, `scripts/smoke/online.mjs`, `tests/unit/deploy/dockerfile-contract.test.ts`, `tests/integration/deploy/container-lifecycle.test.ts`; Modify `.gitlab-ci.yml`, `README.md`, `SPEC_PROCESS.md`, `AGENT_LOG.md`, `PLAN.md`, `guiding.md`.
 
 **Interfaces：** 容器单 HTTP 端口；`GET /health/live` 与 `/health/ready`；`/data` 持久化 SQLite，`/workspace` 明确挂载；主密钥优先 `/run/secrets/harness_master_key`；生产单副本。
+
+**Verification：** 运行 `pnpm vitest run tests/unit/deploy/dockerfile-contract.test.ts tests/integration/deploy/container-lifecycle.test.ts`、`node scripts/smoke/distribution.mjs`，获批部署后再运行 `node scripts/smoke/online.mjs`；每条命令预期退出 0，未获批时线上命令标记为明确阻塞而非通过。
 
 - [ ] **Step 1:** 提交 T19 guiding；记录三个候选平台/Registry/Secret 方式的持久卷、HTTPS、费用、限速和访问证据，负责人批准 OPEN-01/02/05。
 - [ ] **Step 2:** 写 Docker contract RED 测试，断言非 root USER、固定工作目录、无 `COPY .env`、healthcheck、单启动进程和静态前端产物。
@@ -811,9 +837,11 @@ it("DEMO-01 denies .env read before tool dispatch", async () => {
 
 **前置依赖：** G6 通过；项目负责人本人撰写 REFLECTION，AI 只可在明确标注后润色。
 
-**Files：** Create/complete `README.md`, `REFLECTION.md`, `LICENSES.md`; Modify `SPEC.md` only for已批准 open decision/version update, `PLAN.md`, `SPEC_PROCESS.md`, `AGENT_LOG.md`; Create `scripts/audit/final-audit.mjs`, `scripts/smoke/fresh-machine.ps1`, `scripts/smoke/fresh-machine.sh`; Modify CI evidence docs.
+**Files：** Create `LICENSES.md`, `scripts/audit/final-audit.mjs`, `scripts/smoke/fresh-machine.ps1`, `scripts/smoke/fresh-machine.sh`, `tests/unit/audit/final-audit.test.ts`; Modify `README.md`, `REFLECTION.md`, `PLAN.md`, `SPEC_PROCESS.md`, `AGENT_LOG.md`, `guiding.md`, `.gitlab-ci.yml`; Modify `SPEC.md` only when项目负责人已经批准 open decision 或版本更新。
 
 **Interfaces：** `pnpm audit:final` 串行运行文档清单、全量质量、三演示、fake Key/当前文件/Git 历史扫描、许可证、Docker/线上 smoke 证据检查；任一缺失非零。
+
+**Verification：** 先运行 `pnpm vitest run tests/unit/audit/final-audit.test.ts` 证明缺件样本为 RED、完整样本为 GREEN；最后运行 `pnpm audit:final`、`pwsh scripts/smoke/fresh-machine.ps1` 和 `bash scripts/smoke/fresh-machine.sh`，预期全部退出 0 并记录环境版本。
 
 - [ ] **Step 1:** 提交 T20 guiding，列出交付清单、负责人手写反思边界和最终 MR 顺序。
 - [ ] **Step 2:** 写 final-audit RED 测试/脚本，缺任一交付文件、README 必需标题或台账字段时退出非零。
@@ -909,7 +937,7 @@ flowchart LR
 
 ### 9.4 新鲜 subagent 最小 context 与评审门
 
-只提供：`SPEC.md` 对应章节、PLAN 当前 Txx、前序 `Interfaces`、精确 Files、相关现有文件和验证命令。不得灌入全部历史聊天、无关任务或未来实现。执行者遇到未定义类型/路径/错误码立即暂停，不得猜测。
+只提供：`SPEC.md` 对应章节、PLAN 当前 Txx、前序 `Interfaces`、当前 `Files` 清单中已经存在的文件和验证命令。不得灌入全部历史聊天、无关任务或未来实现。执行者遇到未定义类型/路径/错误码立即暂停，不得猜测。
 
 每个 Task 完成后按顺序：
 
@@ -921,9 +949,9 @@ flowchart LR
 
 | 集合 | 实现/验证位置 |
 | --- | --- |
-| US-01/02 | T11 决策版本与并发；T14 fault injection |
-| US-03/04 | T11 选择/快照；T14 变形/性能 |
-| US-05/06 | T09 审批/冲突，T11/13/14 Rebaseline，T15 DEMO-03 |
+| US-01、US-02 | T11 决策版本与并发；T14 fault injection |
+| US-03、US-04 | T11 选择/快照；T14 变形/性能 |
+| US-05、US-06 | T09 审批/冲突，T11/13/14 Rebaseline，T15 DEMO-03 |
 | US-07 | T06–T13 完整闭环，T15 DEMO-01/02 |
 | US-08 | T12 Trace、T16 WebUI、T17/T18 泄露验证 |
 | US-09 | T17 凭据生命周期，T19 Secret，T20 审计 |
@@ -933,8 +961,8 @@ flowchart LR
 | NFR-UX/a11y | T16、T20 |
 | NFR-OBS | T12/13/16、T20 |
 | NFR-COMPAT/资源 | T05/08/14/19 |
-| DEMO-01/02/03 | T15，T18 CI，T20 最终运行 |
-| OPEN-01/02/05 | T19 有限候选实测与批准 |
+| DEMO-01、DEMO-02、DEMO-03 | T15，T18 CI，T20 最终运行 |
+| OPEN-01、OPEN-02、OPEN-05 | T19 有限候选实测与批准 |
 | OPEN-03 | T05 Node/依赖批准 |
 | OPEN-04 | T16 Open Design 主题批准 |
 | OPEN-06 | T17/T19 真实 Provider 前批准；否则不调用 |
@@ -965,3 +993,14 @@ flowchart LR
 ## 12. T04 冷启动使用说明
 
 T04 的陌生智能体只能获得 `SPEC.md` 与本文件；不得获得历史聊天、memory 或口头补充。它选择 1–2 个计划 Task 试做，遇到类型、路径、行为或验证不确定时立即暂停提问，不得猜测；试做仅用于暴露规约缺陷，G3 通过前不得进入正式实现。
+
+## 13. T03 自审与批准记录
+
+- 技术自审时间：2026-07-16 17:54:49 +08:00。
+- 自审结论：T05–T20 共 16 个 Task，均具备精确 Files、Interfaces、验证方式、完成标准和独立 branch/worktree/MR；25 条 REQ、9 条 US、3 项 DEMO、6 项 OPEN decision 均有实现或验证位置。
+- 自审修订：把概括的文件描述展开为精确路径；补齐 application/infrastructure 包归属、领域端口与凭据类型；为 T08–T20 增加可复制验证命令；规定超过 2–5 分钟的 Step 必须在对应 `guiding.md` 拆分后执行。
+- 占位符与范围审计：禁止词扫描无命中；相对 `dev` 只涉及 `PLAN.md`、`SPEC_PROCESS.md`、`AGENT_LOG.md`、`guiding.md`，未创建实现、测试、依赖、Docker 或 CI 文件。
+- 项目负责人批准时间：2026-07-16 18:02:22 +08:00。
+- 项目负责人结论：批准 T05–T20、依赖 DAG、并行边界、文件冲突矩阵和 T04 冷启动说明；无需追加修改。
+- Gate：G2 已通过，计划版本定为 1.0.0。G3 仍须由 T04 冷启动验证，G3 前禁止实现。
+- 收尾纪律：G2 通过后的下一提交只清空 `guiding.md`，随后创建 `docs/t03-implementation-plan → dev` MR，禁止 squash。
