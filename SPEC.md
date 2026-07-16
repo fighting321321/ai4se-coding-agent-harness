@@ -4,8 +4,8 @@
 
 | 字段 | 内容 |
 | --- | --- |
-| 文档版本 | 0.1.0-draft |
-| 当前状态 | T02 编写中，尚未批准进入 T03 |
+| 文档版本 | 1.0.0 |
+| 当前状态 | 项目负责人已逐节批准；G1 设计确认通过；仍禁止实现 |
 | 适用范围 | AI4SE 期末项目 A：Coding Agent Harness |
 | 权威需求来源 | 本文件；与其他说明冲突时，以项目负责人最新批准的本文件版本为准 |
 | 上游设计输入 | `SPEC_PROCESS.md` 中经批准的 T01 结论 |
@@ -384,6 +384,7 @@ T01 对问题发生频率的判断来自角色化需求推演，不是外部用�
 
 - 范围相交的活动结构化约束，或策略引擎判定为 `ask` 的 Action。
 - 约束操作符限于 `equals`、`one_of`、`present` 和 `absent`。
+- 约束键在比较前按统一规则规范化；`equals` 的值为标量，`one_of` 的值为非空且去重的标量数组，`present` 和 `absent` 不携带值。
 
 **行为**
 
@@ -868,7 +869,7 @@ flowchart TD
 | `SnapshotEntry` | `snapshot_id`、决策 ID/版本、`selected`、`reason_code`、`reason_detail` | 每个快照与候选版本唯一 | 随快照保留 |
 | `TaskRun` | `id`、`goal`、范围、`status`、`snapshot_id`、预算、连续失败数、`stop_reason` | 绑定一个当前快照；状态转换受控 | 终态后只追加 Trace，不改历史步骤 |
 | `AgentStep` | `id`、`task_id`、单调 `sequence`、`snapshot_id`、公开响应摘要、状态 | `(task_id, sequence)` 唯一 | 追加写入 |
-| `Action` | `id`、`step_id`、`type`、规范参数、`binding_hash`、`status` | 每 Step 最多一个可执行 Action | proposed → authorized/rejected/invalidated → executed/failed |
+| `Action` | `id`、`step_id`、`type`、规范参数、`binding_hash`、`status` | 每 Step 最多一个可执行 Action | proposed → authorized → executed/failed；或 proposed/authorized → rejected/invalidated |
 | `ToolCall` | `id`、`action_id`、工具名、规范参数、限制 | 一个 Action 至多一个实际 ToolCall | 创建后不可换绑 |
 | `ToolResult` | `tool_call_id`、status、data、error_code、redacted_output、evidence | 与 ToolCall 一对一；输出已脱敏 | 完成后不可修改 |
 | `Observation` | `id`、`task_id`、`step_id`、type、payload | 关联策略、工具或反馈事实 | 追加写入并可回灌 |
@@ -911,8 +912,6 @@ stateDiagram-v2
     [*] --> proposed
     proposed --> active: 人工激活且并发检查通过
     active --> superseded: 新版本在同一事务中激活
-    proposed --> proposed: 只读，不允许原地修改
-    superseded --> superseded: 永久历史
 ```
 
 任何 `active → proposed`、`superseded → active`、物理删除或原地内容修改均为非法转换。
@@ -1294,3 +1293,13 @@ flowchart LR
 - 若选择改变已批准架构、安全或验收要求，必须先修订 SPEC 并重新完成相应审查，不能仅在实现中偏离。
 - T03 只能把已决定内容拆成任务；不能替项目负责人替换产品边界或自行消除未决事项。
 
+### 12.4 批准记录与进入 T03
+
+| 项目 | 结论 |
+| --- | --- |
+| 批准时间 | 2026-07-16 16:53:08 +08:00 |
+| 逐节结论 | 第 1–12 节均经项目负责人批准；审计中对约束值类型、Action 生命周期和状态图作一致性澄清后批准 |
+| G1 状态 | 通过：产品边界、主要贡献、架构、安全、验收和交付约束已形成可追踪规约 |
+| 实现权限 | 未开放；仍须先完成 T03 计划并在实现前通过 G3 |
+
+进入 T03 的前置条件：本批准版本及审计记录已提交；随后以独立提交只清空 `guiding.md`；T02 分支按项目流程合入最新 `dev`；从更新后的 `dev` 开始 T03，并调用 `writing-plans` 生成可执行 `PLAN.md`。任何后续需求变更均按第 12.3 节重新审查。
