@@ -211,3 +211,11 @@
 - 凭据边界：Argon2id + AES-GCM + Secret 分离；fake Key 全通道测试；真实调用仅受控 smoke。
 - 交付边界：平台能力不足时保守不部署；CI 失败不可 `allow_failure`；最终历史问题只能人工批准处置。
 - 终态：T20 需要 `dev → main` MR 后 `main` 最新 Pipeline passed，才可宣称 G7。
+
+### 2026-07-16 · T03 依赖与并行审查
+
+- 上一提交：`70405bb`（`docs: 规划安全分发与最终交付任务`）。
+- 产出：T05–T20 DAG、关键路径、开始/阻塞/输出表、文件冲突矩阵、16 个 branch/worktree/MR 和最小 context 规则。
+- 并行结论：主链串行；T12 纯 redactor、T14 测试与 T16 页面原型仅在接口冻结后有限并行；共享文件变化立即转串行。
+- 评审门：先 Spec 合规、再代码质量，Critical 修复复查后才可 MR。
+- 覆盖结论：25 条需求、9 个用户故事、全部 NFR、3 演示、6 open decision 均有任务位置；T04 不被误列为实现任务。

@@ -830,7 +830,118 @@ it("DEMO-01 denies .env read before tool dispatch", async () => {
 
 **完成标准/G7：** REQ-025；正式文件齐全；冷启动可复现；无真实凭据；所有核心机制离线可测；多个 MR/评审/Pipeline 可追踪；`main` 最新 Pipeline passed。
 
-## 9. 执行证据台账
+## 9. 依赖 DAG、关键路径与并行边界
+
+```mermaid
+flowchart LR
+  T05 --> T06 --> T07 --> T08 --> T09 --> T10 --> T11 --> T12 --> T13
+  T13 --> G4["G4 核心闭环"] --> T14 --> T15 --> G5["G5 机制深度"]
+  T13 --> T16
+  G5 --> T17
+  T16 --> T17 --> T18 --> T19 --> G6["G6 产品交付"] --> T20 --> G7["G7 最终提交"]
+```
+
+**关键路径：** T05 → T06 → T07 → T08 → T09 → T10 → T11 → T12 → T13/G4 → T14 → T15/G5 → T17 → T18 → T19/G6 → T20/G7。T16 可在 T14 期间准备 UI，但必须在 T17 前合并。
+
+| Txx | 可开始条件 | 阻塞条件 | 完成输出 |
+| --- | --- | --- | --- |
+| T05 | G3、OPEN-03 批准 | Node/依赖未批准 | 测试/构建骨架 |
+| T06 | T05 merged | 根配置未稳定 | LLMProvider/mock |
+| T07 | T06 merged | LLM 响应类型漂移 | Action/Dispatcher |
+| T08 | T07 merged | ToolResult 未稳定 | 受限工具 |
+| T09 | T08 merged | Action/绑定语义未稳定 | Policy/HITL/Conflict |
+| T10 | T09 merged | Observation/工具证据未稳定 | Feedback Engine |
+| T11 | T10 merged | 绑定/错误语义未稳定 | 决策/快照/Rebaseline |
+| T12 | T11 Schema merged | DB/ID 未稳定 | Config/Redactor/Trace |
+| T13 | T06–T12 merged | 任一核心端口缺失 | 自研闭环、G4 |
+| T14 | G4 | 性能基线环境未记录 | 深度/性能证据 |
+| T15 | T14 merged | 三机制任一不可断言 | 演示、G5 |
+| T16 | T13 DTO 冻结 | shared DTO 发生变更 | API/WebUI/a11y |
+| T17 | T15、T16 merged | 主密钥方案/OPEN-06 未决 | 凭据/Provider |
+| T18 | T17 merged | 本地命令不稳定 | GitLab Pipeline |
+| T19 | T18 passed、OPEN-01/02/05 | 平台能力不足 | 镜像/URL、G6 |
+| T20 | G6 | 任一证据/文件缺失 | 最终 MR、G7 |
+
+### 9.1 文件冲突矩阵
+
+| 共享区域 | 可能修改 Txx | 规则 |
+| --- | --- | --- |
+| 根配置/锁文件 | T05–T07、T15、T18 | 默认串行；锁文件只由已合入基线更新 |
+| shared DTO | T12、T16、T17 | T12 冻结 Trace，T16 聚合其余，T17 仅追加凭据公开 DTO |
+| Action/Observation/错误 | T07–T10、T13 | 按编号串行；新增错误码同步 schema/测试 |
+| Task/Approval 状态机 | T09、T11、T13、T16 | domain 唯一来源；UI 不复制转换 |
+| DB Schema/migrations | T09、T11、T12、T17 | migration 序号串行；不得改已合入 migration |
+| Trace/redactor | T12、T13、T16、T17 | T12 唯一实现；其他任务只消费 |
+| API/Fastify | T16、T17、T19 | T16 主体，T17 追加凭据，T19 只健康/静态装配 |
+| WebUI | T16、T17 | T17 只完成已预留凭据页，不重构全局状态 |
+| Docker/CI | T18、T19 | T18 先构建门禁，T19 追加发布/部署 |
+| README/最终文档 | T19、T20 | T19 写可验证草案，T20 审计定稿 |
+
+### 9.2 安全并行规则
+
+- 可并行：T14 的纯测试 fixture 与 T16 的页面原型，仅当 shared DTO 冻结且不修改同一文件；合并仍先 T14 再 T16。
+- 可并行：T12 redactor 的纯函数测试可在 T11 完成接口评审后准备；Trace Schema 必须等待 T11 合并。
+- 不可并行：T05–T13 主链、migration、状态机、shared DTO、根锁文件、Docker/CI 的最终改动。
+- 任一 worktree 发现必须修改冲突矩阵中的共享区域时，先停止、更新 PLAN/AGENT_LOG 并等待前序 MR 合并；禁止复制未合入文件规避 Git 依赖。
+
+### 9.3 分支、worktree 与 MR 规划
+
+| Txx | Branch | 建议 worktree | MR/Gate |
+| --- | --- | --- | --- |
+| T05 | `chore/t05-project-foundation` | `../ai4se-t05-foundation` | → dev / Pipeline |
+| T06 | `feat/t06-mock-llm` | `../ai4se-t06-mock-llm` | → dev / Pipeline |
+| T07 | `feat/t07-tool-dispatch` | `../ai4se-t07-tool-dispatch` | → dev / Pipeline |
+| T08 | `feat/t08-builtin-tools` | `../ai4se-t08-builtin-tools` | → dev / 双平台证据 |
+| T09 | `feat/t09-governance` | `../ai4se-t09-governance` | → dev / 安全评审 |
+| T10 | `feat/t10-feedback-loop` | `../ai4se-t10-feedback-loop` | → dev / 反馈回灌 |
+| T11 | `feat/t11-memory-context` | `../ai4se-t11-memory-context` | → dev / 主要贡献基础 |
+| T12 | `feat/t12-config-tracing` | `../ai4se-t12-config-tracing` | → dev / 泄露扫描 |
+| T13 | `feat/t13-agent-loop` | `../ai4se-t13-agent-loop` | → dev / G4 |
+| T14 | `feat/t14-main-contribution` | `../ai4se-t14-main-contribution` | → dev / 深度性能 |
+| T15 | `test/t15-mechanism-demos` | `../ai4se-t15-mechanism-demos` | → dev / G5 |
+| T16 | `feat/t16-webui` | `../ai4se-t16-webui` | → dev / e2e+a11y |
+| T17 | `feat/t17-credential-security` | `../ai4se-t17-credential-security` | → dev / 安全评审 |
+| T18 | `ci/t18-gitlab-pipeline` | `../ai4se-t18-gitlab-pipeline` | → dev / Pipeline |
+| T19 | `chore/t19-distribution-deploy` | `../ai4se-t19-distribution-deploy` | → dev / G6 |
+| T20 | `docs/t20-final-delivery` | `../ai4se-t20-final-delivery` | → dev → main / G7 |
+
+每个分支第一个提交只填写 `guiding.md`，最后一个提交只清空它；两者不与业务改动混合，MR 禁止 squash。每个 MR 描述必须包含 PLAN Task、subagent、人工修改、RED/GREEN、Spec review、quality review、风险与 Pipeline URL。
+
+### 9.4 新鲜 subagent 最小 context 与评审门
+
+只提供：`SPEC.md` 对应章节、PLAN 当前 Txx、前序 `Interfaces`、精确 Files、相关现有文件和验证命令。不得灌入全部历史聊天、无关任务或未来实现。执行者遇到未定义类型/路径/错误码立即暂停，不得猜测。
+
+每个 Task 完成后按顺序：
+
+1. Spec 合规评审：逐条核对对应 REQ/FR/NFR、非目标和自研边界。
+2. 代码质量评审：边界、错误、并发、安全、测试有效性和可维护性。
+3. 修复全部 Critical，重新运行当前包和全量回归；评审者复查后才允许 MR。
+
+## 10. 完整需求覆盖
+
+| 集合 | 实现/验证位置 |
+| --- | --- |
+| US-01/02 | T11 决策版本与并发；T14 fault injection |
+| US-03/04 | T11 选择/快照；T14 变形/性能 |
+| US-05/06 | T09 审批/冲突，T11/13/14 Rebaseline，T15 DEMO-03 |
+| US-07 | T06–T13 完整闭环，T15 DEMO-01/02 |
+| US-08 | T12 Trace、T16 WebUI、T17/T18 泄露验证 |
+| US-09 | T17 凭据生命周期，T19 Secret，T20 审计 |
+| NFR-PERF | T14 基线、T20 复核 |
+| NFR-REL | T09/11/12/13 故障与原子性、T19 重启 |
+| NFR-SEC | T08/09/12/16/17/18/19 |
+| NFR-UX/a11y | T16、T20 |
+| NFR-OBS | T12/13/16、T20 |
+| NFR-COMPAT/资源 | T05/08/14/19 |
+| DEMO-01/02/03 | T15，T18 CI，T20 最终运行 |
+| OPEN-01/02/05 | T19 有限候选实测与批准 |
+| OPEN-03 | T05 Node/依赖批准 |
+| OPEN-04 | T16 Open Design 主题批准 |
+| OPEN-06 | T17/T19 真实 Provider 前批准；否则不调用 |
+
+`REQ-001`–`REQ-025` 的唯一主要实现与验证 Txx 见第 7 节；不得把 T03 或 T04 列为实现依赖。T04 只测试本计划清晰度，不创建正式实现代码。
+
+## 11. 执行证据台账
 
 | Txx | Branch | Commit(s) | MR | Pipeline | Spec Review | Quality Review | 状态 |
 | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -851,6 +962,6 @@ it("DEMO-01 denies .env read before tool dispatch", async () => {
 | T19 | `chore/t19-distribution-deploy` | — | — | — | — | — | 未开始 |
 | T20 | `docs/t20-final-delivery` | — | — | — | — | — | 未开始 |
 
-## 10. T04 冷启动使用说明
+## 12. T04 冷启动使用说明
 
 T04 的陌生智能体只能获得 `SPEC.md` 与本文件；不得获得历史聊天、memory 或口头补充。它选择 1–2 个计划 Task 试做，遇到类型、路径、行为或验证不确定时立即暂停提问，不得猜测；试做仅用于暴露规约缺陷，G3 通过前不得进入正式实现。

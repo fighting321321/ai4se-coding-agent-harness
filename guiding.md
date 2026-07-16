@@ -452,20 +452,20 @@ git commit -m "docs: 规划安全分发与最终交付任务"
 
 **依赖与并行必须完成：**
 
-- [ ] Mermaid DAG 覆盖 T05–T20，并标出 G4、G5、G6、G7。
-- [ ] 列出关键路径和每个 Txx 的前置条件、可开始条件、阻塞条件和完成输出。
-- [ ] 建立文件冲突矩阵：根配置、共享 DTO、状态机、数据库 Schema、Trace、API、WebUI、Docker、CI 和 README。
-- [ ] 标出安全可并行的 Task，以及即使逻辑独立也因共享文件必须串行的 Task。
-- [ ] 每个 Txx 写明 branch 名、worktree 目录建议、目标 MR、Pipeline Gate 和禁止 squash。
-- [ ] 每个 Txx 的首尾 `guiding.md` 提交纳入计划，且不与业务提交混合。
-- [ ] 规定新鲜 subagent 的最小 context：SPEC 对应章节、PLAN 当前 Task、依赖接口、相关文件和测试命令；不得全量灌入无关历史。
-- [ ] 每个 Task 完成后先 Spec 合规评审，再代码质量评审；Critical 问题修复后才能进入下一 Task。
+- [x] Mermaid DAG 覆盖 T05–T20，并标出 G4、G5、G6、G7。
+- [x] 列出关键路径和每个 Txx 的前置条件、可开始条件、阻塞条件和完成输出。
+- [x] 建立文件冲突矩阵：根配置、共享 DTO、状态机、数据库 Schema、Trace、API、WebUI、Docker、CI 和 README。
+- [x] 标出安全可并行的 Task，以及即使逻辑独立也因共享文件必须串行的 Task。
+- [x] 每个 Txx 写明 branch 名、worktree 目录建议、目标 MR、Pipeline Gate 和禁止 squash。
+- [x] 每个 Txx 的首尾 `guiding.md` 提交纳入计划，且不与业务提交混合。
+- [x] 规定新鲜 subagent 的最小 context：SPEC 对应章节、PLAN 当前 Task、依赖接口、相关文件和测试命令；不得全量灌入无关历史。
+- [x] 每个 Task 完成后先 Spec 合规评审，再代码质量评审；Critical 问题修复后才能进入下一 Task。
 
 **需求覆盖必须完成：**
 
-- [ ] `REQ-001`–`REQ-025` 均映射到主要实现 Txx 和验证 Txx。
-- [ ] US-01–US-09、NFR、DEMO-01–03、OPEN-01–06 均有后续处理位置。
-- [ ] 不得把 T03 自己写成实现依赖；T04 冷启动只验证 PLAN，不修改实现代码。
+- [x] `REQ-001`–`REQ-025` 均映射到主要实现 Txx 和验证 Txx。
+- [x] US-01–US-09、NFR、DEMO-01–03、OPEN-01–06 均有后续处理位置。
+- [x] 不得把 T03 自己写成实现依赖；T04 冷启动只验证 PLAN，不修改实现代码。
 
 **提交前验证：**
 
