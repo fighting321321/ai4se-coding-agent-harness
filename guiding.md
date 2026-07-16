@@ -338,25 +338,25 @@ git commit -m "docs: 规划上下文追踪与主循环任务"
 
 **T14 主要贡献深化必须规划：**
 
-- [ ] `feat/t14-main-contribution` 独立 branch/worktree/MR。
-- [ ] 变形/顺序测试证明范围选择和规范序列化确定性。
-- [ ] DecisionVersion 并发、快照指纹、结构化 diff、Rebaseline 上限和冲突爆炸保护。
-- [ ] 至少三个深度特性及独立确定性测试，并明确停止扩展通用平台功能。
+- [x] `feat/t14-main-contribution` 独立 branch/worktree/MR。
+- [x] 变形/顺序测试证明范围选择和规范序列化确定性。
+- [x] DecisionVersion 并发、快照指纹、结构化 diff、Rebaseline 上限和冲突爆炸保护。
+- [x] 至少三个深度特性及独立确定性测试，并明确停止扩展通用平台功能。
 
 **T15 三项机制演示必须规划：**
 
-- [ ] `test/t15-mechanism-demos` 独立 branch/worktree/MR。
-- [ ] DEMO-01：危险 Action 被 deny，工具调用为零，审计存在。
-- [ ] DEMO-02：第一次 CODE_FAIL 回灌，mock 改变 Action，第二次 PASS。
-- [ ] DEMO-03：版本 2 激活后，版本 1 快照在写前阻断，diff/Rebaseline/重新规划完成。
-- [ ] 单一命令运行全部演示，失败退出码非零，多次运行结果一致；通过后 G5。
+- [x] `test/t15-mechanism-demos` 独立 branch/worktree/MR。
+- [x] DEMO-01：危险 Action 被 deny，工具调用为零，审计存在。
+- [x] DEMO-02：第一次 CODE_FAIL 回灌，mock 改变 Action，第二次 PASS。
+- [x] DEMO-03：版本 2 激活后，版本 1 快照在写前阻断，diff/Rebaseline/重新规划完成。
+- [x] 单一命令运行全部演示，失败退出码非零，多次运行结果一致；通过后 G5。
 
 **T16 WebUI 必须规划：**
 
-- [ ] `feat/t16-webui` 独立 branch/worktree/MR。
-- [ ] 任务创建、运行步骤、工具结果、反馈、审批、决策差异、Rebaseline、Trace、停机原因和凭据状态页面。
-- [ ] React 只消费白名单 DTO；安全裁决全部在后端；SSE 断线/重连不能显示假成功。
-- [ ] Open Design 主题决策、键盘操作、无障碍扫描和 Playwright mock e2e。
+- [x] `feat/t16-webui` 独立 branch/worktree/MR。
+- [x] 任务创建、运行步骤、工具结果、反馈、审批、决策差异、Rebaseline、Trace、停机原因和凭据状态页面。
+- [x] React 只消费白名单 DTO；安全裁决全部在后端；SSE 断线/重连不能显示假成功。
+- [x] Open Design 主题决策、键盘操作、无障碍扫描和 Playwright mock e2e。
 
 **并行边界：**
 

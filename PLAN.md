@@ -624,6 +624,108 @@ it("runs one action per step and completes only after verified PASS", async () =
 
 **串行说明：** T11 → T12 → T13 是核心关键路径；T12 的 redactor 可在接口冻结后准备，但不得在未合入 T11 Schema 的 worktree 上合并 Trace。共享状态机、DB Schema、Trace DTO 的修改必须逐项评审。
 
+### T14：深化版本化决策上下文主要贡献
+
+**Branch/Worktree/MR：** `feat/t14-main-contribution`；`../ai4se-t14-main-contribution`；MR → `dev`；禁止 squash。
+
+**目标：** 用变形测试、并发故障注入、冲突上限、Rebaseline 上限和性能基线证明主要贡献具有工程深度，而不是只覆盖快乐路径。
+
+**前置依赖：** G4/T13 通过；只深化 SPEC 5.5 已批准机制，停止扩展通用 Agent、策略语言和知识图谱。
+
+**Files：** Create `tests/unit/domain/context-selector.metamorphic.test.ts`, `canonical-json.metamorphic.test.ts`, `conflict-detector.property.test.ts`; Create `tests/integration/decision/activation-faults.test.ts`, `rebaseline-faults.test.ts`; Create `tests/performance/context-performance.test.ts`, `trace-performance.test.ts`, `tests/test-support/large-fixtures.ts`; Modify algorithms only where test exposes defect; Modify evidence docs.
+
+**Interfaces：** 不新增公共产品能力；允许新增纯测试辅助 `permutations(seed,input)` 和 `measurePercentiles(samples)`。冲突超过配置阈值返回 `CONFLICT_LIMIT_EXCEEDED`；连续 Rebaseline 第 3 次后 Task 停机升级。
+
+- [ ] **Step 1:** 提交 T14 guiding，明确三个深度特性：确定性变形、事务/故障原子性、冲突/Rebaseline 爆炸保护。
+- [ ] **Step 2:** 写 100 个固定 seed 的候选顺序/集合顺序变形测试：
+
+```ts
+it("is invariant under candidate and scope ordering", () => {
+  const expected = selector.select(scopeFixture, decisionFixtures);
+  for (const candidate of permutations(20260716, decisionFixtures, 100)) {
+    expect(selector.select(reorderScope(scopeFixture, candidate.seed), candidate.value)).toEqual(expected);
+  }
+});
+```
+
+- [ ] **Step 3:** 运行测试；若 RED，最小修复非稳定迭代/排序；若当前实现已 PASS，先用 mutation 移除排序证明测试会失败，再恢复实现并记录证据。
+- [ ] **Step 4:** 对 canonical JSON 做字段、Unicode、路径分隔、集合和数值表示变形；同样以 mutation 证明测试敏感，再恢复并 PASS。
+- [ ] **Step 5:** 在激活事务的每个写点注入异常，断言 active 唯一且无部分 superseded；若失败，收紧单事务和约束，运行 PASS。
+- [ ] **Step 6:** 在 Rebaseline 的新快照、旧 Action invalidation、旧 Approval invalidation、Task 指针更新之间逐点故障注入，断言全回滚；修复后 PASS。
+- [ ] **Step 7:** 生成重复键和两两互斥大样本；写阈值测试，超过上限在任务启动前返回稳定错误，不创建审批洪泛；实现保护后 PASS。
+- [ ] **Step 8:** 写第三次 Rebaseline 升级测试，断言无第 4 次自动 LLM 调用；实现/验证计数器后 PASS。
+- [ ] **Step 9:** 在 10,000 决策、100,000 Trace、4 并发固定数据上记录硬件、样本、预热、p50/p95/max；断言选择/快照 `<500ms`、Trace append `<100ms`。
+- [ ] **Step 10:** 若指标失败，只优化索引/排序/序列化热路径并保留结果等价测试；不得删除历史或缩小数据集制造通过。
+- [ ] **Step 11:** 全量回归、Spec/质量评审，README 证据草案写入 AGENT_LOG；提交 `test: 深化版本化上下文确定性验证` 与必要性能修复。
+- [ ] **Step 12:** 更新台账并完成 MR/guiding 收尾，明确不再增加通用平台功能。
+
+**完成标准：** 三类深度特性均有独立确定性测试；fault injection 无部分状态；冲突/Rebaseline 有硬上限；REQ-020 基线可追踪。
+
+### T15：完成三项强制机制演示
+
+**Branch/Worktree/MR：** `test/t15-mechanism-demos`；`../ai4se-t15-mechanism-demos`；MR → `dev`；禁止 squash。
+
+**目标：** 以一个离线命令自动证明危险动作零调用、失败驱动 Action 改变、旧快照阻断并完成 Rebaseline。
+
+**前置依赖：** T14 已合入，所有生产机制已存在；演示只能装配现有接口，不能放宽断言或增加只供演示的生产分支。
+
+**Files：** Create `demos/mechanisms/deny-dangerous-action.test.ts`, `feedback-recovery.test.ts`, `stale-rebaseline.test.ts`; Create `demos/mechanisms/fixtures.ts`, `scripts/run-mechanism-demos.mjs`; Modify root `package.json`, evidence docs.
+
+**Interfaces：** 根命令 `pnpm demo:mechanisms` 调用 Vitest 精确目录；任一断言失败或测试未发现时退出非零；固定 Clock/ID/Hasher/fixtures 保证重复输出一致。
+
+- [ ] **Step 1:** 提交 T15 guiding，列出 DEMO-01–03 与 REQ-017–019 一一映射。
+- [ ] **Step 2:** 写 DEMO-01：
+
+```ts
+it("DEMO-01 denies .env read before tool dispatch", async () => {
+  const h = makeDemoHarness([{ kind: "action", raw: makeReadAction(".env") }]);
+  const result = await h.run();
+  expect(h.tools.calls).toHaveLength(0);
+  expect(result.trace).toEqual(expect.arrayContaining([expect.objectContaining({ type: "policy.denied" })]));
+});
+```
+
+- [ ] **Step 3:** 单独运行文件，预期 PASS；临时 mutation 将 deny 改 allow，确认测试 RED，再恢复。
+- [ ] **Step 4:** 写 DEMO-02，固定第一次 Action/FAIL Observation/第二次不同 Action/PASS/完成顺序；断言两个 binding hash 不同、最终 completed。
+- [ ] **Step 5:** 单独运行 DEMO-02；预期 PASS；移除反馈回灌 mutation 时必须 RED，恢复后 PASS。
+- [ ] **Step 6:** 写 DEMO-03，版本 1 快照后激活版本 2，再提出写入；断言工具零调用、`SNAPSHOT_STALE`、diff、新 snapshot ID、旧 Action invalidated、重新规划后才执行。
+- [ ] **Step 7:** 单独运行 DEMO-03；预期 PASS；跳过 freshness mutation 时必须 RED，恢复后 PASS。
+- [ ] **Step 8:** 创建 runner 并在 package.json 绑定 `demo:mechanisms`；用无匹配目录验证 runner 非零，再恢复三项演示预期退出 0。
+- [ ] **Step 9:** 连续运行命令 3 次，比较规范化测试摘要和 Trace 关键序列完全一致。
+- [ ] **Step 10:** 两阶段评审确认无网络/真实 Key/演示专用绕过；提交 `test: 添加三项核心机制演示`。
+- [ ] **Step 11:** 以 `pnpm demo:mechanisms` 通过作为 G5 证据，更新台账并完成 MR/guiding 收尾。
+
+**完成标准/G5：** DEMO-01–03 自动断言；单命令；失败非零；三次一致；不依赖网络、真实模型或真实 Key。
+
+### T16：实现可信 WebUI 与 HTTP/SSE API
+
+**Branch/Worktree/MR：** `feat/t16-webui`；`../ai4se-t16-webui`；MR → `dev`；禁止 squash。
+
+**目标：** 让用户创建/观察任务、管理决策、审批、查看 diff/Rebaseline/Trace/凭据状态，并确保断线或后端失败不显示假成功。
+
+**前置依赖：** T13 API/状态接口冻结；T14/T15 可先行，T16 只有在 shared DTO 合并稳定后合并。`OPEN-04` 在本任务开始时从 Open Design 选择适合高信息密度的可访问主题并记录批准。
+
+**Files：** Create shared DTO schemas for auth/tasks/decisions/snapshots/approvals/trace/credentials; Create Fastify app/routes/auth/RBAC/CSRF/idempotency/SSE; Create React pages/components/api client; Create integration API tests and Playwright e2e/a11y tests; Modify build configuration/evidence docs.
+
+**Interfaces：** 所有写 API 返回 `{ data?, error?: { error_code; message; trace_id } }`；SSE event ID 为 Trace sequence；前端只导入 `packages/shared` DTO，不导入 domain/infrastructure；后端是唯一裁决方。
+
+- [ ] **Step 1:** 提交 T16 guiding 和 `OPEN-04` 决策，建立页面—DTO—API—服务映射。
+- [ ] **Step 2:** 先写 Fastify inject RED 测试：未认证、viewer 写入、缺 CSRF、非法 Schema、重复幂等键；实现认证/RBAC/CSRF/幂等插件后 PASS。
+- [ ] **Step 3:** 为任务、决策、快照、diff、审批、Trace、凭据状态逐个写 DTO 白名单测试，断言 `ciphertext|nonce|auth_tag|password_hash` 无法序列化。
+- [ ] **Step 4:** 实现对应只调用 application service 的 route；用静态扫描/评审确认路由无 SQL、Policy 或状态机逻辑。
+- [ ] **Step 5:** 写任务页 Playwright RED：创建后显示 queued/running，SSE 断线显示“连接中断”而非完成，重连按 last-event-id 补读。
+- [ ] **Step 6:** 实现 API client、状态 store 和任务详情最小 UI；e2e PASS。
+- [ ] **Step 7:** 逐页用 RED→GREEN 实现决策版本、Snapshot 选择/排除、Rebaseline diff、审批绑定信息、Trace 筛选/导出、凭据配置状态。
+- [ ] **Step 8:** 写审批 e2e，确认规则、来源、文件、Action、快照、风险、有效期齐全；后端返回 binding mismatch 时前端显示错误码/trace_id，绝不改为成功。
+- [ ] **Step 9:** 写状态表达测试，`failed|interrupted|waiting_approval|rebaseline_required` 文案/语义标签不同且不只靠颜色。
+- [ ] **Step 10:** 运行键盘流程与自动 a11y 扫描，严重错误必须为 0；修复焦点、label、live region 和对比度后 PASS。
+- [ ] **Step 11:** 测试生产静态构建、CSP、HttpOnly/Secure/SameSite Cookie、无 Key/localStorage/source map 泄露；运行 build/e2e PASS。
+- [ ] **Step 12:** 两阶段评审与人工可用性检查；提交 `feat: 实现任务治理与审计界面`，更新台账并完成 MR/guiding 收尾。
+
+**完成标准：** REQ-013/021 UI 验收通过；主要流程键盘可用；严重 a11y 错误 0；断线/错误无假成功；浏览器只见脱敏 DTO。
+
+**并行边界：** T14 必须在 T13 后；T15 必须在 T14 后。T16 可在 T14 测试开发期间基于冻结 DTO 并行，但任何 shared DTO/状态机变更都必须暂停并串行合并，禁止两个 worktree 同时修改后直接拼接。
+
 ## 9. 执行证据台账
 
 | Txx | Branch | Commit(s) | MR | Pipeline | Spec Review | Quality Review | 状态 |
