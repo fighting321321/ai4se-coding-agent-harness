@@ -385,6 +385,118 @@ it("converts handler failures into a structured ToolResult", async () => {
 
 **冲突与串行说明：** T05–T07 都可能修改根配置、`domain/src/index.ts` 和 `runtime/src/index.ts`，因此一级任务必须按 T05 → T06 → T07 合并；未合并 worktree 之间不得复制文件或直接建立依赖。
 
+### T08：实现受限文件与命令工具
+
+**Branch/Worktree/MR：** `feat/t08-builtin-tools`；`../ai4se-t08-builtin-tools`；MR → `dev`；禁止 squash。
+
+**目标：** 在 Windows/Linux 上以同一安全语义实现工作区内文件读写和白名单参数数组命令，所有拒绝都发生在副作用之前。
+
+**前置依赖：** T07 `ToolRegistry`/`ToolDispatcher`；只消费已授权 call，不能自行作 Policy 决策。
+
+**Files：** Create `packages/infrastructure/src/tools/path-guard.ts`, `file-tools.ts`, `process-runner.ts`, `environment.ts`; Create `tests/unit/infrastructure/path-guard.test.ts`, `file-tools.test.ts`, `process-runner.test.ts`; Create `tests/integration/tools/cross-platform-tools.test.ts`; Modify package exports and evidence documents.
+
+**Interfaces：** `PathGuard.resolveWorkspacePath(relative: string): Promise<ResolvedPath>`；`FileTools.read/write` 使用 `expectedSha256` compare-and-set；`ProcessRunner.run({ executable, args, cwd, timeoutMs, maxOutputBytes }, signal): Promise<ToolResult>`。拒绝码：`PATH_OUTSIDE_WORKSPACE`、`FILE_PRECONDITION_FAILED`、`TOOL_TIMEOUT`、`TOOL_OUTPUT_TRUNCATED`。
+
+- [ ] **Step 1:** 填写 T08 guiding，列出当前平台、另一平台验证方法和明确攻击样本；提交规划。
+- [ ] **Step 2:** 写表驱动 RED 测试：
+
+```ts
+it.each(["../outside.txt", "/absolute.txt", "C:/absolute.txt", ".env", "keys/private.pem"])(
+  "rejects unsafe path %s before file access",
+  async (path) => {
+    const fs = makeCountingFileSystem();
+    await expect(makePathGuard(fs).resolveWorkspacePath(path)).rejects.toMatchObject({ code: "PATH_OUTSIDE_WORKSPACE" });
+    expect(fs.openCalls).toBe(0);
+  },
+);
+```
+
+- [ ] **Step 3:** 运行 `pnpm vitest run tests/unit/infrastructure/path-guard.test.ts`；预期 RED：PathGuard 不存在。
+- [ ] **Step 4:** 最小实现 lexical normalize、绝对/`..`/敏感名拒绝；运行测试 PASS。
+- [ ] **Step 5:** 建立临时 workspace 和指向外部的 symlink/junction 测试；预期 RED：真实路径未检查，计数器显示拒绝前未打开目标。
+- [ ] **Step 6:** 实现逐段 realpath 与最终根包含检查；Windows junction 无权限创建时测试必须明确 skip 理由，并由 Windows 人工集成补证；运行测试 PASS。
+- [ ] **Step 7:** 写 file.write 摘要不匹配测试，断言目标字节不变；实现 compare-and-set 后 PASS。
+- [ ] **Step 8:** 写命令测试，拒绝字符串 Shell、白名单外可执行文件和 Key 环境；断言 spawn 调用为零；实现参数数组和环境允许列表后 PASS。
+- [ ] **Step 9:** 写超时与 64 KiB 截断测试；实现仅终止明确子进程、返回 `truncated=true` 与保留前后摘要；测试 PASS。
+- [ ] **Step 10:** 运行 Windows 与 Linux 样本、全量回归及两阶段评审；提交 `feat: 实现受限文件与命令工具`，收尾 guiding/MR。
+
+**完成标准：** 所有逃逸/敏感路径/拼接样本零副作用；超时 120 秒默认、输出 64 KiB；子进程无模型 Key；双平台证据可追踪。
+
+### T09：实现确定性 Policy、冲突与 HITL
+
+**Branch/Worktree/MR：** `feat/t09-governance`；`../ai4se-t09-governance`；MR → `dev`；禁止 squash。
+
+**目标：** 在 Dispatcher 之前由代码裁决 `allow/ask/deny`，并实现绑定 Action/文件/快照的 15 分钟单次审批与结构化冲突。
+
+**前置依赖：** T08 工具端口、T07 Action；消费 T11 将实现的 Context 类型时只依赖在本任务定义的最小 `SnapshotBinding` 值对象，T11 后续不得改语义。
+
+**Files：** Create `packages/domain/src/governance/types.ts`, `approval-state-machine.ts`, `packages/domain/src/context/conflict-detector.ts`; Create `packages/runtime/src/governance/policy-engine.ts`, `approval-gate.ts`; Create `packages/application/src/services/approval-service.ts`; Create unit/integration tests for policy/conflict/approval; Modify exports/evidence docs.
+
+**Interfaces：** `PolicyEngine.evaluate(input): PolicyDecision`；`detectConflicts(constraints): Conflict[]`；`ApprovalService.request/decide/consume`。`binding_hash = SHA256(canonical(action.type,args,targetFileHashes,snapshotFingerprint))`。
+
+- [ ] **Step 1:** 规划并提交 T09 guiding，列出不可覆盖 deny 表和批准合法状态。
+- [ ] **Step 2:** 写 Policy RED 测试：
+
+```ts
+it.each([makeReadEnvAction(), makeDeleteAction(), makeForcePushAction()])(
+  "returns deny that no role can override",
+  (action) => {
+    expect(policy.evaluate({ action, role: "admin" })).toMatchObject({ effect: "deny" });
+    expect(tool.execute).not.toHaveBeenCalled();
+  },
+);
+```
+
+- [ ] **Step 3:** 实现固定规则优先级 `deny > ask > allow` 和结构化 reason；测试 PASS。
+- [ ] **Step 4:** 写四种冲突组合与范围不相交反例；预期 detector 缺失 RED；实现规范键、集合交集和稳定排序后 PASS。
+- [ ] **Step 5:** 写审批绑定 RED：批准后改任一参数/文件摘要/快照、等待超过 15 分钟、重复消费，均返回明确错误且工具调用为零。
+- [ ] **Step 6:** 实现注入 Clock/Hasher 的状态机和单次令牌；运行审批测试 PASS。
+- [ ] **Step 7:** 写并发消费集成测试，两个事务恰一成功；实现 SQLite Repository 原子更新后 PASS。
+- [ ] **Step 8:** 写结构化约束冲突进入 `ask`、deny 不创建可覆盖请求、拒绝/过期产生 Observation 的链路测试；逐项 RED→最小实现→PASS。
+- [ ] **Step 9:** 重构规则表与绑定规范化，运行治理/工具/全量回归；Spec 评审检查 FR-HITL-01/02，质量评审检查 TOCTOU。
+- [ ] **Step 10:** 提交 `feat: 实现治理护栏与人工审批`，更新台账、清空 guiding、Pipeline passed 后合并。
+
+**完成标准：** deny 不能覆盖；审批前/篡改后/过期后/重放时工具调用均为零；固定冲突输出稳定；并发消费恰一成功。
+
+### T10：实现客观反馈与失败回灌
+
+**Branch/Worktree/MR：** `feat/t10-feedback-loop`；`../ai4se-t10-feedback-loop`；MR → `dev`；禁止 squash。
+
+**目标：** 统一版本、契约和命令传感器，区分 `PASS|FAIL|CONFLICT|ENV_ERROR|TIMEOUT`，把失败事实回灌而不自动重试副作用。
+
+**前置依赖：** T09 治理、T08 ProcessRunner、T07 Observation。外部文案中的 `CODE_FAIL` 映射为规范 `FAIL`，`POLICY_FAIL` 映射为规范 `CONFLICT`；持久化只用 SPEC 五类枚举。
+
+**Files：** Create `packages/domain/src/feedback/types.ts`; Create `packages/runtime/src/feedback/engine.ts`, `sensor-registry.ts`; Create `packages/infrastructure/src/feedback/decision-version-sensor.ts`, `contract-diff-sensor.ts`, `command-sensor.ts`; Create unit tests and `tests/integration/feedback/failure-recovery.test.ts`; Modify exports/evidence docs.
+
+**Interfaces：** `FeedbackSensor.run(input, signal): Promise<FeedbackResult>`；`FeedbackEngine.verify(action, result, requiredSensors): Promise<{ results; observations; completionAllowed }>`。`ENV_ERROR` 不增加连续业务失败数；`FAIL|CONFLICT` 增加；达到 3 次返回 escalation Observation。
+
+- [ ] **Step 1:** 填写 T10 guiding，固定传感器名称、五类映射和副作用不重试规则。
+- [ ] **Step 2:** 写分类 RED 测试：
+
+```ts
+it.each([
+  [{ exitCode: 0 }, "PASS"],
+  [{ exitCode: 1, stderr: "assertion failed" }, "FAIL"],
+  [{ spawnError: "ENOENT" }, "ENV_ERROR"],
+  [{ timedOut: true }, "TIMEOUT"],
+])("classifies evidence %#", (evidence, classification) => {
+  expect(classifyCommandEvidence(evidence)).toBe(classification);
+});
+```
+
+- [ ] **Step 3:** 最小实现纯分类器；运行单测 PASS。
+- [ ] **Step 4:** 写 DecisionVersionSensor 旧版本与 ContractDiffSensor 删除/改名/不兼容测试；实现后分别返回 `CONFLICT` 与稳定 evidence。
+- [ ] **Step 5:** 写 Registry 缺失传感器、超时和异常测试；预期先 RED；实现结构化 `ENV_ERROR|TIMEOUT`，不得伪装 PASS。
+- [ ] **Step 6:** 写失败回灌链测试：第一次 mock sensor FAIL，Observation 进入下一 LLMRequest；第二个 scripted Action 不同并得到 PASS；预期 engine 缺失 RED。
+- [ ] **Step 7:** 实现 FeedbackEngine 只聚合事实和 Observation，不在内部调用 LLM；链测试 PASS。
+- [ ] **Step 8:** 写连续三次 FAIL 升级、ENV_ERROR 不计业务失败、带副作用工具未被自动再次调用测试；实现计数结果后 PASS。
+- [ ] **Step 9:** 重构 evidence 脱敏和长度上限；运行 feedback/runtime/tools 全量回归，确认失败退出码与环境证据保留。
+- [ ] **Step 10:** 两阶段评审；提交 `feat: 实现客观反馈与失败回灌`，更新台账并完成 MR 收尾。
+
+**完成标准：** 五类结果稳定；失败进入下一轮；ENV_ERROR 不伪装；三次失败升级；任何副作用不会因传感器失败被自动重试。
+
+**串行说明：** T08、T09、T10 共同影响 `Action`、`Observation`、错误和未来 Trace DTO，按 T08 → T09 → T10 合并；三者的安全测试都必须检查调用计数/文件字节等真实副作用证据。
+
 ## 9. 执行证据台账
 
 | Txx | Branch | Commit(s) | MR | Pipeline | Spec Review | Quality Review | 状态 |

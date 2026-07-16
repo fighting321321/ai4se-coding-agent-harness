@@ -224,24 +224,24 @@ git commit -m "docs: 规划工程基础与工具分发任务"
 
 **T08 受限工具必须规划：**
 
-- [ ] `feat/t08-builtin-tools` 独立 branch/worktree/MR。
-- [ ] 工作区内文件读写、参数数组命令执行、realpath、symlink/junction 和敏感路径拒绝。
-- [ ] 命令 allowlist、超时、64 KiB 输出、环境变量过滤和结构化错误。
-- [ ] Windows/Linux 路径与命令差异的表驱动测试和跨平台验证。
+- [x] `feat/t08-builtin-tools` 独立 branch/worktree/MR。
+- [x] 工作区内文件读写、参数数组命令执行、realpath、symlink/junction 和敏感路径拒绝。
+- [x] 命令 allowlist、超时、64 KiB 输出、环境变量过滤和结构化错误。
+- [x] Windows/Linux 路径与命令差异的表驱动测试和跨平台验证。
 
 **T09 治理与 HITL 必须规划：**
 
-- [ ] `feat/t09-governance` 独立 branch/worktree/MR。
-- [ ] `allow/ask/deny` 策略、不可覆盖 deny、结构化约束冲突检测。
-- [ ] Approval 状态机、动作摘要/文件摘要/快照指纹绑定、单次消费、拒绝、超时和失效。
-- [ ] 审批前工具调用为零；动作或快照变化后旧批准不可复用。
+- [x] `feat/t09-governance` 独立 branch/worktree/MR。
+- [x] `allow/ask/deny` 策略、不可覆盖 deny、结构化约束冲突检测。
+- [x] Approval 状态机、动作摘要/文件摘要/快照指纹绑定、单次消费、拒绝、超时和失效。
+- [x] 审批前工具调用为零；动作或快照变化后旧批准不可复用。
 
 **T10 客观反馈必须规划：**
 
-- [ ] `feat/t10-feedback-loop` 独立 branch/worktree/MR。
-- [ ] FeedbackSensor 接口和测试/lint/typecheck/build/版本/契约传感器。
-- [ ] PASS、CODE_FAIL、POLICY_FAIL、TIMEOUT、ENV_ERROR 分类和结构化证据。
-- [ ] 失败回灌、最多三次连续失败、修复后复验和人工升级。
+- [x] `feat/t10-feedback-loop` 独立 branch/worktree/MR。
+- [x] FeedbackSensor 接口和测试/lint/typecheck/build/版本/契约传感器。
+- [x] PASS、CODE_FAIL、POLICY_FAIL、TIMEOUT、ENV_ERROR 分类和结构化证据。
+- [x] 失败回灌、最多三次连续失败、修复后复验和人工升级。
 
 **TDD 与接口衔接：**
 
