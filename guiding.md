@@ -74,20 +74,20 @@ git commit -m "docs: 规划T01需求探索步骤"
 
 **`AGENT_LOG.md` 必须包含：**
 
-- [ ] 文档用途、记录格式和不得补写虚假过程的原则。
-- [ ] T01 启动时间、当前分支 `docs/t01-spec-design` 和基线 commit。
-- [ ] 主开发环境为 OpenAI Codex App。
-- [ ] Superpowers 已启用，并记录可核验的版本或插件路径证据。
-- [ ] 本轮使用的 Skill：`using-superpowers`、`brainstorming`；若尚未触发 brainstorming，明确标记为“准备触发”，不得写成已经完成。
-- [ ] brainstorming 初始 prompt 原文，以及本次仅做需求探索、禁止实现代码的 context 边界。
-- [ ] 当前人工决策：选择 A 方向 Coding Agent Harness；尚未确认具体产品边界和主要贡献维度。
+- [x] 文档用途、记录格式和不得补写虚假过程的原则。
+- [x] T01 启动时间、当前分支 `docs/t01-spec-design` 和基线 commit。
+- [x] 主开发环境为 OpenAI Codex App。
+- [x] Superpowers 已启用，并记录可核验的版本或插件路径证据。
+- [x] 本轮使用的 Skill：`using-superpowers`、`brainstorming`；若尚未触发 brainstorming，明确标记为“准备触发”，不得写成已经完成。
+- [x] brainstorming 初始 prompt 原文，以及本次仅做需求探索、禁止实现代码的 context 边界。
+- [x] 当前人工决策：选择 A 方向 Coding Agent Harness；尚未确认具体产品边界和主要贡献维度。
 
 **`SPEC_PROCESS.md` 必须包含：**
 
-- [ ] 文档用途和记录模板：问题、用户回答、AI 建议、本人判断、设计变化。
-- [ ] 初始设想与已知硬约束。
-- [ ] 待回答问题清单，但不得预填未经讨论的结论。
-- [ ] 关键迭代编号规则，后续至少形成三轮连续记录。
+- [x] 文档用途和记录模板：问题、用户回答、AI 建议、本人判断、设计变化。
+- [x] 初始设想与已知硬约束。
+- [x] 待回答问题清单，但不得预填未经讨论的结论。
+- [x] 关键迭代编号规则，后续至少形成三轮连续记录。
 
 **提交前验证：**
 
