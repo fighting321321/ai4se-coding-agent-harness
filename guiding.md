@@ -250,21 +250,21 @@ git commit -m "docs: 完善领域与机制设计"
 
 **系统架构必须包含：**
 
-- [ ] Mermaid 组件图，明确 WebUI/API、Agent Runtime、LLM Adapter、Decision Store、Context Selector、Tool Registry、Policy Engine、Feedback Engine、Credential Store 和 Trace Store。
-- [ ] Mermaid 主数据流：创建任务、生成快照、LLM 产生活动、治理检查、工具执行、反馈回灌和停机。
-- [ ] Mermaid 过期与冲突流：写前校验、阻断、diff、审批、Rebaseline 和重新规划。
-- [ ] 组件职责、同步/异步边界、信任边界和失败隔离原则。
-- [ ] 外部依赖及其不可用时的行为；真实 LLM 不得成为离线测试依赖。
-- [ ] 核心接口的输入、输出、错误类型和调用方向，但本阶段不锁定实现代码签名。
+- [x] Mermaid 组件图，明确 WebUI/API、Agent Runtime、LLM Adapter、Decision Store、Context Selector、Tool Registry、Policy Engine、Feedback Engine、Credential Store 和 Trace Store。
+- [x] Mermaid 主数据流：创建任务、生成快照、LLM 产生活动、治理检查、工具执行、反馈回灌和停机。
+- [x] Mermaid 过期与冲突流：写前校验、阻断、diff、审批、Rebaseline 和重新规划。
+- [x] 组件职责、同步/异步边界、信任边界和失败隔离原则。
+- [x] 外部依赖及其不可用时的行为；真实 LLM 不得成为离线测试依赖。
+- [x] 核心接口的输入、输出、错误类型和调用方向，但本阶段不锁定实现代码签名。
 
 **数据模型必须包含：**
 
-- [ ] `DecisionRecord`、`DecisionVersion`、`ScopeRule`、`ContextSnapshot`、`SnapshotEntry`。
-- [ ] `TaskRun`、`AgentStep`、`Action`、`ToolCall`、`ToolResult`、`Observation`。
-- [ ] `FeedbackResult`、`ApprovalRequest`、`PolicyDecision`、`TraceEvent`、`CredentialRef`。
-- [ ] 每个实体的标识、字段、类型语义、必填性、关系、唯一约束和生命周期。
-- [ ] 决策状态、任务状态和审批状态的状态机及非法转换。
-- [ ] 版本顺序、并发写入、规范序列化、时间来源、哈希/指纹和敏感字段不变量。
+- [x] `DecisionRecord`、`DecisionVersion`、`ScopeRule`、`ContextSnapshot`、`SnapshotEntry`。
+- [x] `TaskRun`、`AgentStep`、`Action`、`ToolCall`、`ToolResult`、`Observation`。
+- [x] `FeedbackResult`、`ApprovalRequest`、`PolicyDecision`、`TraceEvent`、`CredentialRef`。
+- [x] 每个实体的标识、字段、类型语义、必填性、关系、唯一约束和生命周期。
+- [x] 决策状态、任务状态和审批状态的状态机及非法转换。
+- [x] 版本顺序、并发写入、规范序列化、时间来源、哈希/指纹和敏感字段不变量。
 
 **提交前验证：**
 

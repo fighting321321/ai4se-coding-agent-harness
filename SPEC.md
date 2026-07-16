@@ -699,3 +699,267 @@ mock LLM 第一次写入使固定传感器返回 `FAIL`；结果回灌后 mock L
 
 三项演示由一个命令运行，不依赖网络、真实模型和 Key；任一断言失败时命令返回非零退出码。
 
+## 6. 系统架构
+
+### 6.1 架构风格
+
+系统采用“前后端逻辑分离、生产单容器、后端模块化单体”架构。React 在浏览器运行，只通过 HTTP/SSE 调用 Fastify；浏览器不得访问数据库、LLM 凭据或工具执行器。Fastify 后端在一个 Node.js 进程内组织职责独立的模块，耗时命令在受限子进程执行。生产环境可以由 Fastify 提供构建后的前端静态文件，从而只需要一个应用容器和一个公网地址。
+
+### 6.2 组件图
+
+```mermaid
+flowchart LR
+    Browser["React WebUI"] -->|"HTTPS / JSON"| API["Fastify API"]
+    API --> Auth["Auth & Application Services"]
+    Auth --> Runtime["Agent Runtime"]
+    Auth --> Decision["Decision Store"]
+    Auth --> Context["Context Selector & Snapshot Builder"]
+    Runtime --> LLM["LLM Provider Adapter"]
+    Runtime --> Policy["Policy & Approval Engine"]
+    Policy --> Tools["Tool Registry & Dispatcher"]
+    Tools --> Child["Restricted Child Process"]
+    Runtime --> Feedback["Feedback Engine"]
+    Decision --> DB[("SQLite")]
+    Context --> Decision
+    Auth --> Credential["Credential Store"]
+    Credential --> DB
+    Runtime --> Trace["Trace Event Store"]
+    Trace --> DB
+    API -->|"SSE persisted events"| Browser
+    LLM --> Mock["Scripted Mock LLM"]
+    LLM --> Provider["OpenAI-compatible API"]
+```
+
+### 6.3 组件职责
+
+| 组件 | 单一职责 | 明确不负责 |
+| --- | --- | --- |
+| React WebUI | 输入、展示、审批交互和脱敏事件消费 | 安全裁决、数据库访问、LLM/工具调用 |
+| Fastify API | 认证、CSRF、Schema 校验、调用应用服务、SSE | 领域状态转换和命令执行 |
+| Application Services | 编排创建决策、启动任务、审批、Rebaseline 等用例 | 实现选择算法或直接 SQL |
+| Decision Store | 保存不可变决策版本和事务状态转换 | 自然语言推断和范围选择 |
+| Context Selector | 确定性范围匹配、冲突检测和选择理由 | 写决策和调用 LLM |
+| Snapshot Builder | 规范序列化、代码状态摘要和指纹 | 修改工作区或重用旧快照 ID |
+| Agent Runtime | 主循环、预算、状态与停机 | 自行授权和直接访问供应商密钥 |
+| LLM Provider | 一次模型调用与供应商错误转换 | 循环、工具、记忆、治理和完成判断 |
+| Policy & Approval | `allow/ask/deny`、审批绑定和审计 | 执行工具或覆盖 `deny` |
+| Tool Registry/Dispatcher | Schema、查找、工作区围栏、受限执行 | 决定业务完成或自动重试副作用 |
+| Feedback Engine | 运行传感器、分类和产生 Observation | 用流畅文本替代退出码等证据 |
+| Credential Store | 加密、解密、状态、更新和清除 | 向前端或 Trace 返回明文 |
+| Trace Event Store | 追加、脱敏、查询和保留策略 | 保存隐藏推理链或可变业务状态 |
+
+### 6.4 主数据流
+
+```mermaid
+sequenceDiagram
+    actor User as Maintainer
+    participant UI as WebUI/API
+    participant C as Context Service
+    participant R as Agent Runtime
+    participant L as LLM Provider
+    participant P as Policy Engine
+    participant T as Tool Dispatcher
+    participant F as Feedback Engine
+    participant E as Trace Store
+
+    User->>UI: 创建任务目标与范围
+    UI->>C: 选择决策并生成快照
+    C-->>UI: ContextSnapshot + fingerprint
+    UI->>R: 启动 TaskRun
+    loop 每个 Agent step
+        R->>L: 单次模型调用
+        L-->>R: 候选 Action
+        R->>P: 校验快照、冲突与策略
+        alt allow
+            P-->>R: allow
+            R->>T: 执行受限工具
+            T-->>R: ToolResult
+            R->>F: 运行必需传感器
+            F-->>R: FeedbackResult
+        else ask
+            P-->>R: ApprovalRequest
+            R-->>UI: waiting_approval
+        else deny
+            P-->>R: 拒绝 Observation
+        end
+        R->>E: 追加已脱敏事件
+        E-->>UI: SSE 推送已持久化事件
+    end
+    R-->>UI: 最终状态与停机原因
+```
+
+### 6.5 过期、冲突与 Rebaseline 流
+
+```mermaid
+flowchart TD
+    A["副作用 Action"] --> B["重新读取活动决策与文件摘要"]
+    B --> C{"快照和前置条件仍有效?"}
+    C -->|是| D["检查结构化约束"]
+    D --> E{"存在冲突?"}
+    E -->|否| F["执行 Policy allow/ask/deny"]
+    E -->|是| G["生成 Conflict 与审批请求"]
+    C -->|否| H["阻断工具并生成差异"]
+    H --> I["TaskRun = rebaseline_required"]
+    I --> J["人工确认 Rebaseline"]
+    J --> K["生成新 ContextSnapshot"]
+    K --> L["旧 Action 和旧审批失效"]
+    L --> M["把差异回灌并要求重新规划"]
+    G --> N{"批准且绑定内容未变化?"}
+    N -->|是| F
+    N -->|否| O["拒绝 / 过期 / 重新规划"]
+```
+
+### 6.6 调用边界和核心接口
+
+下表定义语义接口，不锁定 TypeScript 文件名或函数签名；T03 只能在保持调用方向和错误语义的前提下细化。
+
+| 接口 | 主要输入 | 主要输出 | 稳定错误类别 | 调用方向 |
+| --- | --- | --- | --- | --- |
+| `DecisionService` | 决策内容、预期版本、操作者 | 不可变版本、状态转换、审计 ID | invalid/version-conflict/state/forbidden | Application → Domain |
+| `ContextService` | 任务范围、代码状态、候选版本 | 选择结果、冲突、快照和指纹 | scope/query/serialization | Application/Runtime → Domain |
+| `AgentRuntime` | 任务、快照、预算、适配器 | 状态、Step、Observation、停机原因 | parse/budget/state/interrupted | Application → Runtime |
+| `LLMProvider` | 消息、Action Schema、模型配置 | 单次响应或供应商错误 | unavailable/auth/rate-limit/invalid-response | Runtime → Adapter |
+| `PolicyEngine` | Action、身份、快照和文件摘要 | `allow`、`ask`、`deny` 与理由 | policy-invalid | Runtime → Governance |
+| `ApprovalService` | 请求、审批人、决定、绑定摘要 | 审批状态和消费令牌 | expired/mismatch/consumed/forbidden | Application/Runtime → Governance |
+| `ToolExecutor` | 已授权 ToolCall 和限制 | `ToolResult` 与证据 | unknown/argument/path/timeout/execution | Runtime → Tools |
+| `FeedbackEngine` | Action、ToolResult、传感器配置 | 分类结果与 Observation | sensor-missing/environment/timeout | Runtime → Feedback |
+| `CredentialStore` | 凭据引用、明文输入或清除请求 | 配置状态或短时解密值 | master-key/decrypt/missing | Application/LLM Adapter → Infrastructure |
+| `TraceStore` | 已脱敏事件或查询条件 | 事件序列和游标 | persist/query | 所有后端模块 → Infrastructure |
+
+### 6.7 同步、异步与失败隔离
+
+- 决策管理、身份、凭据状态和普通查询使用同步 HTTP 请求。
+- 创建任务同步返回 `task_id`，实际运行由进程内 `TaskScheduler` 异步调度；并发上限为 4。
+- SSE 只发布已经成功持久化的事件；断线不改变任务状态，重连按事件序号补读。
+- 命令在独立子进程执行，超时后只终止该明确子进程；API 进程继续运行。
+- SQLite 关键状态变化使用事务；副作用工具成功但 Trace 持久化失败时不得显示完整成功，任务停止等待人工处理。
+- 服务启动时把遗留 `running` 任务标记为 `interrupted`，不自动重放可能产生副作用的动作。
+
+### 6.8 信任边界
+
+1. **浏览器边界**：浏览器输入不可信；所有写请求必须认证、校验 CSRF 和 Schema。前端只获得脱敏数据。
+2. **应用与 LLM 边界**：供应商响应不可信；只能解析为已知 Action，不能直接执行文本中的命令。
+3. **应用与工具边界**：工具参数不可信；必须经过路径、白名单、权限、快照和资源检查。
+4. **子进程边界**：子进程只获得明确工作目录、允许参数和最少环境变量，不继承模型 API Key。
+5. **凭据边界**：主密钥不进入 SQLite；明文 Key 只在一次供应商请求所需的后端内存中短暂存在。
+6. **持久化边界**：数据库文件和备份被视为可能泄露，故凭据必须认证加密，敏感输出必须在写入前脱敏。
+
+### 6.9 外部依赖及降级行为
+
+| 外部依赖 | 不可用时行为 |
+| --- | --- |
+| OpenAI-compatible LLM | 真实任务快速失败或进入供应商错误状态；mock 演示和核心测试继续可用 |
+| Git 工作区 | 不能生成代码状态时拒绝启动真实任务，不用空摘要继续 |
+| 文件系统/子进程 | 返回结构化环境错误，不伪装成验证失败或通过 |
+| 加密主密钥 | 真实适配器禁用；WebUI 仍可查看非敏感状态和运行 mock 演示 |
+| SQLite 持久卷 | 启动健康检查失败，不以临时内存库替代生产数据 |
+
+## 7. 数据模型与不变量
+
+### 7.1 核心实体
+
+| 实体 | 关键字段及类型语义 | 关系和约束 | 生命周期 |
+| --- | --- | --- | --- |
+| `DecisionRecord` | `id` UUID、`title`、`current_active_version` 可空 | 稳定 ID；一对多版本 | 创建后永久保留 |
+| `DecisionVersion` | `decision_id`、正整数 `version`、`status`、`rationale`、`source`、`created_by`、`created_at`、`supersedes` 可空 | `(decision_id, version)` 唯一；内容不可变；每个记录最多一个活动版本 | proposed → active → superseded |
+| `ScopeRule` | `id`、`decision_version_id`、`dimension`、`pattern` | dimension 为 global/module/path/tag；pattern 规范化 | 随版本永久保留 |
+| `StructuredConstraint` | `decision_version_id`、`key`、`operator`、规范 JSON `value` | operator 限定；同一版本内规范键唯一 | 随版本永久保留 |
+| `ContextSnapshot` | `id` UUID、`task_id`、`parent_snapshot_id` 可空、规范输入、`code_state_hash`、`fingerprint` | 指纹由规范内容计算；内容不可变 | 随任务保留，不能原地更新 |
+| `SnapshotEntry` | `snapshot_id`、决策 ID/版本、`selected`、`reason_code`、`reason_detail` | 每个快照与候选版本唯一 | 随快照保留 |
+| `TaskRun` | `id`、`goal`、范围、`status`、`snapshot_id`、预算、连续失败数、`stop_reason` | 绑定一个当前快照；状态转换受控 | 终态后只追加 Trace，不改历史步骤 |
+| `AgentStep` | `id`、`task_id`、单调 `sequence`、`snapshot_id`、公开响应摘要、状态 | `(task_id, sequence)` 唯一 | 追加写入 |
+| `Action` | `id`、`step_id`、`type`、规范参数、`binding_hash`、`status` | 每 Step 最多一个可执行 Action | proposed → authorized/rejected/invalidated → executed/failed |
+| `ToolCall` | `id`、`action_id`、工具名、规范参数、限制 | 一个 Action 至多一个实际 ToolCall | 创建后不可换绑 |
+| `ToolResult` | `tool_call_id`、status、data、error_code、redacted_output、evidence | 与 ToolCall 一对一；输出已脱敏 | 完成后不可修改 |
+| `Observation` | `id`、`task_id`、`step_id`、type、payload | 关联策略、工具或反馈事实 | 追加写入并可回灌 |
+| `FeedbackResult` | `id`、`action_id`、sensor、classification、exit_code、evidence | classification 为五类枚举 | 追加写入 |
+| `Conflict` | `id`、相关版本集合、范围交集、constraint_key、规则和值 | 输入规范化后结果可复现 | resolved 前阻止相关副作用 |
+| `ApprovalRequest` | `id`、action_id/conflict_id、binding_hash、expires_at、status、decided_by/reason | 批准只能消费一次；`deny` 不创建可覆盖审批 | pending → approved/denied/expired → consumed |
+| `PolicyDecision` | `id`、action_id、effect、rule_id、reason | effect 为 allow/ask/deny | 追加审计，不可修改 |
+| `TraceEvent` | `task_id`、单调 sequence、type、redacted payload、created_at | `(task_id, sequence)` 唯一；SSE 游标来源 | 默认保留 30 天 |
+| `CredentialRef` | `id`、provider、ciphertext、nonce、auth_tag、updated_at | 不含主密钥；前端 DTO 排除密文字段 | 更新替换密文；清除删除明确记录 |
+| `UserAccount` | `id`、display_name、role、password_hash、disabled_at 可空 | 登录名唯一；密码为 Argon2id 哈希 | 管理员创建、可禁用，不物理删审计身份 |
+
+### 7.2 关系概览
+
+```mermaid
+erDiagram
+    DecisionRecord ||--o{ DecisionVersion : has
+    DecisionVersion ||--o{ ScopeRule : scopes
+    DecisionVersion ||--o{ StructuredConstraint : constrains
+    TaskRun ||--o{ ContextSnapshot : rebaselines
+    ContextSnapshot ||--o{ SnapshotEntry : records
+    TaskRun ||--o{ AgentStep : contains
+    AgentStep ||--o| Action : proposes
+    Action ||--o| ToolCall : authorizes
+    ToolCall ||--o| ToolResult : produces
+    Action ||--o{ FeedbackResult : verifies
+    Action ||--o{ ApprovalRequest : gates
+    Action ||--o{ PolicyDecision : evaluates
+    TaskRun ||--o{ Observation : receives
+    TaskRun ||--o{ TraceEvent : traces
+    UserAccount ||--o{ DecisionVersion : creates
+    UserAccount ||--o{ ApprovalRequest : decides
+```
+
+### 7.3 状态机
+
+#### 决策版本
+
+```mermaid
+stateDiagram-v2
+    [*] --> proposed
+    proposed --> active: 人工激活且并发检查通过
+    active --> superseded: 新版本在同一事务中激活
+    proposed --> proposed: 只读，不允许原地修改
+    superseded --> superseded: 永久历史
+```
+
+任何 `active → proposed`、`superseded → active`、物理删除或原地内容修改均为非法转换。
+
+#### 任务运行
+
+```mermaid
+stateDiagram-v2
+    [*] --> queued
+    queued --> running
+    running --> waiting_approval
+    waiting_approval --> running: 批准且绑定有效
+    waiting_approval --> failed: 拒绝或过期后的停机策略
+    running --> rebaseline_required: 快照过期
+    rebaseline_required --> running: 新快照并重新规划
+    running --> completed: 完成条件全部满足
+    running --> failed: 不可恢复错误/预算/失败阈值
+    queued --> cancelled
+    running --> cancelled
+    running --> interrupted: 服务重启
+```
+
+所有终态禁止回到 `running`；继续工作必须创建新任务或明确的新运行记录。
+
+#### 审批
+
+```mermaid
+stateDiagram-v2
+    [*] --> pending
+    pending --> approved
+    pending --> denied
+    pending --> expired
+    approved --> consumed: 绑定校验通过并执行一次
+    approved --> expired: 超过有效期
+```
+
+`denied`、`expired`、`consumed` 均为终态；绑定摘要变化时批准不可消费。
+
+### 7.4 数据不变量
+
+1. **版本顺序**：版本号为每个决策内单调递增正整数；创建使用事务和唯一约束。
+2. **活动唯一性**：同一决策最多一个活动版本，由数据库唯一约束和领域事务共同保证。
+3. **乐观并发**：激活和 Rebaseline 必须提交调用者读取到的版本/指纹；不一致则整体失败。
+4. **规范序列化**：UTF-8、对象键字典序、集合按稳定业务键排序、路径使用 `/`、JSON 数字和字符串使用唯一表示；时间不参与快照指纹。
+5. **时间来源**：审计时间由服务端 UTC 时钟产生并以 RFC 3339 保存；业务顺序使用单调 sequence，不依赖时间排序。
+6. **哈希**：快照、代码状态、Action 和审批绑定使用 SHA-256；哈希不是凭据加密。
+7. **敏感字段**：明文密码、API Key、主密钥、`.env` 内容和完整未脱敏输出不得进入任何领域实体、Trace 或前端 DTO。
+8. **副作用前置条件**：任何写入/命令 Action 在执行前必须同时绑定有效快照、目标文件摘要和可消费授权。
+9. **追加审计**：决策版本、AgentStep、PolicyDecision、Approval 决定和 Trace 事件只追加，不允许覆盖历史。
+
