@@ -388,3 +388,17 @@
 - 项目负责人拒绝：首版不使用现成 Agent Runner、自然语言自动裁决、微服务、独立 Worker、PostgreSQL、向量库、匿名真实模型调用或重启后自动重放副作用。
 - 最终自审修订：补明四种结构化约束的值类型；把 Action 生命周期拆成互斥合法路径；删除状态图中容易被误解为可写操作的自循环。
 - 后续纪律：批准版本提交后，下一个提交只清空 `guiding.md`；合入 `dev` 后才开始 T03，且实现前必须通过 G3。
+
+## T03 实现计划形成记录
+
+### 2026-07-16 · 目录、接口与任务边界
+
+- 当前分支：`docs/t03-implementation-plan`；基线为已合入 T02 的最新 `dev`。
+- 使用 Skill：`writing-plans`；本阶段只修改文档，不创建实现文件。
+- 候选一：按技术层建立少量大型文件。拒绝原因：领域状态、Runtime、路由和持久化会被混合，新鲜智能体难以独立评审。
+- 候选二：立即拆成微服务和独立 Worker。拒绝原因：偏离已批准的模块化单体并引入分布式一致性，稀释主要贡献。
+- 最终采纳：按单一职责拆分 `domain`、`application`、`runtime`、`infrastructure`、Fastify API、React WebUI 与 shared DTO；生产仍为单容器。
+- AI 建议：冻结跨任务实体、Clock/ID/Hasher 注入、状态机与统一脱敏器的归属，防止 T05–T20 重复定义。
+- 项目负责人已批准的上游约束：TypeScript 全栈、SQLite 单实例、ScriptedMockLLM、自研 Agent Loop、Docker 和 GitLab CI；T03 只细化接口，不改变这些决定。
+- 修改：将 SPEC 的语义接口细化为稳定文件责任和 `LLMProvider`、`ToolExecutor`、`FeedbackSensor` 等端口，同时保留 Repository 可替换边界。
+- 拒绝：不把领域规则写入 Fastify route、React component 或 Drizzle hook；不在 T03 提前选具体依赖版本。

@@ -111,14 +111,14 @@ git commit -m "docs: 规划T03实现计划步骤"
 
 **`PLAN.md` 本提交必须完成：**
 
-- [ ] 按 writing-plans 规范写文档头：Goal、Architecture、Tech Stack、Global Constraints。
-- [ ] 记录当前基线：SPEC 版本、批准状态、目标平台、TypeScript/Node.js/Fastify/React/Vite/Zod/SQLite/Drizzle/Vitest/Playwright/Docker/GitLab。
-- [ ] 固定源码与测试目录地图，至少覆盖领域、应用、Agent Runtime、基础设施、Fastify API、React WebUI、共享 DTO、测试支持、演示、部署和文档。
-- [ ] 为每个目标文件写清单一职责，禁止把领域规则放进路由、React 组件或 ORM hook。
-- [ ] 固定跨任务接口命名：Decision、Scope、ContextSnapshot、TaskRun、Action、Observation、PolicyDecision、FeedbackResult、ApprovalRequest、TraceEvent、CredentialRef。
-- [ ] 固定错误码、状态机、时间/ID/哈希注入和脱敏的共享归属，避免后续任务重复定义。
-- [ ] 写统一 Task 模板、TDD 模板、提交模板、两阶段评审模板和 MR 证据模板。
-- [ ] 建立 `REQ-001`–`REQ-025` 追踪表骨架，每条只能有一个主要实现 Txx，可有多个验证 Txx。
+- [x] 按 writing-plans 规范写文档头：Goal、Architecture、Tech Stack、Global Constraints。
+- [x] 记录当前基线：SPEC 版本、批准状态、目标平台、TypeScript/Node.js/Fastify/React/Vite/Zod/SQLite/Drizzle/Vitest/Playwright/Docker/GitLab。
+- [x] 固定源码与测试目录地图，至少覆盖领域、应用、Agent Runtime、基础设施、Fastify API、React WebUI、共享 DTO、测试支持、演示、部署和文档。
+- [x] 为每个目标文件写清单一职责，禁止把领域规则放进路由、React 组件或 ORM hook。
+- [x] 固定跨任务接口命名：Decision、Scope、ContextSnapshot、TaskRun、Action、Observation、PolicyDecision、FeedbackResult、ApprovalRequest、TraceEvent、CredentialRef。
+- [x] 固定错误码、状态机、时间/ID/哈希注入和脱敏的共享归属，避免后续任务重复定义。
+- [x] 写统一 Task 模板、TDD 模板、提交模板、两阶段评审模板和 MR 证据模板。
+- [x] 建立 `REQ-001`–`REQ-025` 追踪表骨架，每条只能有一个主要实现 Txx，可有多个验证 Txx。
 
 **目录地图约束：**
 
