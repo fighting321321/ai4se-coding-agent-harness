@@ -281,25 +281,25 @@ git commit -m "docs: 规划工具治理与反馈任务"
 
 **T11 记忆与上下文必须规划：**
 
-- [ ] `feat/t11-memory-context` 独立 branch/worktree/MR。
-- [ ] DecisionRecord/DecisionVersion/ScopeRule Repository、不可变版本和唯一活动版本事务。
-- [ ] 四级 Scope 匹配、稳定选择/排除理由、规范序列化、SHA-256 快照指纹。
-- [ ] 快照过期检测、Decision diff、Rebaseline、旧 Action/Approval 失效和敏感信息拒绝。
+- [x] `feat/t11-memory-context` 独立 branch/worktree/MR。
+- [x] DecisionRecord/DecisionVersion/ScopeRule Repository、不可变版本和唯一活动版本事务。
+- [x] 四级 Scope 匹配、稳定选择/排除理由、规范序列化、SHA-256 快照指纹。
+- [x] 快照过期检测、Decision diff、Rebaseline、旧 Action/Approval 失效和敏感信息拒绝。
 
 **T12 配置、日志与 Trace 必须规划：**
 
-- [ ] `feat/t12-config-tracing` 独立 branch/worktree/MR。
-- [ ] 配置 Schema、安全默认值、错误配置快速失败和预算。
-- [ ] TraceEvent 单调序号、事务持久化、SSE 只推已持久化事件、30 天保留边界。
-- [ ] 统一脱敏器和假 Key 注入测试，确保数据库、日志、API、SSE、导出均无明文。
+- [x] `feat/t12-config-tracing` 独立 branch/worktree/MR。
+- [x] 配置 Schema、安全默认值、错误配置快速失败和预算。
+- [x] TraceEvent 单调序号、事务持久化、SSE 只推已持久化事件、30 天保留边界。
+- [x] 统一脱敏器和假 Key 注入测试，确保数据库、日志、API、SSE、导出均无明文。
 
 **T13 自研 Agent Loop 必须规划：**
 
-- [ ] `feat/t13-agent-loop` 独立 branch/worktree/MR。
-- [ ] 上下文构建、LLM 单次调用、Action 解析、写前版本/策略检查、工具执行、反馈回灌。
-- [ ] 完成门和停机原因：completed、最大 30 Step、预算耗尽、连续失败、审批拒绝、人工取消、环境故障。
-- [ ] 快照过期进入 `rebaseline_required`，生成新快照并强制重新规划，禁止复用旧 Action。
-- [ ] 完整循环由 ScriptedMockLLM 驱动，不调用任何现成 Agent Runner。
+- [x] `feat/t13-agent-loop` 独立 branch/worktree/MR。
+- [x] 上下文构建、LLM 单次调用、Action 解析、写前版本/策略检查、工具执行、反馈回灌。
+- [x] 完成门和停机原因：completed、最大 30 Step、预算耗尽、连续失败、审批拒绝、人工取消、环境故障。
+- [x] 快照过期进入 `rebaseline_required`，生成新快照并强制重新规划，禁止复用旧 Action。
+- [x] 完整循环由 ScriptedMockLLM 驱动，不调用任何现成 Agent Runner。
 
 **关键 Gate：**
 

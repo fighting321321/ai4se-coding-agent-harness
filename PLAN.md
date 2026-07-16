@@ -497,6 +497,133 @@ it.each([
 
 **串行说明：** T08、T09、T10 共同影响 `Action`、`Observation`、错误和未来 Trace DTO，按 T08 → T09 → T10 合并；三者的安全测试都必须检查调用计数/文件字节等真实副作用证据。
 
+### T11：实现版本化决策记忆、范围选择与快照
+
+**Branch/Worktree/MR：** `feat/t11-memory-context`；`../ai4se-t11-memory-context`；MR → `dev`；禁止 squash。
+
+**目标：** 实现不可变决策版本、四级范围选择、规范 JSON、SHA-256 快照和 Rebaseline 数据协议，形成主要贡献的数据基础。
+
+**前置依赖：** T10 已合入；消费 Clock/ID/Hasher、Action invalidation、审批 binding；不得引入 embedding、LLM 排名或完整聊天存储。
+
+**Files：** Create decision/context domain files from map; Create `packages/domain/src/decision/repository.ts`; Create `packages/infrastructure/src/db/schema.ts`, migrations, decision/snapshot repositories, Git code-state reader; Create `packages/application/src/services/decision-service.ts`, `context-service.ts`; Create unit/integration tests for version/selector/canonical/snapshot/rebaseline; Modify exports/evidence docs.
+
+**Interfaces：** `DecisionRepository.createVersion/activate/getCandidates`；`ContextSelector.select(scope,candidates): SelectionResult`；`SnapshotBuilder.build(input): ContextSnapshot`；`ContextService.compareAndPrepareRebaseline(taskId,current): RebaselinePlan`。Repository 激活接收 `expectedActiveVersion` 并在事务中保证唯一活动版本。
+
+- [ ] **Step 1:** 提交 T11 guiding，冻结表结构、索引、规范化规则和数据保留边界。
+- [ ] **Step 2:** 写不可变版本 RED 测试：创建版本后任何 update API 不存在；两个并发激活请求以同一旧版本为基线，断言恰一成功、另一个 `DECISION_VERSION_CONFLICT`、数据库恰一 active。
+- [ ] **Step 3:** 实现 Drizzle Schema 的 `(decision_id,version)` 唯一约束、活动唯一索引与事务激活；运行集成测试 PASS。
+- [ ] **Step 4:** 写四级范围表驱动测试：
+
+```ts
+it("selects only active versions matching every declared dimension", () => {
+  const a = selector.select(
+    { files: ["apps/api/src/app.ts"], modules: ["api"], tags: ["security"] },
+    shuffledDecisionFixtures(),
+  );
+  const b = selector.select(
+    { files: ["apps/api/src/app.ts"], modules: ["api"], tags: ["security"] },
+    reversedDecisionFixtures(),
+  );
+  expect(a).toEqual(b);
+  expect(a.selected.map((x) => x.id)).toEqual(["global-v1", "security-v2"]);
+  expect(a.excluded).toEqual(expect.arrayContaining([expect.objectContaining({ reason: "INACTIVE" })]));
+});
+```
+
+- [ ] **Step 5:** 运行 selector 测试预期 RED；实现状态先筛选、同维度 OR/跨维度 AND、`/` 路径和稳定理由排序；测试 PASS。
+- [ ] **Step 6:** 写非法 glob、绝对路径、`..`、三维全空测试；实现 `SCOPE_INVALID|TASK_SCOPE_EMPTY` 后 PASS。
+- [ ] **Step 7:** 写规范序列化变形测试，随机字段/集合/数据库顺序和 Unicode 等价输入必须产生相同字节；预期 RED。
+- [ ] **Step 8:** 实现递归键排序、业务键集合排序、路径/Unicode 规范和唯一 JSON 数字表示；测试 PASS。
+- [ ] **Step 9:** 写快照测试，注入固定 Hasher，断言同输入同 JSON/指纹，任一版本或文件哈希变化即不同；实现 `SnapshotBuilder` 后 PASS。
+- [ ] **Step 10:** 写 Git 不可用、dirty 摘要、部分快照禁止发布测试；实现 CodeStateReader 和事务保存后 PASS。
+- [ ] **Step 11:** 写 stale/diff/Rebaseline RED 测试，断言新增/替代版本或目标文件变化得到 `SNAPSHOT_STALE`、新 ID、parent 关联、旧 Action/Approval invalidated。
+- [ ] **Step 12:** 实现结构化 diff 和原子 `RebaselinePlan` 发布；运行测试 PASS；连续计数上限只输出给 T13，不在 T11 自行循环。
+- [ ] **Step 13:** 重构 Repository 端口和纯领域算法，运行 unit/integration、性能基线样本及两阶段评审；提交 `feat: 实现版本化决策与上下文快照` 并完成 MR。
+
+**完成标准：** REQ-001–004 可独立验证；顺序/变形不改变结果；并发激活恰一成功；stale 计划原子失效旧绑定；敏感内容拒绝进入快照。
+
+### T12：实现配置、统一脱敏与持久化 Trace
+
+**Branch/Worktree/MR：** `feat/t12-config-tracing`；`../ai4se-t12-config-tracing`；MR → `dev`；禁止 squash。
+
+**目标：** 提供严格 YAML 配置、安全默认值、全通道脱敏、事务追加 Trace 和基于持久化序号的 SSE 读取。
+
+**前置依赖：** T11 数据库与 Task/Action ID；纯 `redactor.ts` 可先在本分支开发，但 Schema/Trace 合并必须基于最新 T11。
+
+**Files：** Create config schema/loader, trace types/store, security redactor; Create `packages/shared/src/dto/trace.ts`; Create `apps/api/src/sse/task-events.ts`; Create unit/integration tests for config/redaction/trace/SSE; Modify DB schema/migrations/exports/evidence docs.
+
+**Interfaces：** `loadConfig(yaml): HarnessConfig`；`Redactor.redact<T>(value:T): T`；`TraceStore.append(eventWithoutSequence): Promise<TraceEvent>` 原子分配 task sequence；`TraceStore.listAfter(taskId,lastSequence,limit)`；SSE 只能消费已返回的 TraceEvent。
+
+- [ ] **Step 1:** 提交 T12 guiding，列出默认 30/3/120000/65536/4/30 days 等精确安全值。
+- [ ] **Step 2:** 写错误配置 RED 测试，未知安全字段、超过系统上限、Shell 字符串和凭据出现在 YAML 时快速失败；实现 Zod `.strict()` 和默认值后 PASS。
+- [ ] **Step 3:** 写 fake Key 脱敏测试：
+
+```ts
+it("removes a fake key from nested values without mutating input", () => {
+  const fake = "sk-test-0123456789abcdef";
+  const input = { authorization: `Bearer ${fake}`, nested: { stderr: `failed ${fake}` } };
+  const output = redactor.redact(input);
+  expect(JSON.stringify(output)).not.toContain(fake);
+  expect(JSON.stringify(input)).toContain(fake);
+});
+```
+
+- [ ] **Step 4:** 实现敏感键、Bearer/token/Key 模式、长度上限和不可变深复制；日志/Trace/DTO 测试 PASS。
+- [ ] **Step 5:** 写并发 Trace append 测试，100 个事件序号必须恰为 1..100 且无重复；实现事务序号分配后 PASS。
+- [ ] **Step 6:** 写“脱敏失败/持久化失败时不返回已发布事件”测试；实现写前 redaction 与失败传播 `TRACE_PERSIST_FAILED` 后 PASS。
+- [ ] **Step 7:** 写 SSE 测试：先 append 再推送、last-event-id 补读、重复事件客户端可按 `(task_id,sequence)` 去重、断线不改 TaskRun；实现后 PASS。
+- [ ] **Step 8:** 写 30 天清理测试，固定 Clock 下只删除过期 Trace，DecisionVersion/Approval 审计不删，并追加清理计数记录；实现后 PASS。
+- [ ] **Step 9:** 运行假 Key 跨数据库/API/SSE/导出集成扫描、Trace p95 样本和全量回归；两阶段评审检查事件缺口和泄露。
+- [ ] **Step 10:** 提交 `feat: 实现安全配置与审计追踪`，更新台账并完成 MR 收尾。
+
+**完成标准：** 配置错误快速失败；同一 redactor 覆盖所有出口；事件单调且 SSE 只推已持久化事件；清理边界正确；fake Key 全通道零命中。
+
+### T13：实现自研 Agent Runtime 主循环
+
+**Branch/Worktree/MR：** `feat/t13-agent-loop`；`../ai4se-t13-agent-loop`；MR → `dev`；禁止 squash。
+
+**目标：** 把快照、LLM、解析、stale/Policy、工具、反馈、Trace 和停机装配成完全由 `ScriptedMockLLM` 驱动的自研循环，并通过 G4。
+
+**前置依赖：** T11、T12 以及 T06–T10 全部已合入；消费既有端口，不引入 Agent SDK/Runner。
+
+**Files：** Create `packages/runtime/src/agent/context-builder.ts`, `agent-runtime.ts`, `completion-gate.ts`, `budget.ts`; Create `packages/domain/src/task/types.ts`, `state-machine.ts`; Create `packages/application/src/services/task-service.ts`, `task-scheduler.ts`; Create unit/integration tests for loop/states/stops/rebaseline/restart; Modify exports/evidence docs.
+
+**Interfaces：** `AgentRuntime.run(taskId, signal): Promise<TaskRunResult>`；`CompletionGate.evaluate({ requested, feedback, conflicts, pendingApproval }): boolean`；`TaskScheduler` 同时最多 4 个；所有终态必须有 `stop_reason`。
+
+- [ ] **Step 1:** 提交 T13 guiding，画出精确轮次顺序和每个端口的 fake；列出合法 TaskRun 转换。
+- [ ] **Step 2:** 写最小多轮 RED 测试：
+
+```ts
+it("runs one action per step and completes only after verified PASS", async () => {
+  const h = makeRuntimeHarness([
+    { kind: "action", raw: makeReadAction("src/a.ts") },
+    { kind: "action", raw: makeSensorAction("unit") },
+    { kind: "complete", summary: "verified" },
+  ], [feedback("PASS")]);
+  const result = await h.runtime.run(h.task.id, AbortSignal.timeout(1000));
+  expect(h.tools.calls).toHaveLength(2);
+  expect(result.steps.map((s) => s.sequence)).toEqual([1, 2, 3]);
+  expect(result).toMatchObject({ status: "completed", stop_reason: "completed" });
+});
+```
+
+- [ ] **Step 3:** 运行 loop 测试预期 RED；实现 context→complete→parse→freshness→policy→tool→feedback→trace 的单轮顺序与循环；测试 PASS。
+- [ ] **Step 4:** 写 completion gate 表驱动测试：无 PASS、有 Conflict、有 pending Approval、仅 LLM 声称完成均不得 completed；实现纯 gate 后 PASS。
+- [ ] **Step 5:** 写 parse failure、deny、ask/wait/approve/resume、approval denied 的轮次测试；逐项 RED→最小实现→PASS。
+- [ ] **Step 6:** 写停止测试：30 Step、token/费用预算、3 次连续 FAIL、人工取消、ENV_ERROR、供应商错误、Trace 持久化失败；断言每个 `stop_reason` 非空且无额外工具调用。
+- [ ] **Step 7:** 实现 Budget/FailureCounter 和显式失败状态；运行停止测试 PASS；LLM 传输/限速最多 2 次有界重试且不推进 Step。
+- [ ] **Step 8:** 写 stale 测试：副作用前发现旧快照时工具零调用、任务 `rebaseline_required`；Rebaseline 后旧 Action ID 不可用并产生全新 LLM 调用。
+- [ ] **Step 9:** 实现 Rebaseline 状态、差异 Observation、重新构建 context 和 3 次升级；测试 PASS。
+- [ ] **Step 10:** 写 scheduler 5 个任务测试，前 4 running、第 5 queued；实现并发信号量后 PASS。
+- [ ] **Step 11:** 写启动恢复测试，把遗留 running 原子改 interrupted，绝不重放 ToolCall；实现后 PASS。
+- [ ] **Step 12:** 运行 `pnpm test`、三类端到端 mock fixture、lint/typecheck/build；扫描依赖确认无 AgentExecutor/Agent Runner。
+- [ ] **Step 13:** Spec 评审逐项核对 REQ-005/009/012/016，质量评审检查状态竞争/资源释放；修复 Critical 后提交 `feat: 实现自研智能体主循环`。
+- [ ] **Step 14:** 运行 G4 命令 `pnpm vitest run tests/integration/runtime/core-loop.test.ts`；预期 mock 主循环、工具、治理、反馈、记忆和停机全部 PASS；记录输出、完成 MR 与 guiding 收尾。
+
+**完成标准/G4：** 完整闭环离线可重复；每 Step 一个 Action；副作用前 stale/Policy；完成门四条件；全部停机有原因；无现成 Runner；服务恢复不重放。
+
+**串行说明：** T11 → T12 → T13 是核心关键路径；T12 的 redactor 可在接口冻结后准备，但不得在未合入 T11 Schema 的 worktree 上合并 Trace。共享状态机、DB Schema、Trace DTO 的修改必须逐项评审。
+
 ## 9. 执行证据台账
 
 | Txx | Branch | Commit(s) | MR | Pipeline | Spec Review | Quality Review | 状态 |
