@@ -165,27 +165,27 @@ git commit -m "docs: 建立实现计划框架"
 
 **T05 工程骨架必须规划：**
 
-- [ ] `chore/t05-project-foundation` 独立 branch/worktree/MR。
-- [ ] 根依赖、锁文件、TypeScript 严格配置、Vitest、lint、typecheck、构建和一键测试入口。
-- [ ] 后端、前端、共享类型、测试支持、演示和部署目录骨架。
-- [ ] 先写最小健康测试并验证红色，再补最小模块使其变绿。
-- [ ] 新环境安装、测试、构建和 `.gitignore` 验证；不得提前实现业务机制。
+- [x] `chore/t05-project-foundation` 独立 branch/worktree/MR。
+- [x] 根依赖、锁文件、TypeScript 严格配置、Vitest、lint、typecheck、构建和一键测试入口。
+- [x] 后端、前端、共享类型、测试支持、演示和部署目录骨架。
+- [x] 先写最小健康测试并验证红色，再补最小模块使其变绿。
+- [x] 新环境安装、测试、构建和 `.gitignore` 验证；不得提前实现业务机制。
 
 **T06 LLM 抽象与 mock 必须规划：**
 
-- [ ] `feat/t06-mock-llm` 独立 branch/worktree/MR。
-- [ ] 单次调用的 `LLMClient` 接口、输入消息、结构化响应和错误分类。
-- [ ] `ScriptedMockLLM` 顺序响应、调用记录、耗尽行为、解析失败和修正脚本。
-- [ ] OpenAI-compatible 适配器只规划接口边界和测试替身，核心测试不联网。
-- [ ] 每个行为包含失败测试代码、预期失败、最小实现、通过命令和重构步骤。
+- [x] `feat/t06-mock-llm` 独立 branch/worktree/MR。
+- [x] 单次调用的 `LLMClient` 接口、输入消息、结构化响应和错误分类。
+- [x] `ScriptedMockLLM` 顺序响应、调用记录、耗尽行为、解析失败和修正脚本。
+- [x] OpenAI-compatible 适配器只规划接口边界和测试替身，核心测试不联网。
+- [x] 每个行为包含失败测试代码、预期失败、最小实现、通过命令和重构步骤。
 
 **T07 Action、解析与工具分发必须规划：**
 
-- [ ] `feat/t07-tool-dispatch` 独立 branch/worktree/MR。
-- [ ] `Action`、`ToolCall`、`ToolResult`、`Observation` 的 Zod Schema 与 TypeScript 类型。
-- [ ] 严格解析、未知字段/未知 Action 拒绝、稳定错误码。
-- [ ] `ToolRegistry`、参数校验、Dispatcher、工具异常和超时结果。
-- [ ] mock LLM 到 mock Tool 的完整确定性分发链测试。
+- [x] `feat/t07-tool-dispatch` 独立 branch/worktree/MR。
+- [x] `Action`、`ToolCall`、`ToolResult`、`Observation` 的 Zod Schema 与 TypeScript 类型。
+- [x] 严格解析、未知字段/未知 Action 拒绝、稳定错误码。
+- [x] `ToolRegistry`、参数校验、Dispatcher、工具异常和超时结果。
+- [x] mock LLM 到 mock Tool 的完整确定性分发链测试。
 
 **接口衔接：**
 

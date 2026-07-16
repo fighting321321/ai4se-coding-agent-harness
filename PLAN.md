@@ -221,6 +221,170 @@ pnpm build
 
 后续章节逐项定义 T05–T20。未在当前 Txx 章节列出的行为不得由执行者顺手加入；发现缺口时停止并按变更纪律修订 SPEC/PLAN。
 
+### T05：建立工程骨架和测试入口
+
+**Branch/Worktree/MR：** `chore/t05-project-foundation`；建议 worktree `../ai4se-t05-foundation`；从最新 `dev` 创建；MR → `dev`；禁止 squash。
+
+**目标：** 建立可冻结依赖、严格类型检查、离线测试、构建前后端的最小工作区，不实现任何业务机制。
+
+**前置依赖：** G3 已通过；`OPEN-03` 在本任务内由实现者提出当前受支持 Node.js LTS 与依赖版本、项目负责人批准后写入 `package.json` 的 `engines` 和锁文件。
+
+**Files：**
+
+- Create: `package.json`, `pnpm-workspace.yaml`, `tsconfig.base.json`, `eslint.config.js`, `vitest.workspace.ts`
+- Create: `apps/api/package.json`, `apps/api/src/health.ts`, `apps/api/tsconfig.json`
+- Create: `apps/web/package.json`, `apps/web/src/main.tsx`, `apps/web/index.html`, `apps/web/vite.config.ts`, `apps/web/tsconfig.json`
+- Create: `packages/domain/package.json`, `packages/domain/src/index.ts`, `packages/shared/package.json`, `packages/shared/src/index.ts`
+- Create: `tests/unit/foundation/health.test.ts`, `tests/test-support/fixed-values.ts`
+- Modify: `.gitignore`, `guiding.md`, `PLAN.md`, `AGENT_LOG.md`
+
+**Interfaces：** Produces `healthStatus(): { status: "ok" }`，以及根脚本 `test|lint|typecheck|build`；后续 Txx 只消费这些命令，不依赖 T05 的业务类型。
+
+- [ ] **Step 1 (2–5 min):** 在 T05 worktree 填写 `guiding.md`，记录 G3 证据、Node LTS 候选、文件清单、红色测试和验证命令；提交 `docs: 规划T05工程骨架步骤`。
+- [ ] **Step 2 (2–5 min):** 只创建根 workspace/TypeScript/Vitest 配置与空 package 清单；运行 `pnpm install --frozen-lockfile` 应因锁文件尚不存在失败，确认安装入口尚未完成。
+- [ ] **Step 3 (2–5 min):** 在 `tests/unit/foundation/health.test.ts` 写失败测试：
+
+```ts
+import { describe, expect, it } from "vitest";
+import { healthStatus } from "../../../apps/api/src/health.js";
+
+describe("foundation health", () => {
+  it("returns an explicit healthy state", () => {
+    expect(healthStatus()).toEqual({ status: "ok" });
+  });
+});
+```
+
+- [ ] **Step 4 (2–5 min):** 运行 `pnpm vitest run tests/unit/foundation/health.test.ts`；预期 RED：模块 `apps/api/src/health.ts` 不存在。
+- [ ] **Step 5 (2–5 min):** 创建最小实现：
+
+```ts
+export function healthStatus(): { status: "ok" } {
+  return { status: "ok" };
+}
+```
+
+- [ ] **Step 6 (2–5 min):** 运行同一 Vitest 命令；预期 1 test passed；再运行 `pnpm lint`、`pnpm typecheck`、`pnpm build`，均预期退出码 0。
+- [ ] **Step 7 (2–5 min):** 生成并提交 `pnpm-lock.yaml`，随后运行 `pnpm install --frozen-lockfile`；预期不改锁文件且退出码 0。
+- [ ] **Step 8 (2–5 min):** 检查 `git status --short`，确认无数据库、`.env`、构建物和依赖目录被跟踪；用 `git check-ignore .env node_modules apps/web/dist` 验证三者均被忽略。
+- [ ] **Step 9 (2–5 min):** 依次提交配置、健康测试与最小实现；业务实现目录只能存在空导出，不得提前出现 Decision/Runtime/Policy 行为。
+- [ ] **Step 10 (2–5 min):** 执行两阶段评审与全量命令，更新证据台账，清空 `guiding.md` 并提交 `docs: 清空T05任务规划`；Pipeline 通过后合并 MR。
+
+**完成标准：** 全新环境能冻结安装；四个根命令成功；健康测试经历可证明的 RED/GREEN；无业务机制；MR Pipeline passed。
+
+**主要业务提交：** `chore: 建立项目工程骨架`、`test: 建立最小健康测试`、`chore: 固定项目依赖与验证入口`。
+
+### T06：实现 LLM 抽象与 ScriptedMockLLM
+
+**Branch/Worktree/MR：** `feat/t06-mock-llm`；`../ai4se-t06-mock-llm`；MR → `dev`；禁止 squash。
+
+**目标：** 提供只执行一次模型调用的 `LLMProvider`（guiding 中“LLMClient”的语义边界）与完全离线、调用可记录的 `ScriptedMockLLM`。
+
+**前置依赖：** T05 已合入 `dev`；消费测试和严格类型配置；不得包含循环、工具、重试决策、记忆或治理。
+
+**Files：**
+
+- Create: `packages/runtime/package.json`, `packages/runtime/tsconfig.json`
+- Create: `packages/runtime/src/llm/types.ts`, `packages/runtime/src/llm/scripted-mock.ts`, `packages/runtime/src/llm/index.ts`
+- Create: `tests/unit/runtime/scripted-mock-llm.test.ts`, `tests/unit/runtime/llm-types.test.ts`
+- Modify: `package.json`, `pnpm-lock.yaml`, `vitest.workspace.ts`, `guiding.md`, `PLAN.md`, `AGENT_LOG.md`
+
+**Interfaces：**
+
+```ts
+interface LLMRequest { messages: ReadonlyArray<LLMMessage>; actionSchema: unknown; model: string; }
+type LLMResponse = { kind: "action"; raw: unknown } | { kind: "complete"; summary: string };
+type LLMProviderErrorCode = "LLM_UNAVAILABLE" | "LLM_AUTH_FAILED" | "LLM_RATE_LIMITED" | "LLM_INVALID_RESPONSE";
+interface LLMProvider { complete(input: LLMRequest, signal: AbortSignal): Promise<LLMResponse>; }
+```
+
+Produces `ScriptedMockLLM implements LLMProvider`，其构造输入为只读 `ScriptedResult[]`，公开只读 `calls`，脚本耗尽抛出 `ScriptedMockExhaustedError`；T07 消费 `LLMResponse.raw`，T13 消费接口而不识别具体实现。
+
+- [ ] **Step 1:** 填写并提交 T06 `guiding.md`，明确真实 Provider 不在本任务实现。
+- [ ] **Step 2:** 写 `llm-types.test.ts`，用 `satisfies LLMProvider` 构造最小 fake，确认单次输入不含 ToolExecutor、Memory 或 Loop 字段。
+- [ ] **Step 3:** 写失败测试：
+
+```ts
+it("returns scripted results in order and records immutable calls", async () => {
+  const llm = new ScriptedMockLLM([
+    { kind: "action", raw: { type: "decision.query", args: {} } },
+    { kind: "complete", summary: "done" },
+  ]);
+  const request = makeLLMRequest("inspect decisions");
+  await expect(llm.complete(request, AbortSignal.timeout(100))).resolves.toMatchObject({ kind: "action" });
+  await expect(llm.complete(request, AbortSignal.timeout(100))).resolves.toEqual({ kind: "complete", summary: "done" });
+  expect(llm.calls).toHaveLength(2);
+  expect(Object.isFrozen(llm.calls[0])).toBe(true);
+});
+```
+
+- [ ] **Step 4:** 运行 `pnpm vitest run tests/unit/runtime/scripted-mock-llm.test.ts`；预期 RED：`ScriptedMockLLM` 未导出。
+- [ ] **Step 5:** 实现只复制/冻结输入与调用记录、按索引返回脚本的最小类，不增加重试或解析。
+- [ ] **Step 6:** 运行同一测试；预期 PASS。
+- [ ] **Step 7:** 增加耗尽、供应商错误、预置解析失败 raw、AbortSignal 已取消四个失败测试；逐个运行，预期先因行为缺失 RED。
+- [ ] **Step 8:** 最小实现耗尽错误与取消检查；供应商错误作为脚本结果按原分类返回；运行 5 个行为测试均 PASS。
+- [ ] **Step 9:** 重构为不可变 `ScriptedResult`/`RecordedLLMCall`，运行 `pnpm test --filter runtime` 与全量 lint/typecheck/build。
+- [ ] **Step 10:** Spec 合规评审断言“不含 Agent loop”；质量评审检查泄露/可变引用；提交 `feat: 实现可注入模拟模型`，更新台账并完成 MR 收尾。
+
+**完成标准：** 结果顺序、调用记录、耗尽、取消、错误和解析失败输入全部离线可重复；测试不联网且无凭据；接口不含 Agent Runner 行为。
+
+### T07：实现 Action Schema、严格解析与工具分发
+
+**Branch/Worktree/MR：** `feat/t07-tool-dispatch`；`../ai4se-t07-tool-dispatch`；MR → `dev`；禁止 squash。
+
+**目标：** 将不可信 LLM raw 响应严格解析为单个已知 `Action`，再通过 Schema 注册表产生结构化、可审计的 `ToolResult`。
+
+**前置依赖：** T06 `LLMProvider` 已合入；T07 不实现 Agent Loop、Policy 或真实文件/命令工具。
+
+**Files：**
+
+- Create: `packages/domain/src/action/types.ts`, `packages/domain/src/errors.ts`
+- Create: `packages/runtime/src/action/schemas.ts`, `packages/runtime/src/action/parser.ts`
+- Create: `packages/runtime/src/tools/types.ts`, `packages/runtime/src/tools/registry.ts`, `packages/runtime/src/tools/dispatcher.ts`
+- Create: `tests/unit/runtime/action-parser.test.ts`, `tests/unit/runtime/tool-registry.test.ts`, `tests/unit/runtime/tool-dispatcher.test.ts`
+- Modify: `packages/domain/src/index.ts`, `packages/runtime/src/index.ts`, `guiding.md`, `PLAN.md`, `AGENT_LOG.md`
+
+**Interfaces：** Produces `parseAction(raw: unknown): Result<Action, DomainError>`、`ToolRegistry.register<T>(definition: ToolDefinition<T>): void`、`ToolDispatcher.execute(action: Action, signal: AbortSignal): Promise<ToolResult>`。错误码固定为 `ACTION_PARSE_FAILED`、`TOOL_UNKNOWN`、`TOOL_ARGUMENT_INVALID`、`TOOL_TIMEOUT`、`TOOL_EXECUTION_FAILED`。
+
+- [ ] **Step 1:** 提交 T07 `guiding.md`，冻结 `Action` discriminated union：`decision.query|decision.propose|file.read|file.write|command.run|sensor.run|complete`。
+- [ ] **Step 2:** 写解析失败测试：
+
+```ts
+it.each([
+  [null, "ACTION_PARSE_FAILED"],
+  [{ type: "unknown", args: {} }, "ACTION_PARSE_FAILED"],
+  [{ type: "file.read", args: { path: "a" }, extra: true }, "ACTION_PARSE_FAILED"],
+])("strictly rejects invalid action %#", (raw, code) => {
+  expect(parseAction(raw)).toEqual(expect.objectContaining({ ok: false, error: expect.objectContaining({ code }) }));
+});
+```
+
+- [ ] **Step 3:** 运行 `pnpm vitest run tests/unit/runtime/action-parser.test.ts`；预期 RED：parser 不存在。
+- [ ] **Step 4:** 用 `.strict()` Zod discriminated union 实现最小 parser；运行测试预期 PASS。
+- [ ] **Step 5:** 写 Registry 测试，断言重复工具名拒绝、未知工具返回 `TOOL_UNKNOWN`、参数未通过 Zod 时 handler 调用次数为零；运行预期 RED。
+- [ ] **Step 6:** 实现 `ToolRegistry` 的名称唯一、Schema 校验和只读查找；运行 Registry 测试预期 PASS。
+- [ ] **Step 7:** 写 Dispatcher 测试：
+
+```ts
+it("converts handler failures into a structured ToolResult", async () => {
+  const handler = vi.fn().mockRejectedValue(new Error("secret detail"));
+  const dispatcher = makeDispatcher("sensor.run", handler);
+  const result = await dispatcher.execute(makeSensorAction(), AbortSignal.timeout(100));
+  expect(result).toMatchObject({ status: "error", error_code: "TOOL_EXECUTION_FAILED" });
+  expect(result.redacted_output).not.toContain("secret detail");
+});
+```
+
+- [ ] **Step 8:** 运行 Dispatcher 测试；预期 RED：异常向外抛出或 dispatcher 缺失。
+- [ ] **Step 9:** 最小实现异常转换、AbortSignal 超时转换和结构化 evidence；运行测试预期 PASS。
+- [ ] **Step 10:** 增加 `ScriptedMockLLM → parseAction → mock Tool` 集成单测，断言只调用一次工具、Observation 保留 error_code；运行预期 PASS。
+- [ ] **Step 11:** 重构共享 Result/错误构造器，运行 runtime/domain 单测与全量回归；确认没有文件系统、Shell、Policy 或循环代码。
+- [ ] **Step 12:** 两阶段评审；提交 `feat: 实现动作解析与工具分发`，更新证据台账，清空 guiding，Pipeline passed 后合并。
+
+**完成标准：** 已知 Action 严格解析；未知字段/动作稳定拒绝；参数错误不调用 handler；异常/超时为结构化结果；完整 mock 分发链可重复。
+
+**冲突与串行说明：** T05–T07 都可能修改根配置、`domain/src/index.ts` 和 `runtime/src/index.ts`，因此一级任务必须按 T05 → T06 → T07 合并；未合并 worktree 之间不得复制文件或直接建立依赖。
+
 ## 9. 执行证据台账
 
 | Txx | Branch | Commit(s) | MR | Pipeline | Spec Review | Quality Review | 状态 |

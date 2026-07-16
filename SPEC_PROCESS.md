@@ -402,3 +402,11 @@
 - 项目负责人已批准的上游约束：TypeScript 全栈、SQLite 单实例、ScriptedMockLLM、自研 Agent Loop、Docker 和 GitLab CI；T03 只细化接口，不改变这些决定。
 - 修改：将 SPEC 的语义接口细化为稳定文件责任和 `LLMProvider`、`ToolExecutor`、`FeedbackSensor` 等端口，同时保留 Repository 可替换边界。
 - 拒绝：不把领域规则写入 Fastify route、React component 或 Drizzle hook；不在 T03 提前选具体依赖版本。
+
+### 2026-07-16 · T05–T07 工程基础与分发边界
+
+- 采纳顺序：先建立无业务的工程/测试入口，再实现单次 LLM 抽象，最后实现严格 Action 与工具分发；该顺序让每一步可独立红绿验证。
+- 接口修改：保留 SPEC 的正式名称 `LLMProvider`；`guiding.md` 中的“LLMClient”解释为同一单次调用边界，不再新增第二套同义接口。
+- 采纳：`ScriptedMockLLM` 记录不可变调用、显式处理脚本耗尽和取消；供应商错误只分类，不在 Provider 内决定重试。
+- 拒绝：T07 不顺手实现文件工具、Policy 或 Agent Loop；这些分别属于 T08、T09、T13。
+- 冲突处理：T05–T07 共享根配置和包导出，故一级任务串行合并，不允许未合并 worktree 互相复制成果。
