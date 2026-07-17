@@ -10,8 +10,9 @@
 
 ## Global Constraints
 
-- 权威需求为 `SPEC.md` 1.0.0；状态为 G1、G2 已通过，G3 未通过。
-- G3 通过前禁止创建本计划描述的源码、测试、依赖、Dockerfile 或 CI 文件。
+- 权威需求为 `SPEC.md` 1.0.0；状态为 G1、G2、G3 已通过。
+- G3 通过前禁止在项目工作区创建或修改本计划描述的正式源码、测试、依赖、Dockerfile 或 CI 文件，也不得提交、合并或把试做结果计为任何 T05–T20 任务进度。
+- T04 冷启动试做是上述禁令的隔离验证活动：允许陌生智能体在不连接项目工作区的外部网页或一次性沙箱中静态模拟 T05 Step 1–5，并在回答正文中生成一次性文本草案或失败证据；即使 G3、`OPEN-03` 尚未满足，也可继续这种明确标为“模拟/未执行”的推演。模拟中不得伪造 G3 证据、版本候选已获批准、命令结果或文件产物；其内容不得写回项目工作区、不得作为可执行产物保留，也不构成 G3 豁免。环境没有终端、Git 或写入能力时，应如实报告并继续可验证的静态分析，不得伪造执行结果。
 - 首版只支持一个项目、最多 10 名成员、单应用实例、4 个并发任务；SQLite 开启外键与 WAL。
 - Agent 每轮最多一个 `Action`，每任务最多 30 Step；连续验证失败或 Rebaseline 达到 3 次后升级给人。
 - 命令默认超时 120 秒，保存输出上限 64 KiB；子进程只接收允许列表环境变量，绝不继承模型 Key。
@@ -30,11 +31,11 @@
 
 | 字段 | 值 |
 | --- | --- |
-| PLAN 版本 | 1.0.0 |
+| PLAN 版本 | 1.0.3 |
 | SPEC 基线 | `SPEC.md` 1.0.0，批准时间 2026-07-16 16:53:08 +08:00 |
-| 当前批准状态 | 项目负责人已批准；G2 已通过 |
-| 实现权限 | 未开放；T04 冷启动与 G3 通过前禁止实现 |
-| 计划范围 | T05–T20；T04 只消费本计划并暴露规约缺陷 |
+| 当前批准状态 | 项目负责人已批准 1.0.0、授权 1.0.1 执行一致性修订，并于 2026-07-18 统一批准 1.0.2/1.0.3 冷启动边界修订；G2、G3 已通过 |
+| 实现权限 | 有条件开放；T04 合入 `dev` 后，T05 从最新 `dev` 创建独立分支/worktree，并在 OPEN-03 获批后开始正式工程动作 |
+| 计划范围 | T05–T20；T04 只消费本计划、进行隔离试做并暴露规约缺陷，不计入实现进度 |
 | 目标平台 | Windows 11 x86-64、Linux x86-64；生产 Linux `amd64` |
 | 记录平台 | 南京大学 GitLab，MR 与 `.gitlab-ci.yml` |
 
@@ -231,6 +232,8 @@ pnpm build
 
 **前置依赖：** G3 已通过；`OPEN-03` 在本任务内由实现者提出当前受支持 Node.js LTS 与依赖版本、项目负责人批准后写入 `package.json` 的 `engines` 和锁文件。
 
+**T04 静态复验说明：** 上述前置依赖只阻止正式创建 T05 branch/worktree、写入文件、运行命令和提交，不阻止 T04 在隔离环境中把 Step 1–5 逐项标为“模拟/未执行”后检查其可理解性。静态复验不得把“G3 未通过”伪装成 G3 证据，不得自行选择 Node.js 或依赖版本，也不得把模拟内容计入 T05 进度；正式 T05 仍必须等待 G3 通过和 `OPEN-03` 批准，并从 Step 1 重新执行。
+
 **Files：**
 
 - Create: `package.json`, `pnpm-workspace.yaml`, `tsconfig.base.json`, `eslint.config.js`, `vitest.workspace.ts`
@@ -240,7 +243,7 @@ pnpm build
 - Create: `tests/unit/foundation/health.test.ts`, `tests/test-support/fixed-values.ts`
 - Modify: `.gitignore`, `guiding.md`, `PLAN.md`, `AGENT_LOG.md`
 
-**Interfaces：** Produces `healthStatus(): { status: "ok" }`，以及根脚本 `test|lint|typecheck|build`；后续 Txx 只消费这些命令，不依赖 T05 的业务类型。
+**Interfaces：** Produces `healthStatus(): { status: "ok" }`，以及根脚本 `test|lint|typecheck|build`；后续 Txx 只消费这些命令，不依赖 T05 的业务类型。测试中的 `../../../apps/api/src/health.js` 是 TypeScript ESM 的有意导入说明符：开发/测试解析时指向 `health.ts` 源文件，构建后对应 `health.js`；不是要求同时存在两个文件，也不是路径冲突。T05 必须在 `tsconfig.base.json` 和 Vitest 配置中选择支持这种 ESM 解析的配置，并由 Step 4、Step 6 与 `typecheck|build` 验证。
 
 - [ ] **Step 1 (2–5 min):** 在 T05 worktree 填写 `guiding.md`，记录 G3 证据、Node LTS 候选、文件清单、红色测试和验证命令；提交 `docs: 规划T05工程骨架步骤`。
 - [ ] **Step 2 (2–5 min):** 只创建根 workspace/TypeScript/Vitest 配置与空 package 清单；运行 `pnpm install --frozen-lockfile` 应因锁文件尚不存在失败，确认安装入口尚未完成。
@@ -266,11 +269,21 @@ export function healthStatus(): { status: "ok" } {
 }
 ```
 
-- [ ] **Step 6 (2–5 min):** 运行同一 Vitest 命令；预期 1 test passed；再运行 `pnpm lint`、`pnpm typecheck`、`pnpm build`，均预期退出码 0。
-- [ ] **Step 7 (2–5 min):** 生成并提交 `pnpm-lock.yaml`，随后运行 `pnpm install --frozen-lockfile`；预期不改锁文件且退出码 0。
-- [ ] **Step 8 (2–5 min):** 检查 `git status --short`，确认无数据库、`.env`、构建物和依赖目录被跟踪；用 `git check-ignore .env node_modules apps/web/dist` 验证三者均被忽略。
-- [ ] **Step 9 (2–5 min):** 依次提交配置、健康测试与最小实现；业务实现目录只能存在空导出，不得提前出现 Decision/Runtime/Policy 行为。
-- [ ] **Step 10 (2–5 min):** 执行两阶段评审与全量命令，更新证据台账，清空 `guiding.md` 并提交 `docs: 清空T05任务规划`；Pipeline 通过后合并 MR。
+- [ ] **Step 6 (2–5 min):** 运行同一 Vitest 命令；预期 1 test passed。
+- [ ] **Step 7 (2–5 min):** 分别运行 `pnpm lint`、`pnpm typecheck`、`pnpm build`，记录三个命令退出码均为 0。
+- [ ] **Step 8 (2–5 min):** 生成 `pnpm-lock.yaml` 并提交 `chore: 固定项目依赖与验证入口`。
+- [ ] **Step 9 (2–5 min):** 运行 `pnpm install --frozen-lockfile`；预期不改锁文件且退出码 0。
+- [ ] **Step 10 (2–5 min):** 运行 `git status --short`，确认无数据库、`.env`、构建物和依赖目录被跟踪。
+- [ ] **Step 11 (2–5 min):** 运行 `git check-ignore .env node_modules apps/web/dist`，预期三个路径均被忽略。
+- [ ] **Step 12 (2–5 min):** 提交根配置 `chore: 建立项目工程骨架`；提交中不得出现业务机制。
+- [ ] **Step 13 (2–5 min):** 提交健康测试与最小实现 `test: 建立最小健康测试`。
+- [ ] **Step 14 (2–5 min):** 执行 Spec 合规评审，只检查未提前实现 Decision/Runtime/Policy 行为并记录结论。
+- [ ] **Step 15 (2–5 min):** 执行代码质量评审，只检查配置一致性、脚本可移植性和依赖锁定并记录结论。
+- [ ] **Step 16 (2–5 min):** 将 commit、评审和验证结果写入 PLAN 台账与 `AGENT_LOG.md`，单独提交证据更新。
+- [ ] **Step 17 (2–5 min):** 清空 `guiding.md` 并只提交 `docs: 清空T05任务规划`。
+- [ ] **Step 18 (2–5 min):** 推送分支并记录 Pipeline URL。
+- [ ] **Step 19 (2–5 min):** 等待 Pipeline 结束；非 passed 时停止并记录失败 job。
+- [ ] **Step 20 (2–5 min):** 合并 MR，确认 `dev` 的 `guiding.md` 仍为空。
 
 **完成标准：** 全新环境能冻结安装；四个根命令成功；健康测试经历可证明的 RED/GREEN；无业务机制；MR Pipeline passed。
 
@@ -302,9 +315,9 @@ interface LLMProvider { complete(input: LLMRequest, signal: AbortSignal): Promis
 
 Produces `ScriptedMockLLM implements LLMProvider`，其构造输入为只读 `ScriptedResult[]`，公开只读 `calls`，脚本耗尽抛出 `ScriptedMockExhaustedError`；T07 消费 `LLMResponse.raw`，T13 消费接口而不识别具体实现。
 
-- [ ] **Step 1:** 填写并提交 T06 `guiding.md`，明确真实 Provider 不在本任务实现。
-- [ ] **Step 2:** 写 `llm-types.test.ts`，用 `satisfies LLMProvider` 构造最小 fake，确认单次输入不含 ToolExecutor、Memory 或 Loop 字段。
-- [ ] **Step 3:** 写失败测试：
+- [ ] **Step 1 (2–5 min):** 填写并提交 T06 `guiding.md`，明确真实 Provider 不在本任务实现。
+- [ ] **Step 2 (2–5 min):** 写 `llm-types.test.ts`，用 `satisfies LLMProvider` 构造最小 fake，确认单次输入不含 ToolExecutor、Memory 或 Loop 字段。
+- [ ] **Step 3 (2–5 min):** 写失败测试：
 
 ```ts
 it("returns scripted results in order and records immutable calls", async () => {
@@ -320,13 +333,23 @@ it("returns scripted results in order and records immutable calls", async () => 
 });
 ```
 
-- [ ] **Step 4:** 运行 `pnpm vitest run tests/unit/runtime/scripted-mock-llm.test.ts`；预期 RED：`ScriptedMockLLM` 未导出。
-- [ ] **Step 5:** 实现只复制/冻结输入与调用记录、按索引返回脚本的最小类，不增加重试或解析。
-- [ ] **Step 6:** 运行同一测试；预期 PASS。
-- [ ] **Step 7:** 增加耗尽、供应商错误、预置解析失败 raw、AbortSignal 已取消四个失败测试；逐个运行，预期先因行为缺失 RED。
-- [ ] **Step 8:** 最小实现耗尽错误与取消检查；供应商错误作为脚本结果按原分类返回；运行 5 个行为测试均 PASS。
-- [ ] **Step 9:** 重构为不可变 `ScriptedResult`/`RecordedLLMCall`，运行 `pnpm test --filter runtime` 与全量 lint/typecheck/build。
-- [ ] **Step 10:** Spec 合规评审断言“不含 Agent loop”；质量评审检查泄露/可变引用；提交 `feat: 实现可注入模拟模型`，更新台账并完成 MR 收尾。
+- [ ] **Step 4 (2–5 min):** 运行 `pnpm vitest run tests/unit/runtime/scripted-mock-llm.test.ts`；预期 RED：`ScriptedMockLLM` 未导出。
+- [ ] **Step 5 (2–5 min):** 实现只复制/冻结输入与调用记录、按索引返回脚本的最小类，不增加重试或解析。
+- [ ] **Step 6 (2–5 min):** 运行同一测试；预期 PASS。
+- [ ] **Step 7 (2–5 min):** 增加耗尽、供应商错误、预置解析失败 raw、AbortSignal 已取消四个失败测试；逐个运行，预期先因行为缺失 RED。
+- [ ] **Step 8 (2–5 min):** 最小实现耗尽错误与取消检查；供应商错误作为脚本结果按原分类返回；运行 5 个行为测试均 PASS。
+- [ ] **Step 9 (2–5 min):** 只重构为不可变 `ScriptedResult`/`RecordedLLMCall`，不改变公开行为。
+- [ ] **Step 10 (2–5 min):** 运行 `pnpm test --filter runtime`，预期全部通过。
+- [ ] **Step 11 (2–5 min):** 运行 lint/typecheck/build，预期三个命令退出码均为 0。
+- [ ] **Step 12 (2–5 min):** 执行 Spec 合规评审，确认实现不含 Agent loop、工具、记忆或治理。
+- [ ] **Step 13 (2–5 min):** 执行代码质量评审，检查敏感信息泄露和可变引用。
+- [ ] **Step 14 (2–5 min):** 修复 Critical 并重跑对应目标测试；没有 Critical 时记录“无”。
+- [ ] **Step 15 (2–5 min):** 提交 `feat: 实现可注入模拟模型`。
+- [ ] **Step 16 (2–5 min):** 更新 PLAN 台账和 `AGENT_LOG.md`，单独提交证据。
+- [ ] **Step 17 (2–5 min):** 清空 `guiding.md` 并只提交清空变更。
+- [ ] **Step 18 (2–5 min):** 推送分支并记录 Pipeline URL。
+- [ ] **Step 19 (2–5 min):** 等待 Pipeline 结束；非 passed 时停止并记录失败 job。
+- [ ] **Step 20 (2–5 min):** Pipeline passed 后合并 MR。
 
 **完成标准：** 结果顺序、调用记录、耗尽、取消、错误和解析失败输入全部离线可重复；测试不联网且无凭据；接口不含 Agent Runner 行为。
 
@@ -348,8 +371,8 @@ it("returns scripted results in order and records immutable calls", async () => 
 
 **Interfaces：** Produces `parseAction(raw: unknown): Result<Action, DomainError>`、`ToolRegistry.register<T>(definition: ToolDefinition<T>): void`、`ToolDispatcher.execute(action: Action, signal: AbortSignal): Promise<ToolResult>`。错误码固定为 `ACTION_PARSE_FAILED`、`TOOL_UNKNOWN`、`TOOL_ARGUMENT_INVALID`、`TOOL_TIMEOUT`、`TOOL_EXECUTION_FAILED`。
 
-- [ ] **Step 1:** 提交 T07 `guiding.md`，冻结 `Action` discriminated union：`decision.query|decision.propose|file.read|file.write|command.run|sensor.run|complete`。
-- [ ] **Step 2:** 写解析失败测试：
+- [ ] **Step 1 (2–5 min):** 提交 T07 `guiding.md`，冻结 `Action` discriminated union：`decision.query|decision.propose|file.read|file.write|command.run|sensor.run|complete`。
+- [ ] **Step 2 (2–5 min):** 写解析失败测试：
 
 ```ts
 it.each([
@@ -361,11 +384,11 @@ it.each([
 });
 ```
 
-- [ ] **Step 3:** 运行 `pnpm vitest run tests/unit/runtime/action-parser.test.ts`；预期 RED：parser 不存在。
-- [ ] **Step 4:** 用 `.strict()` Zod discriminated union 实现最小 parser；运行测试预期 PASS。
-- [ ] **Step 5:** 写 Registry 测试，断言重复工具名拒绝、未知工具返回 `TOOL_UNKNOWN`、参数未通过 Zod 时 handler 调用次数为零；运行预期 RED。
-- [ ] **Step 6:** 实现 `ToolRegistry` 的名称唯一、Schema 校验和只读查找；运行 Registry 测试预期 PASS。
-- [ ] **Step 7:** 写 Dispatcher 测试：
+- [ ] **Step 3 (2–5 min):** 运行 `pnpm vitest run tests/unit/runtime/action-parser.test.ts`；预期 RED：parser 不存在。
+- [ ] **Step 4 (2–5 min):** 用 `.strict()` Zod discriminated union 实现最小 parser；运行测试预期 PASS。
+- [ ] **Step 5 (2–5 min):** 写 Registry 测试，断言重复工具名拒绝、未知工具返回 `TOOL_UNKNOWN`、参数未通过 Zod 时 handler 调用次数为零；运行预期 RED。
+- [ ] **Step 6 (2–5 min):** 实现 `ToolRegistry` 的名称唯一、Schema 校验和只读查找；运行 Registry 测试预期 PASS。
+- [ ] **Step 7 (2–5 min):** 写 Dispatcher 测试：
 
 ```ts
 it("converts handler failures into a structured ToolResult", async () => {
@@ -377,11 +400,19 @@ it("converts handler failures into a structured ToolResult", async () => {
 });
 ```
 
-- [ ] **Step 8:** 运行 Dispatcher 测试；预期 RED：异常向外抛出或 dispatcher 缺失。
-- [ ] **Step 9:** 最小实现异常转换、AbortSignal 超时转换和结构化 evidence；运行测试预期 PASS。
-- [ ] **Step 10:** 增加 `ScriptedMockLLM → parseAction → mock Tool` 集成单测，断言只调用一次工具、Observation 保留 error_code；运行预期 PASS。
-- [ ] **Step 11:** 重构共享 Result/错误构造器，运行 runtime/domain 单测与全量回归；确认没有文件系统、Shell、Policy 或循环代码。
-- [ ] **Step 12:** 两阶段评审；提交 `feat: 实现动作解析与工具分发`，更新证据台账，清空 guiding，Pipeline passed 后合并。
+- [ ] **Step 8 (2–5 min):** 运行 Dispatcher 测试；预期 RED：异常向外抛出或 dispatcher 缺失。
+- [ ] **Step 9 (2–5 min):** 最小实现异常转换、AbortSignal 超时转换和结构化 evidence；运行测试预期 PASS。
+- [ ] **Step 10 (2–5 min):** 增加 `ScriptedMockLLM → parseAction → mock Tool` 集成单测，断言只调用一次工具、Observation 保留 error_code；运行预期 PASS。
+- [ ] **Step 11 (2–5 min):** 重构共享 Result/错误构造器，运行 runtime/domain 单测与全量回归；确认没有文件系统、Shell、Policy 或循环代码。
+- [ ] **Step 12 (2–5 min):** 执行 Spec 合规评审，确认 T07 未实现文件系统、Shell、Policy 或循环。
+- [ ] **Step 13 (2–5 min):** 执行代码质量评审，检查严格解析、异常脱敏和超时资源释放。
+- [ ] **Step 14 (2–5 min):** 修复 Critical 并重跑对应目标测试；没有 Critical 时记录“无”。
+- [ ] **Step 15 (2–5 min):** 提交 `feat: 实现动作解析与工具分发`。
+- [ ] **Step 16 (2–5 min):** 更新 PLAN 台账和 `AGENT_LOG.md` 并提交证据。
+- [ ] **Step 17 (2–5 min):** 清空 `guiding.md` 并只提交清空变更。
+- [ ] **Step 18 (2–5 min):** 推送分支并记录 Pipeline URL。
+- [ ] **Step 19 (2–5 min):** 等待 Pipeline 结束；非 passed 时停止并记录失败 job。
+- [ ] **Step 20 (2–5 min):** Pipeline passed 后合并 MR。
 
 **完成标准：** 已知 Action 严格解析；未知字段/动作稳定拒绝；参数错误不调用 handler；异常/超时为结构化结果；完整 mock 分发链可重复。
 
@@ -401,8 +432,9 @@ it("converts handler failures into a structured ToolResult", async () => {
 
 **Verification：** RED/GREEN 均运行 `pnpm vitest run tests/unit/infrastructure/path-guard.test.ts tests/unit/infrastructure/file-tools.test.ts tests/unit/infrastructure/process-runner.test.ts`；收尾运行 `pnpm vitest run tests/integration/tools/cross-platform-tools.test.ts` 与四个全量质量命令，预期全部退出 0。
 
-- [ ] **Step 1:** 填写 T08 guiding，列出当前平台、另一平台验证方法和明确攻击样本；提交规划。
-- [ ] **Step 2:** 写表驱动 RED 测试：
+- [ ] **Step 1 (2–5 min):** 填写 T08 guiding，列出当前平台、另一平台验证方法和明确攻击样本。
+- [ ] **Step 2 (2–5 min):** 只提交 T08 规划 `docs: 规划T08受限工具步骤`。
+- [ ] **Step 3 (2–5 min):** 写表驱动 RED 测试：
 
 ```ts
 it.each(["../outside.txt", "/absolute.txt", "C:/absolute.txt", ".env", "keys/private.pem"])(
@@ -415,14 +447,27 @@ it.each(["../outside.txt", "/absolute.txt", "C:/absolute.txt", ".env", "keys/pri
 );
 ```
 
-- [ ] **Step 3:** 运行 `pnpm vitest run tests/unit/infrastructure/path-guard.test.ts`；预期 RED：PathGuard 不存在。
-- [ ] **Step 4:** 最小实现 lexical normalize、绝对/`..`/敏感名拒绝；运行测试 PASS。
-- [ ] **Step 5:** 建立临时 workspace 和指向外部的 symlink/junction 测试；预期 RED：真实路径未检查，计数器显示拒绝前未打开目标。
-- [ ] **Step 6:** 实现逐段 realpath 与最终根包含检查；Windows junction 无权限创建时测试必须明确 skip 理由，并由 Windows 人工集成补证；运行测试 PASS。
-- [ ] **Step 7:** 写 file.write 摘要不匹配测试，断言目标字节不变；实现 compare-and-set 后 PASS。
-- [ ] **Step 8:** 写命令测试，拒绝字符串 Shell、白名单外可执行文件和 Key 环境；断言 spawn 调用为零；实现参数数组和环境允许列表后 PASS。
-- [ ] **Step 9:** 写超时与 64 KiB 截断测试；实现仅终止明确子进程、返回 `truncated=true` 与保留前后摘要；测试 PASS。
-- [ ] **Step 10:** 运行 Windows 与 Linux 样本、全量回归及两阶段评审；提交 `feat: 实现受限文件与命令工具`，收尾 guiding/MR。
+- [ ] **Step 4 (2–5 min):** 运行 `pnpm vitest run tests/unit/infrastructure/path-guard.test.ts`；预期 RED：PathGuard 不存在。
+- [ ] **Step 5 (2–5 min):** 最小实现 lexical normalize、绝对/`..`/敏感名拒绝。
+- [ ] **Step 6 (2–5 min):** 运行 PathGuard 测试，预期 PASS。
+- [ ] **Step 7 (2–5 min):** 建立临时 workspace 和指向外部的 symlink/junction RED 测试，确认真实路径缺口且拒绝前未打开目标。
+- [ ] **Step 8 (2–5 min):** 实现逐段 realpath 与最终根包含检查；无权限创建 junction 时只记录明确 skip 理由。
+- [ ] **Step 9 (2–5 min):** 运行 symlink/junction 测试，预期 PASS；需要 Windows 人工补证时记录待补证项。
+- [ ] **Step 10 (2–5 min):** 写 `file.write` 摘要不匹配 RED 测试，断言目标字节不变。
+- [ ] **Step 11 (2–5 min):** 实现 compare-and-set 并运行 file.write 测试，预期 PASS。
+- [ ] **Step 12 (2–5 min):** 写命令拒绝 RED 测试，确认字符串 Shell、白名单外程序和 Key 环境的 spawn 调用为零。
+- [ ] **Step 13 (2–5 min):** 实现参数数组和环境允许列表并运行命令测试，预期 PASS。
+- [ ] **Step 14 (2–5 min):** 写超时与 64 KiB 截断 RED 测试。
+- [ ] **Step 15 (2–5 min):** 实现子进程终止和截断摘要并运行目标测试，预期 PASS。
+- [ ] **Step 16 (2–5 min):** 分别运行 Windows/Linux 样本和全量回归，记录退出码。
+- [ ] **Step 17 (2–5 min):** 执行 Spec 合规评审，记录副作用前拒绝和跨平台语义结论。
+- [ ] **Step 18 (2–5 min):** 执行代码质量评审，修复 Critical 后重跑目标测试。
+- [ ] **Step 19 (2–5 min):** 提交 `feat: 实现受限文件与命令工具`。
+- [ ] **Step 20 (2–5 min):** 更新 PLAN 台账与 `AGENT_LOG.md` 并单独提交证据。
+- [ ] **Step 21 (2–5 min):** 清空 guiding 并只提交清空变更。
+- [ ] **Step 22 (2–5 min):** 推送分支并记录 Pipeline URL。
+- [ ] **Step 23 (2–5 min):** 等待 Pipeline 结束；非 passed 时停止并记录失败 job。
+- [ ] **Step 24 (2–5 min):** Pipeline passed 后合并 MR。
 
 **完成标准：** 所有逃逸/敏感路径/拼接样本零副作用；超时 120 秒默认、输出 64 KiB；子进程无模型 Key；双平台证据可追踪。
 
@@ -440,8 +485,8 @@ it.each(["../outside.txt", "/absolute.txt", "C:/absolute.txt", ".env", "keys/pri
 
 **Verification：** 每个 RED/GREEN 循环运行 `pnpm vitest run tests/unit/runtime/policy-engine.test.ts tests/unit/domain/conflict-detector.test.ts tests/unit/domain/approval-state-machine.test.ts`；事务收尾运行 `pnpm vitest run tests/integration/governance/approval-consumption.test.ts`，预期全部 PASS 且拒绝样本的工具调用数为 0。
 
-- [ ] **Step 1:** 规划并提交 T09 guiding，列出不可覆盖 deny 表和批准合法状态。
-- [ ] **Step 2:** 写 Policy RED 测试：
+- [ ] **Step 1 (2–5 min):** 规划并提交 T09 guiding，列出不可覆盖 deny 表和批准合法状态。
+- [ ] **Step 2 (2–5 min):** 写 Policy RED 测试：
 
 ```ts
 it.each([makeReadEnvAction(), makeDeleteAction(), makeForcePushAction()])(
@@ -453,14 +498,23 @@ it.each([makeReadEnvAction(), makeDeleteAction(), makeForcePushAction()])(
 );
 ```
 
-- [ ] **Step 3:** 实现固定规则优先级 `deny > ask > allow` 和结构化 reason；测试 PASS。
-- [ ] **Step 4:** 写四种冲突组合与范围不相交反例；预期 detector 缺失 RED；实现规范键、集合交集和稳定排序后 PASS。
-- [ ] **Step 5:** 写审批绑定 RED：批准后改任一参数/文件摘要/快照、等待超过 15 分钟、重复消费，均返回明确错误且工具调用为零。
-- [ ] **Step 6:** 实现注入 Clock/Hasher 的状态机和单次令牌；运行审批测试 PASS。
-- [ ] **Step 7:** 写并发消费集成测试，两个事务恰一成功；实现 SQLite Repository 原子更新后 PASS。
-- [ ] **Step 8:** 写结构化约束冲突进入 `ask`、deny 不创建可覆盖请求、拒绝/过期产生 Observation 的链路测试；逐项 RED→最小实现→PASS。
-- [ ] **Step 9:** 重构规则表与绑定规范化，运行治理/工具/全量回归；Spec 评审检查 FR-HITL-01/02，质量评审检查 TOCTOU。
-- [ ] **Step 10:** 提交 `feat: 实现治理护栏与人工审批`，更新台账、清空 guiding、Pipeline passed 后合并。
+- [ ] **Step 3 (2–5 min):** 实现固定规则优先级 `deny > ask > allow` 和结构化 reason；测试 PASS。
+- [ ] **Step 4 (2–5 min):** 写四种冲突组合与范围不相交反例；预期 detector 缺失 RED；实现规范键、集合交集和稳定排序后 PASS。
+- [ ] **Step 5 (2–5 min):** 写审批绑定 RED：批准后改任一参数/文件摘要/快照、等待超过 15 分钟、重复消费，均返回明确错误且工具调用为零。
+- [ ] **Step 6 (2–5 min):** 实现注入 Clock/Hasher 的状态机和单次令牌；运行审批测试 PASS。
+- [ ] **Step 7 (2–5 min):** 写并发消费集成测试，两个事务恰一成功；实现 SQLite Repository 原子更新后 PASS。
+- [ ] **Step 8 (2–5 min):** 写结构化约束冲突进入 `ask`、deny 不创建可覆盖请求、拒绝/过期产生 Observation 的链路测试；逐项 RED→最小实现→PASS。
+- [ ] **Step 9 (2–5 min):** 只重构规则表与绑定规范化，不改变公开结果。
+- [ ] **Step 10 (2–5 min):** 运行治理和工具回归，预期全部通过且拒绝样本副作用为零。
+- [ ] **Step 11 (2–5 min):** 执行 Spec 合规评审，逐项检查 FR-HITL-01/02。
+- [ ] **Step 12 (2–5 min):** 执行代码质量评审，只检查 TOCTOU、单次消费和事务边界。
+- [ ] **Step 13 (2–5 min):** 修复 Critical 并重跑对应测试；没有 Critical 时记录“无”。
+- [ ] **Step 14 (2–5 min):** 提交 `feat: 实现治理护栏与人工审批`。
+- [ ] **Step 15 (2–5 min):** 更新台账与日志并提交证据。
+- [ ] **Step 16 (2–5 min):** 清空 guiding 并只提交清空变更。
+- [ ] **Step 17 (2–5 min):** 推送分支并记录 Pipeline URL。
+- [ ] **Step 18 (2–5 min):** 等待 Pipeline 结束；非 passed 时停止并记录失败 job。
+- [ ] **Step 19 (2–5 min):** Pipeline passed 后合并 MR。
 
 **完成标准：** deny 不能覆盖；审批前/篡改后/过期后/重放时工具调用均为零；固定冲突输出稳定；并发消费恰一成功。
 
@@ -478,8 +532,8 @@ it.each([makeReadEnvAction(), makeDeleteAction(), makeForcePushAction()])(
 
 **Verification：** RED/GREEN 运行 `pnpm vitest run tests/unit/runtime/feedback-engine.test.ts tests/unit/runtime/sensor-registry.test.ts tests/unit/infrastructure/*-sensor.test.ts`；恢复闭环运行 `pnpm vitest run tests/integration/feedback/failure-recovery.test.ts`，预期失败被回灌、修复后 PASS、第四次执行不会发生。
 
-- [ ] **Step 1:** 填写 T10 guiding，固定传感器名称、五类映射和副作用不重试规则。
-- [ ] **Step 2:** 写分类 RED 测试：
+- [ ] **Step 1 (2–5 min):** 填写 T10 guiding，固定传感器名称、五类映射和副作用不重试规则。
+- [ ] **Step 2 (2–5 min):** 写分类 RED 测试：
 
 ```ts
 it.each([
@@ -492,14 +546,22 @@ it.each([
 });
 ```
 
-- [ ] **Step 3:** 最小实现纯分类器；运行单测 PASS。
-- [ ] **Step 4:** 写 DecisionVersionSensor 旧版本与 ContractDiffSensor 删除/改名/不兼容测试；实现后分别返回 `CONFLICT` 与稳定 evidence。
-- [ ] **Step 5:** 写 Registry 缺失传感器、超时和异常测试；预期先 RED；实现结构化 `ENV_ERROR|TIMEOUT`，不得伪装 PASS。
-- [ ] **Step 6:** 写失败回灌链测试：第一次 mock sensor FAIL，Observation 进入下一 LLMRequest；第二个 scripted Action 不同并得到 PASS；预期 engine 缺失 RED。
-- [ ] **Step 7:** 实现 FeedbackEngine 只聚合事实和 Observation，不在内部调用 LLM；链测试 PASS。
-- [ ] **Step 8:** 写连续三次 FAIL 升级、ENV_ERROR 不计业务失败、带副作用工具未被自动再次调用测试；实现计数结果后 PASS。
-- [ ] **Step 9:** 重构 evidence 脱敏和长度上限；运行 feedback/runtime/tools 全量回归，确认失败退出码与环境证据保留。
-- [ ] **Step 10:** 两阶段评审；提交 `feat: 实现客观反馈与失败回灌`，更新台账并完成 MR 收尾。
+- [ ] **Step 3 (2–5 min):** 最小实现纯分类器；运行单测 PASS。
+- [ ] **Step 4 (2–5 min):** 写 DecisionVersionSensor 旧版本与 ContractDiffSensor 删除/改名/不兼容测试；实现后分别返回 `CONFLICT` 与稳定 evidence。
+- [ ] **Step 5 (2–5 min):** 写 Registry 缺失传感器、超时和异常测试；预期先 RED；实现结构化 `ENV_ERROR|TIMEOUT`，不得伪装 PASS。
+- [ ] **Step 6 (2–5 min):** 写失败回灌链测试：第一次 mock sensor FAIL，Observation 进入下一 LLMRequest；第二个 scripted Action 不同并得到 PASS；预期 engine 缺失 RED。
+- [ ] **Step 7 (2–5 min):** 实现 FeedbackEngine 只聚合事实和 Observation，不在内部调用 LLM；链测试 PASS。
+- [ ] **Step 8 (2–5 min):** 写连续三次 FAIL 升级、ENV_ERROR 不计业务失败、带副作用工具未被自动再次调用测试；实现计数结果后 PASS。
+- [ ] **Step 9 (2–5 min):** 重构 evidence 脱敏和长度上限；运行 feedback/runtime/tools 全量回归，确认失败退出码与环境证据保留。
+- [ ] **Step 10 (2–5 min):** 执行 Spec 合规评审，检查五类反馈和三次失败升级。
+- [ ] **Step 11 (2–5 min):** 执行代码质量评审，检查退出码解析、超时和证据脱敏。
+- [ ] **Step 12 (2–5 min):** 修复 Critical 并重跑对应目标测试；没有 Critical 时记录“无”。
+- [ ] **Step 13 (2–5 min):** 提交 `feat: 实现客观反馈与失败回灌`。
+- [ ] **Step 14 (2–5 min):** 更新台账和日志并提交证据。
+- [ ] **Step 15 (2–5 min):** 清空 guiding 并只提交清空变更。
+- [ ] **Step 16 (2–5 min):** 推送分支并记录 Pipeline URL。
+- [ ] **Step 17 (2–5 min):** 等待 Pipeline 结束；非 passed 时停止并记录失败 job。
+- [ ] **Step 18 (2–5 min):** Pipeline passed 后合并 MR。
 
 **完成标准：** 五类结果稳定；失败进入下一轮；ENV_ERROR 不伪装；三次失败升级；任何副作用不会因传感器失败被自动重试。
 
@@ -519,10 +581,10 @@ it.each([
 
 **Verification：** 领域 RED/GREEN 运行 `pnpm vitest run tests/unit/domain/decision-state-machine.test.ts tests/unit/domain/context-selector.test.ts tests/unit/domain/canonical-json.test.ts tests/unit/domain/snapshot-builder.test.ts`；持久化与 Rebaseline 运行 `pnpm vitest run tests/integration/decision/version-activation.test.ts tests/integration/context/snapshot-persistence.test.ts tests/integration/context/rebaseline.test.ts`，预期全部退出 0。
 
-- [ ] **Step 1:** 提交 T11 guiding，冻结表结构、索引、规范化规则和数据保留边界。
-- [ ] **Step 2:** 写不可变版本 RED 测试：创建版本后任何 update API 不存在；两个并发激活请求以同一旧版本为基线，断言恰一成功、另一个 `DECISION_VERSION_CONFLICT`、数据库恰一 active。
-- [ ] **Step 3:** 实现 Drizzle Schema 的 `(decision_id,version)` 唯一约束、活动唯一索引与事务激活；运行集成测试 PASS。
-- [ ] **Step 4:** 写四级范围表驱动测试：
+- [ ] **Step 1 (2–5 min):** 提交 T11 guiding，冻结表结构、索引、规范化规则和数据保留边界。
+- [ ] **Step 2 (2–5 min):** 写不可变版本 RED 测试：创建版本后任何 update API 不存在；两个并发激活请求以同一旧版本为基线，断言恰一成功、另一个 `DECISION_VERSION_CONFLICT`、数据库恰一 active。
+- [ ] **Step 3 (2–5 min):** 实现 Drizzle Schema 的 `(decision_id,version)` 唯一约束、活动唯一索引与事务激活；运行集成测试 PASS。
+- [ ] **Step 4 (2–5 min):** 写四级范围表驱动测试：
 
 ```ts
 it("selects only active versions matching every declared dimension", () => {
@@ -540,15 +602,27 @@ it("selects only active versions matching every declared dimension", () => {
 });
 ```
 
-- [ ] **Step 5:** 运行 selector 测试预期 RED；实现状态先筛选、同维度 OR/跨维度 AND、`/` 路径和稳定理由排序；测试 PASS。
-- [ ] **Step 6:** 写非法 glob、绝对路径、`..`、三维全空测试；实现 `SCOPE_INVALID|TASK_SCOPE_EMPTY` 后 PASS。
-- [ ] **Step 7:** 写规范序列化变形测试，随机字段/集合/数据库顺序和 Unicode 等价输入必须产生相同字节；预期 RED。
-- [ ] **Step 8:** 实现递归键排序、业务键集合排序、路径/Unicode 规范和唯一 JSON 数字表示；测试 PASS。
-- [ ] **Step 9:** 写快照测试，注入固定 Hasher，断言同输入同 JSON/指纹，任一版本或文件哈希变化即不同；实现 `SnapshotBuilder` 后 PASS。
-- [ ] **Step 10:** 写 Git 不可用、dirty 摘要、部分快照禁止发布测试；实现 CodeStateReader 和事务保存后 PASS。
-- [ ] **Step 11:** 写 stale/diff/Rebaseline RED 测试，断言新增/替代版本或目标文件变化得到 `SNAPSHOT_STALE`、新 ID、parent 关联、旧 Action/Approval invalidated。
-- [ ] **Step 12:** 实现结构化 diff 和原子 `RebaselinePlan` 发布；运行测试 PASS；连续计数上限只输出给 T13，不在 T11 自行循环。
-- [ ] **Step 13:** 重构 Repository 端口和纯领域算法，运行 unit/integration、性能基线样本及两阶段评审；提交 `feat: 实现版本化决策与上下文快照` 并完成 MR。
+- [ ] **Step 5 (2–5 min):** 运行 selector 测试预期 RED；实现状态先筛选、同维度 OR/跨维度 AND、`/` 路径和稳定理由排序；测试 PASS。
+- [ ] **Step 6 (2–5 min):** 写非法 glob、绝对路径、`..`、三维全空测试；实现 `SCOPE_INVALID|TASK_SCOPE_EMPTY` 后 PASS。
+- [ ] **Step 7 (2–5 min):** 写规范序列化变形测试，随机字段/集合/数据库顺序和 Unicode 等价输入必须产生相同字节；预期 RED。
+- [ ] **Step 8 (2–5 min):** 实现递归键排序、业务键集合排序、路径/Unicode 规范和唯一 JSON 数字表示；测试 PASS。
+- [ ] **Step 9 (2–5 min):** 写快照测试，注入固定 Hasher，断言同输入同 JSON/指纹，任一版本或文件哈希变化即不同；实现 `SnapshotBuilder` 后 PASS。
+- [ ] **Step 10 (2–5 min):** 写 Git 不可用、dirty 摘要、部分快照禁止发布测试；实现 CodeStateReader 和事务保存后 PASS。
+- [ ] **Step 11 (2–5 min):** 写 stale/diff/Rebaseline RED 测试，断言新增/替代版本或目标文件变化得到 `SNAPSHOT_STALE`、新 ID、parent 关联、旧 Action/Approval invalidated。
+- [ ] **Step 12 (2–5 min):** 实现结构化 diff 和原子 `RebaselinePlan` 发布；运行测试 PASS；连续计数上限只输出给 T13，不在 T11 自行循环。
+- [ ] **Step 13 (2–5 min):** 只重构 Repository 端口和纯领域算法，不改变外部接口。
+- [ ] **Step 14 (2–5 min):** 运行 T11 unit 测试，预期全部通过。
+- [ ] **Step 15 (2–5 min):** 运行 T11 integration 测试，预期全部通过。
+- [ ] **Step 16 (2–5 min):** 运行固定性能基线样本并记录数据规模、环境和结果。
+- [ ] **Step 17 (2–5 min):** 执行 Spec 合规评审，检查 REQ-001–006 与敏感信息边界。
+- [ ] **Step 18 (2–5 min):** 执行代码质量评审，检查事务、排序和规范序列化。
+- [ ] **Step 19 (2–5 min):** 修复 Critical 并重跑对应测试；没有 Critical 时记录“无”。
+- [ ] **Step 20 (2–5 min):** 提交 `feat: 实现版本化决策与上下文快照`。
+- [ ] **Step 21 (2–5 min):** 更新台账和日志并提交证据。
+- [ ] **Step 22 (2–5 min):** 清空 guiding 并只提交清空变更。
+- [ ] **Step 23 (2–5 min):** 推送分支并记录 Pipeline URL。
+- [ ] **Step 24 (2–5 min):** 等待 Pipeline 结束；非 passed 时停止并记录失败 job。
+- [ ] **Step 25 (2–5 min):** Pipeline passed 后合并 MR。
 
 **完成标准：** REQ-001–004 可独立验证；顺序/变形不改变结果；并发激活恰一成功；stale 计划原子失效旧绑定；敏感内容拒绝进入快照。
 
@@ -566,9 +640,11 @@ it("selects only active versions matching every declared dimension", () => {
 
 **Verification：** RED/GREEN 运行 `pnpm vitest run tests/unit/runtime/config-loader.test.ts tests/unit/infrastructure/redactor.test.ts tests/unit/shared/trace-dto.test.ts`；事务/SSE 运行 `pnpm vitest run tests/integration/trace/sqlite-trace-store.test.ts tests/integration/api/task-events-sse.test.ts`；向全部通道注入 fake Key 后预期零明文命中。
 
-- [ ] **Step 1:** 提交 T12 guiding，列出默认 30/3/120000/65536/4/30 days 等精确安全值。
-- [ ] **Step 2:** 写错误配置 RED 测试，未知安全字段、超过系统上限、Shell 字符串和凭据出现在 YAML 时快速失败；实现 Zod `.strict()` 和默认值后 PASS。
-- [ ] **Step 3:** 写 fake Key 脱敏测试：
+- [ ] **Step 1 (2–5 min):** 填写 T12 guiding，列出默认 30/3/120000/65536/4/30 days 等精确安全值。
+- [ ] **Step 2 (2–5 min):** 只提交 T12 规划 `docs: 规划T12配置追踪步骤`。
+- [ ] **Step 3 (2–5 min):** 写错误配置 RED 测试，覆盖未知字段、系统上限、Shell 字符串和 YAML 凭据。
+- [ ] **Step 4 (2–5 min):** 实现 Zod `.strict()` 与安全默认值并运行配置测试，预期 PASS。
+- [ ] **Step 5 (2–5 min):** 写 fake Key 脱敏测试：
 
 ```ts
 it("removes a fake key from nested values without mutating input", () => {
@@ -580,13 +656,25 @@ it("removes a fake key from nested values without mutating input", () => {
 });
 ```
 
-- [ ] **Step 4:** 实现敏感键、Bearer/token/Key 模式、长度上限和不可变深复制；日志/Trace/DTO 测试 PASS。
-- [ ] **Step 5:** 写并发 Trace append 测试，100 个事件序号必须恰为 1..100 且无重复；实现事务序号分配后 PASS。
-- [ ] **Step 6:** 写“脱敏失败/持久化失败时不返回已发布事件”测试；实现写前 redaction 与失败传播 `TRACE_PERSIST_FAILED` 后 PASS。
-- [ ] **Step 7:** 写 SSE 测试：先 append 再推送、last-event-id 补读、重复事件客户端可按 `(task_id,sequence)` 去重、断线不改 TaskRun；实现后 PASS。
-- [ ] **Step 8:** 写 30 天清理测试，固定 Clock 下只删除过期 Trace，DecisionVersion/Approval 审计不删，并追加清理计数记录；实现后 PASS。
-- [ ] **Step 9:** 运行假 Key 跨数据库/API/SSE/导出集成扫描、Trace p95 样本和全量回归；两阶段评审检查事件缺口和泄露。
-- [ ] **Step 10:** 提交 `feat: 实现安全配置与审计追踪`，更新台账并完成 MR 收尾。
+- [ ] **Step 6 (2–5 min):** 实现敏感键、Bearer/token/Key 模式、长度上限和不可变深复制。
+- [ ] **Step 7 (2–5 min):** 运行日志/Trace/DTO 脱敏测试，预期 PASS。
+- [ ] **Step 8 (2–5 min):** 写并发 Trace append RED 测试，100 个事件序号必须恰为 1..100。
+- [ ] **Step 9 (2–5 min):** 实现事务序号分配并运行 append 测试，预期 PASS。
+- [ ] **Step 10 (2–5 min):** 写脱敏或持久化失败时不发布事件的 RED 测试。
+- [ ] **Step 11 (2–5 min):** 实现写前 redaction 与 `TRACE_PERSIST_FAILED` 传播，运行目标测试预期 PASS。
+- [ ] **Step 12 (2–5 min):** 写 SSE RED 测试，覆盖持久化后推送、补读、去重和断线状态。
+- [ ] **Step 13 (2–5 min):** 实现 SSE 读取并运行目标测试，预期 PASS。
+- [ ] **Step 14 (2–5 min):** 写 30 天清理 RED 测试，固定 Clock 并保护 DecisionVersion/Approval 审计。
+- [ ] **Step 15 (2–5 min):** 实现清理及计数记录并运行目标测试，预期 PASS。
+- [ ] **Step 16 (2–5 min):** 运行 fake Key 跨通道扫描、Trace p95 样本和全量回归。
+- [ ] **Step 17 (2–5 min):** 执行 Spec 合规评审，检查事件持久化顺序与保留边界。
+- [ ] **Step 18 (2–5 min):** 执行代码质量评审，检查事件缺口和泄露并修复 Critical。
+- [ ] **Step 19 (2–5 min):** 提交 `feat: 实现安全配置与审计追踪`。
+- [ ] **Step 20 (2–5 min):** 更新台账并单独提交证据。
+- [ ] **Step 21 (2–5 min):** 清空 guiding 并只提交清空变更。
+- [ ] **Step 22 (2–5 min):** 推送分支并记录 Pipeline URL。
+- [ ] **Step 23 (2–5 min):** 等待 Pipeline 结束；非 passed 时停止并记录失败 job。
+- [ ] **Step 24 (2–5 min):** Pipeline passed 后合并 MR。
 
 **完成标准：** 配置错误快速失败；同一 redactor 覆盖所有出口；事件单调且 SSE 只推已持久化事件；清理边界正确；fake Key 全通道零命中。
 
@@ -604,8 +692,8 @@ it("removes a fake key from nested values without mutating input", () => {
 
 **Verification：** 单元 RED/GREEN 运行 `pnpm vitest run tests/unit/domain/task-state-machine.test.ts tests/unit/runtime/context-builder.test.ts tests/unit/runtime/completion-gate.test.ts tests/unit/runtime/agent-runtime.test.ts tests/unit/application/task-scheduler.test.ts`；闭环运行 `pnpm vitest run tests/integration/agent/loop.test.ts tests/integration/agent/stale-rebaseline.test.ts tests/integration/agent/restart-recovery.test.ts`，随后执行 G4 命令。
 
-- [ ] **Step 1:** 提交 T13 guiding，画出精确轮次顺序和每个端口的 fake；列出合法 TaskRun 转换。
-- [ ] **Step 2:** 写最小多轮 RED 测试：
+- [ ] **Step 1 (2–5 min):** 提交 T13 guiding，画出精确轮次顺序和每个端口的 fake；列出合法 TaskRun 转换。
+- [ ] **Step 2 (2–5 min):** 写最小多轮 RED 测试：
 
 ```ts
 it("runs one action per step and completes only after verified PASS", async () => {
@@ -621,18 +709,27 @@ it("runs one action per step and completes only after verified PASS", async () =
 });
 ```
 
-- [ ] **Step 3:** 运行 loop 测试预期 RED；实现 context→complete→parse→freshness→policy→tool→feedback→trace 的单轮顺序与循环；测试 PASS。
-- [ ] **Step 4:** 写 completion gate 表驱动测试：无 PASS、有 Conflict、有 pending Approval、仅 LLM 声称完成均不得 completed；实现纯 gate 后 PASS。
-- [ ] **Step 5:** 写 parse failure、deny、ask/wait/approve/resume、approval denied 的轮次测试；逐项 RED→最小实现→PASS。
-- [ ] **Step 6:** 写停止测试：30 Step、token/费用预算、3 次连续 FAIL、人工取消、ENV_ERROR、供应商错误、Trace 持久化失败；断言每个 `stop_reason` 非空且无额外工具调用。
-- [ ] **Step 7:** 实现 Budget/FailureCounter 和显式失败状态；运行停止测试 PASS；LLM 传输/限速最多 2 次有界重试且不推进 Step。
-- [ ] **Step 8:** 写 stale 测试：副作用前发现旧快照时工具零调用、任务 `rebaseline_required`；Rebaseline 后旧 Action ID 不可用并产生全新 LLM 调用。
-- [ ] **Step 9:** 实现 Rebaseline 状态、差异 Observation、重新构建 context 和 3 次升级；测试 PASS。
-- [ ] **Step 10:** 写 scheduler 5 个任务测试，前 4 running、第 5 queued；实现并发信号量后 PASS。
-- [ ] **Step 11:** 写启动恢复测试，把遗留 running 原子改 interrupted，绝不重放 ToolCall；实现后 PASS。
-- [ ] **Step 12:** 运行 `pnpm test`、三类端到端 mock fixture、lint/typecheck/build；扫描依赖确认无 AgentExecutor/Agent Runner。
-- [ ] **Step 13:** Spec 评审逐项核对 REQ-005/009/012/016，质量评审检查状态竞争/资源释放；修复 Critical 后提交 `feat: 实现自研智能体主循环`。
-- [ ] **Step 14:** 运行 G4 命令 `pnpm vitest run tests/integration/runtime/core-loop.test.ts`；预期 mock 主循环、工具、治理、反馈、记忆和停机全部 PASS；记录输出、完成 MR 与 guiding 收尾。
+- [ ] **Step 3 (2–5 min):** 运行 loop 测试预期 RED；实现 context→complete→parse→freshness→policy→tool→feedback→trace 的单轮顺序与循环；测试 PASS。
+- [ ] **Step 4 (2–5 min):** 写 completion gate 表驱动测试：无 PASS、有 Conflict、有 pending Approval、仅 LLM 声称完成均不得 completed；实现纯 gate 后 PASS。
+- [ ] **Step 5 (2–5 min):** 写 parse failure、deny、ask/wait/approve/resume、approval denied 的轮次测试；逐项 RED→最小实现→PASS。
+- [ ] **Step 6 (2–5 min):** 写停止测试：30 Step、token/费用预算、3 次连续 FAIL、人工取消、ENV_ERROR、供应商错误、Trace 持久化失败；断言每个 `stop_reason` 非空且无额外工具调用。
+- [ ] **Step 7 (2–5 min):** 实现 Budget/FailureCounter 和显式失败状态；运行停止测试 PASS；LLM 传输/限速最多 2 次有界重试且不推进 Step。
+- [ ] **Step 8 (2–5 min):** 写 stale 测试：副作用前发现旧快照时工具零调用、任务 `rebaseline_required`；Rebaseline 后旧 Action ID 不可用并产生全新 LLM 调用。
+- [ ] **Step 9 (2–5 min):** 实现 Rebaseline 状态、差异 Observation、重新构建 context 和 3 次升级；测试 PASS。
+- [ ] **Step 10 (2–5 min):** 写 scheduler 5 个任务测试，前 4 running、第 5 queued；实现并发信号量后 PASS。
+- [ ] **Step 11 (2–5 min):** 写启动恢复测试，把遗留 running 原子改 interrupted，绝不重放 ToolCall；实现后 PASS。
+- [ ] **Step 12 (2–5 min):** 运行 `pnpm test`、三类端到端 mock fixture、lint/typecheck/build；扫描依赖确认无 AgentExecutor/Agent Runner。
+- [ ] **Step 13 (2–5 min):** 执行 Spec 合规评审，逐项核对 REQ-005/009/012/016。
+- [ ] **Step 14 (2–5 min):** 执行代码质量评审，只检查状态竞争、AbortSignal 和资源释放。
+- [ ] **Step 15 (2–5 min):** 修复 Critical 并重跑对应测试；没有 Critical 时记录“无”。
+- [ ] **Step 16 (2–5 min):** 运行 G4 命令 `pnpm vitest run tests/integration/agent/loop.test.ts tests/integration/agent/stale-rebaseline.test.ts tests/integration/agent/restart-recovery.test.ts`；预期 mock 主循环、工具、治理、反馈、记忆和停机全部 PASS。
+- [ ] **Step 17 (2–5 min):** 将 G4 命令、退出码、测试数量和停机样本写入证据台账。
+- [ ] **Step 18 (2–5 min):** 提交 `feat: 实现自研智能体主循环`。
+- [ ] **Step 19 (2–5 min):** 更新 PLAN 台账与 `AGENT_LOG.md` 并提交证据。
+- [ ] **Step 20 (2–5 min):** 清空 guiding 并只提交清空变更。
+- [ ] **Step 21 (2–5 min):** 推送分支并记录 Pipeline URL。
+- [ ] **Step 22 (2–5 min):** 等待 Pipeline 结束；非 passed 时停止并记录失败 job。
+- [ ] **Step 23 (2–5 min):** Pipeline passed 后合并 MR。
 
 **完成标准/G4：** 完整闭环离线可重复；每 Step 一个 Action；副作用前 stale/Policy；完成门四条件；全部停机有原因；无现成 Runner；服务恢复不重放。
 
@@ -652,8 +749,8 @@ it("runs one action per step and completes only after verified PASS", async () =
 
 **Verification：** 运行 `pnpm vitest run tests/unit/domain/context-selector.metamorphic.test.ts tests/unit/domain/canonical-json.metamorphic.test.ts tests/unit/domain/conflict-detector.property.test.ts tests/integration/decision/activation-faults.test.ts tests/integration/decision/rebaseline-faults.test.ts`；性能基线运行 `pnpm vitest run tests/performance/context-performance.test.ts tests/performance/trace-performance.test.ts`，记录样本环境和分位数。
 
-- [ ] **Step 1:** 提交 T14 guiding，明确三个深度特性：确定性变形、事务/故障原子性、冲突/Rebaseline 爆炸保护。
-- [ ] **Step 2:** 写 100 个固定 seed 的候选顺序/集合顺序变形测试：
+- [ ] **Step 1 (2–5 min):** 提交 T14 guiding，明确三个深度特性：确定性变形、事务/故障原子性、冲突/Rebaseline 爆炸保护。
+- [ ] **Step 2 (2–5 min):** 写 100 个固定 seed 的候选顺序/集合顺序变形测试：
 
 ```ts
 it("is invariant under candidate and scope ordering", () => {
@@ -664,16 +761,27 @@ it("is invariant under candidate and scope ordering", () => {
 });
 ```
 
-- [ ] **Step 3:** 运行测试；若 RED，最小修复非稳定迭代/排序；若当前实现已 PASS，先用 mutation 移除排序证明测试会失败，再恢复实现并记录证据。
-- [ ] **Step 4:** 对 canonical JSON 做字段、Unicode、路径分隔、集合和数值表示变形；同样以 mutation 证明测试敏感，再恢复并 PASS。
-- [ ] **Step 5:** 在激活事务的每个写点注入异常，断言 active 唯一且无部分 superseded；若失败，收紧单事务和约束，运行 PASS。
-- [ ] **Step 6:** 在 Rebaseline 的新快照、旧 Action invalidation、旧 Approval invalidation、Task 指针更新之间逐点故障注入，断言全回滚；修复后 PASS。
-- [ ] **Step 7:** 生成重复键和两两互斥大样本；写阈值测试，超过上限在任务启动前返回稳定错误，不创建审批洪泛；实现保护后 PASS。
-- [ ] **Step 8:** 写第三次 Rebaseline 升级测试，断言无第 4 次自动 LLM 调用；实现/验证计数器后 PASS。
-- [ ] **Step 9:** 在 10,000 决策、100,000 Trace、4 并发固定数据上记录硬件、样本、预热、p50/p95/max；断言选择/快照 `<500ms`、Trace append `<100ms`。
-- [ ] **Step 10:** 若指标失败，只优化索引/排序/序列化热路径并保留结果等价测试；不得删除历史或缩小数据集制造通过。
-- [ ] **Step 11:** 全量回归、Spec/质量评审，README 证据草案写入 AGENT_LOG；提交 `test: 深化版本化上下文确定性验证` 与必要性能修复。
-- [ ] **Step 12:** 更新台账并完成 MR/guiding 收尾，明确不再增加通用平台功能。
+- [ ] **Step 3 (2–5 min):** 运行顺序变形测试并记录结果；若 RED，保留失败输出后停止本步。
+- [ ] **Step 4 (2–5 min):** 仅修复导致顺序不稳定的迭代或排序，运行同一测试预期 PASS。
+- [ ] **Step 5 (2–5 min):** 若测试初次即 PASS，临时移除稳定排序并运行同一测试，预期 RED；保留失败输出后停止本步。
+- [ ] **Step 6 (2–5 min):** 恢复实现后再次运行顺序变形测试，预期 PASS，并记录 mutation 证据。
+- [ ] **Step 7 (2–5 min):** 对 canonical JSON 做字段、Unicode、路径分隔、集合和数值表示变形；同样以 mutation 证明测试敏感，再恢复并 PASS。
+- [ ] **Step 8 (2–5 min):** 在激活事务的每个写点注入异常，断言 active 唯一且无部分 superseded；若失败，收紧单事务和约束，运行 PASS。
+- [ ] **Step 9 (2–5 min):** 在 Rebaseline 的新快照、旧 Action invalidation、旧 Approval invalidation、Task 指针更新之间逐点故障注入，断言全回滚；修复后 PASS。
+- [ ] **Step 10 (2–5 min):** 生成重复键和两两互斥大样本；写阈值测试，超过上限在任务启动前返回稳定错误，不创建审批洪泛；实现保护后 PASS。
+- [ ] **Step 11 (2–5 min):** 写第三次 Rebaseline 升级测试，断言无第 4 次自动 LLM 调用；实现/验证计数器后 PASS。
+- [ ] **Step 12 (2–5 min):** 在 10,000 决策、100,000 Trace、4 并发固定数据上记录硬件、样本、预热、p50/p95/max；断言选择/快照 `<500ms`、Trace append `<100ms`。
+- [ ] **Step 13 (2–5 min):** 若指标失败，只优化索引/排序/序列化热路径并保留结果等价测试；不得删除历史或缩小数据集制造通过。
+- [ ] **Step 14 (2–5 min):** 运行 T14 全量回归，预期全部通过。
+- [ ] **Step 15 (2–5 min):** 执行 Spec 合规评审，确认只深化版本化上下文主贡献。
+- [ ] **Step 16 (2–5 min):** 执行代码质量评审，检查变形测试、故障注入和性能测量可信性。
+- [ ] **Step 17 (2–5 min):** 将 README 证据草案写入 `AGENT_LOG.md`。
+- [ ] **Step 18 (2–5 min):** 提交 `test: 深化版本化上下文确定性验证`；必要性能修复使用独立提交。
+- [ ] **Step 19 (2–5 min):** 更新台账并提交证据，明确不增加通用平台功能。
+- [ ] **Step 20 (2–5 min):** 清空 guiding 并只提交清空变更。
+- [ ] **Step 21 (2–5 min):** 推送分支并记录 Pipeline URL。
+- [ ] **Step 22 (2–5 min):** 等待 Pipeline 结束；非 passed 时停止并记录失败 job。
+- [ ] **Step 23 (2–5 min):** Pipeline passed 后合并 MR。
 
 **完成标准：** 三类深度特性均有独立确定性测试；fault injection 无部分状态；冲突/Rebaseline 有硬上限；REQ-020 基线可追踪。
 
@@ -689,10 +797,10 @@ it("is invariant under candidate and scope ordering", () => {
 
 **Interfaces：** 根命令 `pnpm demo:mechanisms` 调用 Vitest 精确目录；任一断言失败或测试未发现时退出非零；固定 Clock/ID/Hasher/fixtures 保证重复输出一致。
 
-**Verification：** 分别运行三个 `pnpm vitest run demos/mechanisms/<name>.test.ts` 完成 RED/GREEN；再连续三次运行 `pnpm demo:mechanisms`，三次均应退出 0 且规范化输出完全一致。
+**Verification：** 分别运行 `pnpm vitest run demos/mechanisms/deny-dangerous-action.test.ts`、`pnpm vitest run demos/mechanisms/feedback-recovery.test.ts`、`pnpm vitest run demos/mechanisms/stale-rebaseline.test.ts` 完成 RED/GREEN；再连续三次运行 `pnpm demo:mechanisms`，三次均应退出 0 且规范化输出完全一致。
 
-- [ ] **Step 1:** 提交 T15 guiding，列出 DEMO-01–03 与 REQ-017–019 一一映射。
-- [ ] **Step 2:** 写 DEMO-01：
+- [ ] **Step 1 (2–5 min):** 提交 T15 guiding，列出 DEMO-01–03 与 REQ-017–019 一一映射。
+- [ ] **Step 2 (2–5 min):** 写 DEMO-01：
 
 ```ts
 it("DEMO-01 denies .env read before tool dispatch", async () => {
@@ -703,15 +811,23 @@ it("DEMO-01 denies .env read before tool dispatch", async () => {
 });
 ```
 
-- [ ] **Step 3:** 单独运行文件，预期 PASS；临时 mutation 将 deny 改 allow，确认测试 RED，再恢复。
-- [ ] **Step 4:** 写 DEMO-02，固定第一次 Action/FAIL Observation/第二次不同 Action/PASS/完成顺序；断言两个 binding hash 不同、最终 completed。
-- [ ] **Step 5:** 单独运行 DEMO-02；预期 PASS；移除反馈回灌 mutation 时必须 RED，恢复后 PASS。
-- [ ] **Step 6:** 写 DEMO-03，版本 1 快照后激活版本 2，再提出写入；断言工具零调用、`SNAPSHOT_STALE`、diff、新 snapshot ID、旧 Action invalidated、重新规划后才执行。
-- [ ] **Step 7:** 单独运行 DEMO-03；预期 PASS；跳过 freshness mutation 时必须 RED，恢复后 PASS。
-- [ ] **Step 8:** 创建 runner 并在 package.json 绑定 `demo:mechanisms`；用无匹配目录验证 runner 非零，再恢复三项演示预期退出 0。
-- [ ] **Step 9:** 连续运行命令 3 次，比较规范化测试摘要和 Trace 关键序列完全一致。
-- [ ] **Step 10:** 两阶段评审确认无网络/真实 Key/演示专用绕过；提交 `test: 添加三项核心机制演示`。
-- [ ] **Step 11:** 以 `pnpm demo:mechanisms` 通过作为 G5 证据，更新台账并完成 MR/guiding 收尾。
+- [ ] **Step 3 (2–5 min):** 单独运行文件，预期 PASS；临时 mutation 将 deny 改 allow，确认测试 RED，再恢复。
+- [ ] **Step 4 (2–5 min):** 写 DEMO-02，固定第一次 Action/FAIL Observation/第二次不同 Action/PASS/完成顺序；断言两个 binding hash 不同、最终 completed。
+- [ ] **Step 5 (2–5 min):** 单独运行 DEMO-02；预期 PASS；移除反馈回灌 mutation 时必须 RED，恢复后 PASS。
+- [ ] **Step 6 (2–5 min):** 写 DEMO-03，版本 1 快照后激活版本 2，再提出写入；断言工具零调用、`SNAPSHOT_STALE`、diff、新 snapshot ID、旧 Action invalidated、重新规划后才执行。
+- [ ] **Step 7 (2–5 min):** 单独运行 DEMO-03；预期 PASS；跳过 freshness mutation 时必须 RED，恢复后 PASS。
+- [ ] **Step 8 (2–5 min):** 创建 runner 并在 package.json 绑定 `demo:mechanisms`；用无匹配目录验证 runner 非零，再恢复三项演示预期退出 0。
+- [ ] **Step 9 (2–5 min):** 连续运行命令 3 次，比较规范化测试摘要和 Trace 关键序列完全一致。
+- [ ] **Step 10 (2–5 min):** 执行 Spec 合规评审，确认 DEMO-01–03 与需求映射完整。
+- [ ] **Step 11 (2–5 min):** 执行代码质量评审，确认无网络、真实 Key 或演示专用绕过。
+- [ ] **Step 12 (2–5 min):** 修复 Critical 并重跑三项演示；没有 Critical 时记录“无”。
+- [ ] **Step 13 (2–5 min):** 提交 `test: 添加三项核心机制演示`。
+- [ ] **Step 14 (2–5 min):** 运行 `pnpm demo:mechanisms` 并记录 G5 候选证据。
+- [ ] **Step 15 (2–5 min):** 更新 PLAN 台账与 `AGENT_LOG.md` 并单独提交证据。
+- [ ] **Step 16 (2–5 min):** 清空 guiding 并只提交清空变更。
+- [ ] **Step 17 (2–5 min):** 推送分支并记录 Pipeline URL。
+- [ ] **Step 18 (2–5 min):** 等待 Pipeline 结束；非 passed 时停止并记录失败 job。
+- [ ] **Step 19 (2–5 min):** Pipeline passed 后合并 MR。
 
 **完成标准/G5：** DEMO-01–03 自动断言；单命令；失败非零；三次一致；不依赖网络、真实模型或真实 Key。
 
@@ -729,18 +845,36 @@ it("DEMO-01 denies .env read before tool dispatch", async () => {
 
 **Verification：** API RED/GREEN 运行 `pnpm vitest run tests/integration/api/auth.test.ts tests/integration/api/tasks.test.ts tests/integration/api/decisions.test.ts tests/integration/api/approvals.test.ts tests/integration/api/trace.test.ts`；UI 运行 `pnpm playwright test tests/e2e/operator-flow.spec.ts tests/e2e/accessibility.spec.ts`，预期退出 0、严重 a11y 错误为 0。
 
-- [ ] **Step 1:** 提交 T16 guiding 和 `OPEN-04` 决策，建立页面—DTO—API—服务映射。
-- [ ] **Step 2:** 先写 Fastify inject RED 测试：未认证、viewer 写入、缺 CSRF、非法 Schema、重复幂等键；实现认证/RBAC/CSRF/幂等插件后 PASS。
-- [ ] **Step 3:** 为任务、决策、快照、diff、审批、Trace、凭据状态逐个写 DTO 白名单测试，断言 `ciphertext|nonce|auth_tag|password_hash` 无法序列化。
-- [ ] **Step 4:** 实现对应只调用 application service 的 route；用静态扫描/评审确认路由无 SQL、Policy 或状态机逻辑。
-- [ ] **Step 5:** 写任务页 Playwright RED：创建后显示 queued/running，SSE 断线显示“连接中断”而非完成，重连按 last-event-id 补读。
-- [ ] **Step 6:** 实现 API client、状态 store 和任务详情最小 UI；e2e PASS。
-- [ ] **Step 7:** 逐页用 RED→GREEN 实现决策版本、Snapshot 选择/排除、Rebaseline diff、审批绑定信息、Trace 筛选/导出、凭据配置状态。
-- [ ] **Step 8:** 写审批 e2e，确认规则、来源、文件、Action、快照、风险、有效期齐全；后端返回 binding mismatch 时前端显示错误码/trace_id，绝不改为成功。
-- [ ] **Step 9:** 写状态表达测试，`failed|interrupted|waiting_approval|rebaseline_required` 文案/语义标签不同且不只靠颜色。
-- [ ] **Step 10:** 运行键盘流程与自动 a11y 扫描，严重错误必须为 0；修复焦点、label、live region 和对比度后 PASS。
-- [ ] **Step 11:** 测试生产静态构建、CSP、HttpOnly/Secure/SameSite Cookie、无 Key/localStorage/source map 泄露；运行 build/e2e PASS。
-- [ ] **Step 12:** 两阶段评审与人工可用性检查；提交 `feat: 实现任务治理与审计界面`，更新台账并完成 MR/guiding 收尾。
+- [ ] **Step 1 (2–5 min):** 提交 T16 guiding 和 `OPEN-04` 决策，建立页面—DTO—API—服务映射。
+- [ ] **Step 2 (2–5 min):** 先写 Fastify inject RED 测试：未认证、viewer 写入、缺 CSRF、非法 Schema、重复幂等键；实现认证/RBAC/CSRF/幂等插件后 PASS。
+- [ ] **Step 3 (2–5 min):** 为任务、决策、快照、diff、审批、Trace、凭据状态逐个写 DTO 白名单测试，断言 `ciphertext|nonce|auth_tag|password_hash` 无法序列化。
+- [ ] **Step 4 (2–5 min):** 实现对应只调用 application service 的 route；用静态扫描/评审确认路由无 SQL、Policy 或状态机逻辑。
+- [ ] **Step 5 (2–5 min):** 写任务页 Playwright RED：创建后显示 queued/running，SSE 断线显示“连接中断”而非完成，重连按 last-event-id 补读。
+- [ ] **Step 6 (2–5 min):** 实现 API client、状态 store 和任务详情最小 UI；e2e PASS。
+- [ ] **Step 7 (2–5 min):** 为决策版本页写 RED 测试，运行确认页面组件缺失。
+- [ ] **Step 8 (2–5 min):** 实现决策版本页最小 UI，运行对应测试预期 PASS。
+- [ ] **Step 9 (2–5 min):** 为 Snapshot 选择/排除与 Rebaseline diff 写 RED 测试，运行确认失败。
+- [ ] **Step 10 (2–5 min):** 实现 Snapshot 与 Rebaseline 最小 UI，运行对应测试预期 PASS。
+- [ ] **Step 11 (2–5 min):** 为审批绑定信息页写 RED 测试，运行确认失败。
+- [ ] **Step 12 (2–5 min):** 实现审批绑定信息页最小 UI，运行对应测试预期 PASS。
+- [ ] **Step 13 (2–5 min):** 为 Trace 筛选/导出写 RED 测试，运行确认失败。
+- [ ] **Step 14 (2–5 min):** 实现 Trace 筛选/导出最小 UI，运行对应测试预期 PASS。
+- [ ] **Step 15 (2–5 min):** 为凭据配置状态页写 RED 测试，运行确认失败。
+- [ ] **Step 16 (2–5 min):** 实现凭据配置状态最小 UI，运行对应测试预期 PASS。
+- [ ] **Step 17 (2–5 min):** 写审批 e2e，确认规则、来源、文件、Action、快照、风险、有效期齐全；后端返回 binding mismatch 时前端显示错误码/trace_id，绝不改为成功。
+- [ ] **Step 18 (2–5 min):** 写状态表达测试，`failed|interrupted|waiting_approval|rebaseline_required` 文案/语义标签不同且不只靠颜色。
+- [ ] **Step 19 (2–5 min):** 运行键盘流程与自动 a11y 扫描，记录全部严重错误。
+- [ ] **Step 20 (2–5 min):** 只修复焦点、label、live region 和对比度问题，再运行扫描预期严重错误为 0。
+- [ ] **Step 21 (2–5 min):** 运行生产静态构建与 CSP/Cookie/泄露测试，记录失败或退出码 0。
+- [ ] **Step 22 (2–5 min):** 执行 Spec 合规评审，检查后端裁决、脱敏 DTO 和无假成功。
+- [ ] **Step 23 (2–5 min):** 执行代码质量与人工可用性评审，记录 Critical。
+- [ ] **Step 24 (2–5 min):** 修复 Critical 并重跑对应测试；没有 Critical 时记录“无”。
+- [ ] **Step 25 (2–5 min):** 提交 `feat: 实现任务治理与审计界面`。
+- [ ] **Step 26 (2–5 min):** 更新台账和日志并提交证据。
+- [ ] **Step 27 (2–5 min):** 清空 guiding 并只提交清空变更。
+- [ ] **Step 28 (2–5 min):** 推送分支并记录 Pipeline URL。
+- [ ] **Step 29 (2–5 min):** 等待 Pipeline 结束；非 passed 时停止并记录失败 job。
+- [ ] **Step 30 (2–5 min):** Pipeline passed 后合并 MR。
 
 **完成标准：** REQ-013/021 UI 验收通过；主要流程键盘可用；严重 a11y 错误 0；断线/错误无假成功；浏览器只见脱敏 DTO。
 
@@ -760,17 +894,27 @@ it("DEMO-01 denies .env read before tool dispatch", async () => {
 
 **Verification：** RED/GREEN 运行 `pnpm vitest run tests/unit/infrastructure/master-key.test.ts tests/unit/infrastructure/credential-store.test.ts tests/unit/infrastructure/credential-rotation.test.ts tests/unit/infrastructure/openai-compatible.test.ts tests/integration/api/credentials.test.ts tests/security/credential-leakage.test.ts`；预期全部退出 0 且 fake Key 扫描零命中。
 
-- [ ] **Step 1:** 提交 T17 guiding，记录 Argon2 能力测试、Secret 来源、fake Key 和 `OPEN-06` 保守默认。
-- [ ] **Step 2:** 写 Argon2id RED 测试，断言参数至少 64 MiB/3/1、不同 salt 结果不同、能力不足时 `CREDENTIAL_MASTER_KEY_UNAVAILABLE`；实现派生器后 PASS。
-- [ ] **Step 3:** 写 AES-GCM roundtrip/tamper/nonce 唯一测试；实现 256 位 key、12-byte 随机 nonce、auth tag 和版本字段后 PASS。
-- [ ] **Step 4:** 写数据库备份扫描，提交 fake Key 后 SQLite 字节不含明文；实现 CredentialRef/密文表和 `withSecret` 后 PASS。
-- [ ] **Step 5:** 写状态/更新/清除 RED：状态无密文，更新后旧密文不可调用，清除后 `LLM_CREDENTIAL_MISSING`；最小实现后 PASS。
-- [ ] **Step 6:** 写主密钥轮换逐点故障注入，任一失败保持全部旧密文可用且无混合版本；实现单事务重加密与认证验证后 PASS。
-- [ ] **Step 7:** 写 HTTP stub 测试，断言一次请求期间 Authorization 正确，返回后任何 Trace/错误/子进程环境/DTO 不含 fake Key；实现 Provider 后 PASS。
-- [ ] **Step 8:** 写供应商 auth/rate-limit/timeout/invalid schema 映射；实现最多 2 次仅传输/限流重试，重试不推进 Step；测试 PASS。
-- [ ] **Step 9:** 写未认证/viewer 越权、WebUI 输入提交后清空、本地/浏览器存储零 Key e2e；实现路由和页面后 PASS。
-- [ ] **Step 10:** 扫描内存边界说明、数据库、日志、Trace、API、SSE、前端、错误与子进程环境；fake Key 全部零命中。
-- [ ] **Step 11:** 两阶段安全评审；提交 `feat: 实现凭据安全与模型适配器`，更新台账并完成 MR/guiding 收尾。
+- [ ] **Step 1 (2–5 min):** 提交 T17 guiding，记录 Argon2 能力测试、Secret 来源、fake Key 和 `OPEN-06` 保守默认。
+- [ ] **Step 2 (2–5 min):** 写 Argon2id RED 测试，断言参数至少 64 MiB/3/1、不同 salt 结果不同、能力不足时 `CREDENTIAL_MASTER_KEY_UNAVAILABLE`；实现派生器后 PASS。
+- [ ] **Step 3 (2–5 min):** 写 AES-GCM roundtrip/tamper/nonce 唯一测试；实现 256 位 key、12-byte 随机 nonce、auth tag 和版本字段后 PASS。
+- [ ] **Step 4 (2–5 min):** 写数据库备份扫描测试并运行，预期因 CredentialStore 缺失而 RED。
+- [ ] **Step 5 (2–5 min):** 实现 CredentialRef/密文表和 `withSecret`，运行备份扫描预期 SQLite 字节不含 fake Key。
+- [ ] **Step 6 (2–5 min):** 写凭据状态、更新和清除 RED 测试，运行确认失败。
+- [ ] **Step 7 (2–5 min):** 实现状态、更新和清除最小行为，运行测试预期 PASS 且清除后返回 `LLM_CREDENTIAL_MISSING`。
+- [ ] **Step 8 (2–5 min):** 写主密钥轮换逐点故障注入，任一失败保持全部旧密文可用且无混合版本；实现单事务重加密与认证验证后 PASS。
+- [ ] **Step 9 (2–5 min):** 写 HTTP stub 测试，断言一次请求期间 Authorization 正确，返回后任何 Trace/错误/子进程环境/DTO 不含 fake Key；实现 Provider 后 PASS。
+- [ ] **Step 10 (2–5 min):** 写供应商 auth/rate-limit/timeout/invalid schema 映射；实现最多 2 次仅传输/限流重试，重试不推进 Step；测试 PASS。
+- [ ] **Step 11 (2–5 min):** 写未认证/viewer 越权、WebUI 输入提交后清空、本地/浏览器存储零 Key e2e；实现路由和页面后 PASS。
+- [ ] **Step 12 (2–5 min):** 扫描内存边界说明、数据库、日志、Trace、API、SSE、前端、错误与子进程环境；fake Key 全部零命中。
+- [ ] **Step 13 (2–5 min):** 执行 Spec 合规安全评审，检查 REQ-014/015 与短时解密边界。
+- [ ] **Step 14 (2–5 min):** 执行代码质量安全评审，检查 nonce、认证失败、轮换事务和泄露通道。
+- [ ] **Step 15 (2–5 min):** 修复 Critical 并重跑对应安全测试；没有 Critical 时记录“无”。
+- [ ] **Step 16 (2–5 min):** 提交 `feat: 实现凭据安全与模型适配器`。
+- [ ] **Step 17 (2–5 min):** 更新台账和日志并提交证据。
+- [ ] **Step 18 (2–5 min):** 清空 guiding 并只提交清空变更。
+- [ ] **Step 19 (2–5 min):** 推送分支并记录 Pipeline URL。
+- [ ] **Step 20 (2–5 min):** 等待 Pipeline 结束；非 passed 时停止并记录失败 job。
+- [ ] **Step 21 (2–5 min):** Pipeline passed 后合并 MR。
 
 **完成标准：** REQ-014/015；数据库泄露不能恢复明文；篡改认证失败；更新/清除/轮换原子；真实 Provider 缺配置快速失败；fake Key 全通道零命中。
 
@@ -788,16 +932,23 @@ it("DEMO-01 denies .env read before tool dispatch", async () => {
 
 **Verification：** 本地 contract 运行 `pnpm vitest run tests/unit/ci/pipeline-contract.test.ts tests/unit/ci/secret-scan.test.ts`；推送后检查上述 job 全部存在并 passed，任一故障注入必须使对应 job 和 Pipeline 失败。
 
-- [ ] **Step 1:** 提交 T18 guiding，记录 GitLab Runner 平台、缓存与离线约束。
-- [ ] **Step 2:** 写 pipeline contract RED 测试：解析 YAML，断言 `unit-test` 存在、关键 jobs 存在、无 `allow_failure`、无真实 Provider 变量。
-- [ ] **Step 3:** 创建最小 `.gitlab-ci.yml` 使 contract PASS；使用冻结 pnpm lock 和固定 Node LTS image。
-- [ ] **Step 4:** 写 fake Key 文件/日志/历史样本的 secret scanner 测试；扫描器应在样本存在时退出非零、清除后 0。
-- [ ] **Step 5:** 实现当前文件扫描脚本；Git 历史扫描只在 T20 最终审计执行并记录批准边界。
-- [ ] **Step 6:** `unit-test` 运行核心 Vitest 与 `pnpm demo:mechanisms`，设置网络访问断言；本地模拟脚本预期退出 0。
-- [ ] **Step 7:** 配置 lint/typecheck/secret 每次 push，integration 使用临时 SQLite，e2e 使用 ScriptedMockLLM，build-image 只构建不发布。
-- [ ] **Step 8:** 对每个 job 故意注入一个可恢复失败，确认 Pipeline 红；恢复后确认相应 job green，禁止通过 skip/allow_failure 修复。
-- [ ] **Step 9:** 两阶段评审；提交 `ci: 建立GitLab持续验证流水线`，推送后记录 Pipeline URL/ID/status。
-- [ ] **Step 10:** Pipeline passed 后更新台账、清空 guiding 并合并 MR。
+- [ ] **Step 1 (2–5 min):** 提交 T18 guiding，记录 GitLab Runner 平台、缓存与离线约束。
+- [ ] **Step 2 (2–5 min):** 写 pipeline contract RED 测试：解析 YAML，断言 `unit-test` 存在、关键 jobs 存在、无 `allow_failure`、无真实 Provider 变量。
+- [ ] **Step 3 (2–5 min):** 创建最小 `.gitlab-ci.yml` 使 contract PASS；使用冻结 pnpm lock 和固定 Node LTS image。
+- [ ] **Step 4 (2–5 min):** 写 fake Key 文件/日志/历史样本的 secret scanner 测试；扫描器应在样本存在时退出非零、清除后 0。
+- [ ] **Step 5 (2–5 min):** 实现当前文件扫描脚本；Git 历史扫描只在 T20 最终审计执行并记录批准边界。
+- [ ] **Step 6 (2–5 min):** `unit-test` 运行核心 Vitest 与 `pnpm demo:mechanisms`，设置网络访问断言；本地模拟脚本预期退出 0。
+- [ ] **Step 7 (2–5 min):** 配置 lint/typecheck/secret 每次 push，integration 使用临时 SQLite，e2e 使用 ScriptedMockLLM，build-image 只构建不发布。
+- [ ] **Step 8 (2–5 min):** 对每个 job 故意注入一个可恢复失败，确认 Pipeline 红；恢复后确认相应 job green，禁止通过 skip/allow_failure 修复。
+- [ ] **Step 9 (2–5 min):** 执行 Spec 合规评审，确认所有强制 job 和离线边界。
+- [ ] **Step 10 (2–5 min):** 执行代码质量评审，检查缓存、失败传播和敏感信息输出。
+- [ ] **Step 11 (2–5 min):** 修复 Critical 并重跑本地 contract；没有 Critical 时记录“无”。
+- [ ] **Step 12 (2–5 min):** 提交 `ci: 建立GitLab持续验证流水线`。
+- [ ] **Step 13 (2–5 min):** 推送分支并记录 Pipeline URL/ID。
+- [ ] **Step 14 (2–5 min):** 等待 Pipeline 结束；非 passed 时停止并记录失败 job。
+- [ ] **Step 15 (2–5 min):** 将 Pipeline status 和评审结论更新到台账并提交证据。
+- [ ] **Step 16 (2–5 min):** 清空 guiding 并只提交清空变更。
+- [ ] **Step 17 (2–5 min):** 合并 MR 并确认 `dev` 最新 Pipeline 仍为 passed。
 
 **完成标准：** REQ-022；`unit-test` 精确命名且离线；关键失败不能伪装；每次 push 质量门禁；Pipeline 证据可追踪。
 
@@ -815,17 +966,25 @@ it("DEMO-01 denies .env read before tool dispatch", async () => {
 
 **Verification：** 运行 `pnpm vitest run tests/unit/deploy/dockerfile-contract.test.ts tests/integration/deploy/container-lifecycle.test.ts`、`node scripts/smoke/distribution.mjs`，获批部署后再运行 `node scripts/smoke/online.mjs`；每条命令预期退出 0，未获批时线上命令标记为明确阻塞而非通过。
 
-- [ ] **Step 1:** 提交 T19 guiding；记录三个候选平台/Registry/Secret 方式的持久卷、HTTPS、费用、限速和访问证据，负责人批准 OPEN-01/02/05。
-- [ ] **Step 2:** 写 Docker contract RED 测试，断言非 root USER、固定工作目录、无 `COPY .env`、healthcheck、单启动进程和静态前端产物。
-- [ ] **Step 3:** 实现多阶段 Dockerfile/entrypoint；`docker build --platform linux/amd64 -f deploy/Dockerfile -t ai4se-harness:test .` 预期成功。
-- [ ] **Step 4:** 启动无 Secret 容器，预期 readiness 明确失败但 mock 状态可诊断；提供 Secret/卷后 readiness 200。
-- [ ] **Step 5:** 运行分发 smoke：创建管理员/示例决策、运行三项演示、写 SQLite、重启容器、确认数据保留和 running→interrupted。
-- [ ] **Step 6:** 检查镜像历史、层、环境和导出文件不含 fake/真实 Key；容器进程用户非 root，子进程无 Key。
-- [ ] **Step 7:** 将镜像推至已批准 Registry，记录不可变 digest；若权限不可用，保留本地构建证据且不宣称已分发。
-- [ ] **Step 8:** 部署单副本，设置 HTTPS、登录、速率/费用/token 上限、持久卷、Secret 和 mock 默认；关闭匿名任务和匿名真实调用。
-- [ ] **Step 9:** 运行 online smoke：健康、登录、SQLite 写入/重启、SSE、mock 演示、凭据状态，以及仅在 OPEN-06 已批准时一次受控真实 Provider 调用。
-- [ ] **Step 10:** 测试备份/恢复、升级/回滚和磁盘 80% 告警；记录 URL、commit、digest、配置版本、时间和无 Secret 的结果。
-- [ ] **Step 11:** 两阶段安全/运维评审；提交 `chore: 完成容器分发与线上部署`，更新 G6/台账并完成 MR/guiding 收尾。
+- [ ] **Step 1 (2–5 min):** 提交 T19 guiding；记录三个候选平台/Registry/Secret 方式的持久卷、HTTPS、费用、限速和访问证据，负责人批准 OPEN-01/02/05。
+- [ ] **Step 2 (2–5 min):** 写 Docker contract RED 测试，断言非 root USER、固定工作目录、无 `COPY .env`、healthcheck、单启动进程和静态前端产物。
+- [ ] **Step 3 (2–5 min):** 实现多阶段 Dockerfile/entrypoint；`docker build --platform linux/amd64 -f deploy/Dockerfile -t ai4se-harness:test .` 预期成功。
+- [ ] **Step 4 (2–5 min):** 启动无 Secret 容器，预期 readiness 明确失败但 mock 状态可诊断；提供 Secret/卷后 readiness 200。
+- [ ] **Step 5 (2–5 min):** 运行分发 smoke：创建管理员/示例决策、运行三项演示、写 SQLite、重启容器、确认数据保留和 running→interrupted。
+- [ ] **Step 6 (2–5 min):** 检查镜像历史、层、环境和导出文件不含 fake/真实 Key；容器进程用户非 root，子进程无 Key。
+- [ ] **Step 7 (2–5 min):** 将镜像推至已批准 Registry，记录不可变 digest；若权限不可用，保留本地构建证据且不宣称已分发。
+- [ ] **Step 8 (2–5 min):** 部署单副本，设置 HTTPS、登录、速率/费用/token 上限、持久卷、Secret 和 mock 默认；关闭匿名任务和匿名真实调用。
+- [ ] **Step 9 (2–5 min):** 运行 online smoke：健康、登录、SQLite 写入/重启、SSE、mock 演示、凭据状态，以及仅在 OPEN-06 已批准时一次受控真实 Provider 调用。
+- [ ] **Step 10 (2–5 min):** 测试备份/恢复、升级/回滚和磁盘 80% 告警；记录 URL、commit、digest、配置版本、时间和无 Secret 的结果。
+- [ ] **Step 11 (2–5 min):** 执行 Spec 合规安全评审，检查 REQ-023/024 与保守默认行为。
+- [ ] **Step 12 (2–5 min):** 执行代码质量和运维评审，检查非 root、Secret、持久卷、备份与回滚。
+- [ ] **Step 13 (2–5 min):** 修复 Critical 并重跑对应 smoke；没有 Critical 时记录“无”。
+- [ ] **Step 14 (2–5 min):** 提交 `chore: 完成容器分发与线上部署`。
+- [ ] **Step 15 (2–5 min):** 更新 G6、台账和日志并提交证据。
+- [ ] **Step 16 (2–5 min):** 清空 guiding 并只提交清空变更。
+- [ ] **Step 17 (2–5 min):** 推送分支并记录 Pipeline URL。
+- [ ] **Step 18 (2–5 min):** 等待 Pipeline 结束；非 passed 时停止并记录失败 job。
+- [ ] **Step 19 (2–5 min):** Pipeline passed 后合并 MR。
 
 **完成标准/G6：** REQ-023/024；新机器单容器启动；数据重启保留；Secret 不入镜像；公网 HTTPS URL；登录/限额；线上 smoke 通过。
 
@@ -843,18 +1002,30 @@ it("DEMO-01 denies .env read before tool dispatch", async () => {
 
 **Verification：** 先运行 `pnpm vitest run tests/unit/audit/final-audit.test.ts` 证明缺件样本为 RED、完整样本为 GREEN；最后运行 `pnpm audit:final`、`pwsh scripts/smoke/fresh-machine.ps1` 和 `bash scripts/smoke/fresh-machine.sh`，预期全部退出 0 并记录环境版本。
 
-- [ ] **Step 1:** 提交 T20 guiding，列出交付清单、负责人手写反思边界和最终 MR 顺序。
-- [ ] **Step 2:** 写 final-audit RED 测试/脚本，缺任一交付文件、README 必需标题或台账字段时退出非零。
-- [ ] **Step 3:** 完成 README 的 30 秒价值、架构/主要贡献、安装/运行/测试、三演示、WebUI/URL、凭据生命周期、目录/安全边界、分发/限制、许可证。
-- [ ] **Step 4:** 由负责人本人完成 1500–2500 字 REFLECTION，覆盖 Superpowers/TDD/subagent/task 粒度、真实规约偏离、context、凭据/分发、主要贡献与方法论批判；记录 AI 润色范围。
-- [ ] **Step 5:** 填写 PLAN 每个 Task 的 commit/MR/Pipeline/review，补齐 AGENT_LOG 连续证据和 SPEC_PROCESS 的 open decision 结果。
-- [ ] **Step 6:** 在全新 Windows/Linux 环境各执行安装或镜像流程、一键测试和三项演示；记录版本/命令/结果，失败先修正文档或实现对应分支。
-- [ ] **Step 7:** 运行当前文件与完整 Git 历史凭据扫描；发现真实疑似凭据立即停止、撤销/轮换并按人工批准流程处理历史，不自动重写历史。
-- [ ] **Step 8:** 运行 `pnpm test && pnpm lint && pnpm typecheck && pnpm build && pnpm demo:mechanisms` 以及 e2e、Docker、线上 smoke；全部退出 0。
-- [ ] **Step 9:** 执行性能数据、a11y 严重错误、Trace 保留、备份恢复、许可证和第三方归属审计。
-- [ ] **Step 10:** 两阶段最终评审与人工逐章批准；提交 `docs: 完成项目交付文档` 和 `docs: 确认最终交付审计`。
-- [ ] **Step 11:** 更新 G7、台账与最终版本，清空 guiding；创建 T20 → dev MR，Pipeline passed 后合并。
-- [ ] **Step 12:** 创建 `dev → main` MR，人工检查 commit 历史无 squash/一次性提交；合并后确认 `main` 最新 Pipeline 为 passed，记录最终 commit/URL/digest/日期。
+- [ ] **Step 1 (2–5 min):** 提交 T20 guiding，列出交付清单、负责人手写反思边界和最终 MR 顺序。
+- [ ] **Step 2 (2–5 min):** 写 final-audit RED 测试/脚本，缺任一交付文件、README 必需标题或台账字段时退出非零。
+- [ ] **Step 3 (2–5 min):** 完成 README 的 30 秒价值、架构/主要贡献、安装/运行/测试、三演示、WebUI/URL、凭据生命周期、目录/安全边界、分发/限制、许可证。
+- [ ] **Step 4 (2–5 min):** 由负责人本人完成 1500–2500 字 REFLECTION，覆盖 Superpowers/TDD/subagent/task 粒度、真实规约偏离、context、凭据/分发、主要贡献与方法论批判；记录 AI 润色范围。
+- [ ] **Step 5 (2–5 min):** 填写 PLAN 每个 Task 的 commit/MR/Pipeline/review，补齐 AGENT_LOG 连续证据和 SPEC_PROCESS 的 open decision 结果。
+- [ ] **Step 6 (2–5 min):** 在全新 Windows/Linux 环境各执行安装或镜像流程、一键测试和三项演示；记录版本/命令/结果，失败先修正文档或实现对应分支。
+- [ ] **Step 7 (2–5 min):** 运行当前文件与完整 Git 历史凭据扫描；发现真实疑似凭据立即停止、撤销/轮换并按人工批准流程处理历史，不自动重写历史。
+- [ ] **Step 8 (2–5 min):** 运行 `pnpm test && pnpm lint && pnpm typecheck && pnpm build && pnpm demo:mechanisms` 以及 e2e、Docker、线上 smoke；全部退出 0。
+- [ ] **Step 9 (2–5 min):** 执行性能数据、a11y 严重错误、Trace 保留、备份恢复、许可证和第三方归属审计。
+- [ ] **Step 10 (2–5 min):** 执行最终 Spec 合规评审并记录逐项结论。
+- [ ] **Step 11 (2–5 min):** 执行最终代码质量评审并修复 Critical。
+- [ ] **Step 12 (2–5 min):** 由项目负责人逐章审批交付文档并记录原始结论。
+- [ ] **Step 13 (2–5 min):** 提交 `docs: 完成项目交付文档`。
+- [ ] **Step 14 (2–5 min):** 更新 G7、台账与最终版本并提交 `docs: 确认最终交付审计`。
+- [ ] **Step 15 (2–5 min):** 清空 guiding 并只提交清空变更。
+- [ ] **Step 16 (2–5 min):** 创建 T20 → dev MR 并记录 MR URL。
+- [ ] **Step 17 (2–5 min):** 等待 T20 Pipeline；非 passed 时停止并记录失败 job。
+- [ ] **Step 18 (2–5 min):** Pipeline passed 后合并 T20 → dev MR。
+- [ ] **Step 19 (2–5 min):** 创建 `dev → main` MR 并记录 MR URL。
+- [ ] **Step 20 (2–5 min):** 人工检查 commit 历史无 squash 或一次性提交并记录结论。
+- [ ] **Step 21 (2–5 min):** 等待 `dev → main` Pipeline；非 passed 时停止最终交付。
+- [ ] **Step 22 (2–5 min):** Pipeline passed 后合并 `dev → main` MR。
+- [ ] **Step 23 (2–5 min):** 确认 `main` 最新 Pipeline 为 passed。
+- [ ] **Step 24 (2–5 min):** 记录最终 commit、URL、digest 和日期。
 
 **完成标准/G7：** REQ-025；正式文件齐全；冷启动可复现；无真实凭据；所有核心机制离线可测；多个 MR/评审/Pipeline 可追踪；`main` 最新 Pipeline passed。
 
@@ -992,7 +1163,11 @@ flowchart LR
 
 ## 12. T04 冷启动使用说明
 
-T04 的陌生智能体只能获得 `SPEC.md` 与本文件；不得获得历史聊天、memory 或口头补充。它选择 1–2 个计划 Task 试做，遇到类型、路径、行为或验证不确定时立即暂停提问，不得猜测；试做仅用于暴露规约缺陷，G3 通过前不得进入正式实现。
+T04 的陌生智能体只能获得 `SPEC.md` 与本文件；不得获得历史聊天、memory 或口头补充。它选择 1–2 个计划 Task 试做，遇到类型、路径、行为或验证不确定时立即暂停提问，不得猜测。
+
+T04 的“试做”只允许以下活动：在不连接项目工作区的外部网页或一次性沙箱中静态推演 Task 的文件、接口、步骤、测试、命令和停止条件；在回答正文中生成不可执行、不得写回仓库的一次性文本草案；或者如实保存因工具、输入、Gate 或规约歧义产生的失败证据。对于 T05，G3 或 `OPEN-03` 尚未满足只意味着正式 branch/worktree、文件写入、命令和提交必须停止；复验仍可把 Step 1–5 逐项模拟，并把每项明确标为“模拟/未执行”。模拟不得声称已有 G3 证据，不得提出或批准具体 Node.js/依赖版本。若环境没有终端、Git、文件写入或命令执行能力，智能体应列出真实能力，在能力范围内继续静态分析，并把所有未执行动作明确标为“未执行”。
+
+T04 不得创建或修改项目工作区中的源码、测试、依赖、Dockerfile、CI 或 T05 `guiding.md`，不得提交、合并、安装依赖、运行后宣称不存在的测试，也不得把文本草案称为实现产物。无论试做推进到哪个模拟步骤，都不代表 T05 已开始或完成，不解决 `OPEN-03`，也不构成突破 G3 的临时豁免；正式 T05 仍须在 G3 通过后从最新 `dev` 创建独立 branch/worktree，并重新执行全部计划步骤。
 
 ## 13. T03 自审与批准记录
 
@@ -1004,3 +1179,16 @@ T04 的陌生智能体只能获得 `SPEC.md` 与本文件；不得获得历史�
 - 项目负责人结论：批准 T05–T20、依赖 DAG、并行边界、文件冲突矩阵和 T04 冷启动说明；无需追加修改。
 - Gate：G2 已通过，计划版本定为 1.0.0。G3 仍须由 T04 冷启动验证，G3 前禁止实现。
 - 收尾纪律：G2 通过后的下一提交只清空 `guiding.md`，随后创建 `docs/t03-implementation-plan → dev` MR，禁止 squash。
+
+## 14. T04 冷启动边界修订与批准记录
+
+- 冷启动证据：同一冻结输入的首次回复在 T05 Step 1 因 G3 禁令完全停止，补充生成样本却把非业务 `health.ts` 文本草案视为允许；相反行为证明 1.0.1 未定义隔离试做与正式实现的边界。
+- 1.0.2 修订：在 Global Constraints 和第 12 节明确外部网页/一次性沙箱中的静态推演、一次性文本草案和失败证据属于允许的 T04 隔离活动；同时明确不得写回工作区、提交、合并或计入 T05–T20 进度。
+- 不变项：G3 前正式源码、测试、依赖、Dockerfile、CI 禁令不变；T05 文件、接口、步骤、依赖 DAG 和 `OPEN-03` 决策责任均不变；`SPEC.md` 1.0.0 没有证据支持的需求或架构缺陷，故不修订。
+- 影响范围：只澄清 T04 验证方法及 T05 开始条件；不改变任何 REQ、US、DEMO、产品功能、架构或实现验收。
+- 项目负责人批准：2026-07-18 00:01:24 +08:00 前的当前会话中，负责人明确回复“无需逐个批准，直接做完”，统一批准继续执行已提出的提交 6 修订方向及 T04 后续步骤。
+- 1.0.3 补强：OpenCode 三次复验尝试显示 1.0.2 仍可能被理解为 G3/`OPEN-03` 阻止静态模拟，并把 TypeScript ESM 测试的 `.js` 导入说明符误认成与 `.ts` 源文件冲突。因此在 Global Constraints、T05 前置依赖/Interfaces 和第 12 节显式说明模拟 Step 1–5 的 Gate 边界与 ESM 解析语义；不改变 T05 文件归属、产品需求或版本选择责任。
+- 复验状态：`njusehub/deepseek-v4-pro` 两次会话分别因选错 T06/T07 后上下文压缩失败、摘要阶段禁止 `grep` 而未完成；`njusehub/DeepSeek-R1` 完成 T05 文本回复，但仍把 G3 边界和 `.js`/`.ts` 视为冲突，并擅自给出 Node 版本示例，未满足“原始阻塞消失且无新 Critical 歧义”。
+- 负责人停止条件：项目负责人明确要求不再运行外部模型。现有复验没有形成通过闭环，不能以 1.0.3 文本修订代替复验证据；若未来开放 T05，必须先补做独立复验，或由负责人明确记录接受剩余冷启动风险。
+- 风险接受：三次外部复验均未形成成功闭环，失败事实继续保留。项目负责人于 2026-07-18 01:33:39 +08:00 审阅现有证据后，明确要求停止重复复检、接受“新的陌生智能体仍可能误读冷启动边界”的剩余风险并完成 G3；该决定不把失败复验改写为成功。
+- Gate：G2、G3 已通过。T05 不得在本 T04 分支开始；必须先将 T04 合入 `dev`，再从最新 `dev` 创建独立分支/worktree。OPEN-03 仍未决，获负责人批准前不得安装依赖或创建工程骨架。
