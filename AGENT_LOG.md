@@ -289,3 +289,14 @@
 - 不变项：T05 文件/接口/步骤、T06/T08 package 归属、OPEN-03 决策责任、依赖 DAG、REQ/US/DEMO 和产品架构均不变。
 - SPEC 处置：没有证据支持需求或架构缺陷，故 `SPEC.md` 保持 1.0.0，不更新版本或追踪矩阵。
 - Gate：G2 保持通过，G3 仍未通过；下一步用修订后的 SPEC/PLAN 在另一个全新会话复验同一 T05，不提供修订说明。
+
+### 2026-07-18 00:49:53–01:10:56 +08:00 · T04 OpenCode 复验与返工
+
+- 隔离环境：`C:\Users\32175\AppData\Local\Temp\t04-opencode-revalidation-20260718` 中仅有修订后的 `SPEC.md`、`PLAN.md`；OpenCode 1.17.14；三次会话导出均为 0 additions、0 deletions、0 files。
+- 尝试 1：`ses_08f03f66dffeJnBe9f6pGH5o3O`，`njusehub/deepseek-v4-pro`；模型选择 T06/T07 而非同一 T05，随后上下文压缩失败，没有完整结束总结。
+- 尝试 2：`ses_08efb4523ffekja4k7u1f9gF6J`，`njusehub/deepseek-v4-pro`；提示已收窄为 T05 Step 1–5，但自动摘要阶段调用 `grep`，真实错误为 `Tool call not allowed while generating summary: grep`，未形成最终结果。
+- 尝试 3：`ses_08ef90b87ffeUzAeq1y4WeMmkU`，`njusehub/DeepSeek-R1`；通过 `grep`、`read` 检索必要片段，完成 T05 Step 1–5 文本推演，未写文件、未执行 pnpm/Vitest。另有两次不可用工具 `อ่าน` 调用，均返回 invalid tool。
+- 复验判断：第三次回复最终仍把 G3 边界视为 Step 1 冲突，把 `.js` 导入与 `.ts` 源文件视为路径冲突，并在思考中示例未经批准的 Node `v20.5.0`。因此 1.0.2 复验未通过，提交 7 验收项保持未勾选。
+- 返工：PLAN 升为 1.0.3，只补强 T04 模拟 Step 1–5 的 Gate/OPEN-03 语义和 TypeScript ESM 导入说明；SPEC 1.0.0、T05 文件归属、OPEN-03 决策责任和产品范围不变。
+- 人工停止：项目负责人明确不再运行外部模型。本轮如实停止，不伪造 1.0.3 复验；若未来开放 T05，须先补做同 Task 独立复验或明确记录接受剩余风险。
+- Gate：G2 保持通过；G3 未通过；禁止开始 T05 正式实现。

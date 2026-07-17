@@ -515,3 +515,13 @@
 - **SPEC 决策：** `SPEC.md` 1.0.0 不修改。现有证据未发现 SPEC 需求/架构缺陷或 SPEC/PLAN 方向不一致，因此不更新 SPEC 版本、追踪矩阵或批准记录。
 - **拒绝保留：** 拒绝向 T05 预建 T06/T08 拥有的 package；拒绝提前猜依赖版本；拒绝把非业务源码视为 G3 例外；这些建议及理由继续保留在冷启动分类记录中。
 - **Gate：** G3 仍未通过；提交 7 必须用修订后的 SPEC/PLAN 在另一个全新会话复验同一 T05，原始边界阻塞消失且无新 Critical 歧义后再审计。
+
+### 2026-07-18 · T04 OpenCode 复验返工与 1.0.3 决策
+
+- 复验证据：隔离目录中仅有 `SPEC.md`、`PLAN.md`；`ses_08f03f66dffeJnBe9f6pGH5o3O`（`njusehub/deepseek-v4-pro`）选择 T06/T07 后上下文压缩失败；`ses_08efb4523ffekja4k7u1f9gF6J`（同模型）在 T05 收窄提示下报 `Tool call not allowed while generating summary: grep`；`ses_08ef90b87ffeUzAeq1y4WeMmkU`（`njusehub/DeepSeek-R1`）完成 T05 Step 1–5 静态回复且 0 文件变更。
+- **复验未通过：** 最后一份回复能区分文本模拟与正式文件，但最终仍把 G3 未通过列为 Step 1 冲突，把测试的 `.js` 导入说明符与 `.ts` 源文件列为路径冲突，并在思考文本中擅自示例 Node `v20.5.0`。因此不能勾选“原始阻塞消失且无新 Critical 歧义”。
+- **采纳 1.0.3：** 在 PLAN 的 Global Constraints、T05 前置依赖附近和 T04 说明中明确：T04 可在 G3/OPEN-03 未满足时把 Step 1–5 标为“模拟/未执行”后静态推演；Gate 只阻止正式 worktree、写入、命令、提交和进度记录；不得伪造 G3 证据或版本裁决。
+- **采纳 ESM 说明：** 在 T05 Interfaces 明确 `.js` 是 TypeScript ESM 的有意运行时导入说明符，兼容配置在测试时解析到 `.ts` 源码、构建后对应 `.js`，并由 Vitest、typecheck、build 验证。此项只补足工程执行说明，不改变接口或文件路径。
+- **拒绝范围扩大：** `SPEC.md` 保持 1.0.0；不改变 T05 文件归属、T06/T08 包边界、产品需求、依赖 DAG 或 OPEN-03 责任，不提前选择 Node/Fastify/TypeScript 版本。
+- 人工停止：项目负责人明确要求不再运行外部模型。现有证据未形成同 Task 通过闭环，故不把 1.0.3 文本修订当成复验成功；未来若开放 T05，必须先补验或由负责人书面接受剩余冷启动风险。
+- Gate：G2 保持通过；G3 未通过，正式实现权限未开放。
