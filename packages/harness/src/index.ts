@@ -14,6 +14,7 @@ export {
   type CommandToolOptions,
   type CommandToolResult
 } from "./command-tool.js";
+export type { CommandRule } from "./command-rule.js";
 export {
   Dispatcher,
   type DispatcherOptions,

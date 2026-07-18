@@ -1,6 +1,8 @@
 import { lstat, realpath } from "node:fs/promises";
 import { isAbsolute, relative, resolve, sep } from "node:path";
 
+import { isSensitivePath } from "./sensitive-path.js";
+
 export type PathAccess = "read" | "write";
 
 export type PathGuardErrorCode =
@@ -14,28 +16,12 @@ export type PathGuardResult =
   | { ok: true; value: string }
   | { ok: false; error: { code: PathGuardErrorCode; message: string } };
 
-const SENSITIVE_NAMES = new Set([
-  ".env",
-  ".npmrc",
-  ".pypirc",
-  "credentials",
-  "credentials.json",
-  "service-account.json"
-]);
-
 function failure(code: PathGuardErrorCode, message: string): PathGuardResult {
   return { ok: false, error: { code, message } };
 }
 
 function pathSegments(path: string): string[] {
   return path.split(/[\\/]+/u).filter((segment) => segment.length > 0);
-}
-
-function isSensitive(path: string): boolean {
-  return pathSegments(path).some((segment) => {
-    const normalized = segment.toLowerCase();
-    return SENSITIVE_NAMES.has(normalized) || normalized.startsWith(".env.");
-  });
 }
 
 function isInside(workspace: string, target: string): boolean {
@@ -66,7 +52,7 @@ export class PathGuard {
       return failure("PATH_OUTSIDE_WORKSPACE", "文件路径不得包含上级目录逃逸");
     }
 
-    if (isSensitive(path)) {
+    if (isSensitivePath(path)) {
       return failure("PATH_SENSITIVE", "拒绝访问敏感文件");
     }
 
@@ -92,6 +78,10 @@ export class PathGuard {
 
       if (!isInside(workspaceRealPath, targetRealPath)) {
         return failure("PATH_OUTSIDE_WORKSPACE", "文件真实路径位于 workspace 之外");
+      }
+
+      if (isSensitivePath(relative(workspaceRealPath, targetRealPath))) {
+        return failure("PATH_SENSITIVE", "文件真实路径指向敏感文件");
       }
 
       return { ok: true, value: targetRealPath };

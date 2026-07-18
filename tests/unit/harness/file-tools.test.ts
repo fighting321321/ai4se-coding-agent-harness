@@ -1,4 +1,12 @@
-import { access, mkdtemp, readFile, writeFile } from "node:fs/promises";
+import {
+  access,
+  mkdir,
+  mkdtemp,
+  readFile,
+  symlink,
+  unlink,
+  writeFile
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -27,7 +35,7 @@ describe("FileTools", () => {
     const workspace = join(parent, "workspace");
     const outsideFile = join(parent, "outside.txt");
     await writeFile(outsideFile, "原内容", "utf8");
-    await import("node:fs/promises").then(({ mkdir }) => mkdir(workspace));
+    await mkdir(workspace);
 
     const result = await new FileTools(workspace).writeText("../outside.txt", "被篡改");
 
@@ -43,5 +51,31 @@ describe("FileTools", () => {
 
     expect(result.ok).toBe(false);
     await expect(access(sensitiveFile)).rejects.toMatchObject({ code: "ENOENT" });
+  });
+
+  it("读取指向敏感文件的内部符号链接时不泄漏内容", async () => {
+    const workspace = await mkdtemp(join(tmpdir(), "ai4se-file-sensitive-link-"));
+    const sensitiveFile =
+      process.platform === "win32"
+        ? join(workspace, ".secrets", "value.txt")
+        : join(workspace, ".env");
+    const publicLink = join(workspace, process.platform === "win32" ? "public" : "public.txt");
+    if (process.platform === "win32") {
+      await mkdir(join(workspace, ".secrets"));
+    }
+    await writeFile(sensitiveFile, "TOKEN=不应泄漏", "utf8");
+    await symlink(
+      process.platform === "win32" ? join(workspace, ".secrets") : sensitiveFile,
+      publicLink,
+      process.platform === "win32" ? "junction" : "file"
+    );
+
+    const result = await new FileTools(workspace).readText(
+      process.platform === "win32" ? "public/value.txt" : "public.txt"
+    );
+
+    expect(result).toMatchObject({ ok: false, error: { code: "PATH_SENSITIVE" } });
+    expect(JSON.stringify(result)).not.toContain("不应泄漏");
+    await unlink(publicLink);
   });
 });

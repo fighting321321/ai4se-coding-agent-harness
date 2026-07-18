@@ -49,7 +49,7 @@ describe("Dispatcher 治理集成", () => {
   it("deny 在 handler 之前返回稳定错误", async () => {
     const handler = vi.fn();
     const dispatcher = new Dispatcher({
-      policy: new PolicyEngine({ allowedExecutables: [] })
+      policy: new PolicyEngine({ allowedCommands: [] })
     });
     dispatcher.register("run_command", handler);
 
@@ -62,7 +62,7 @@ describe("Dispatcher 治理集成", () => {
   it("未批准写入不会调用 handler", async () => {
     const handler = vi.fn();
     const dispatcher = new Dispatcher({
-      policy: new PolicyEngine({ allowedExecutables: [] }),
+      policy: new PolicyEngine({ allowedCommands: [] }),
       approval: new ApprovalGate(async () => false)
     });
     dispatcher.register("write_file", handler);
@@ -78,7 +78,7 @@ describe("Dispatcher 治理集成", () => {
     const approve = vi.fn(async () => true);
     const handler = vi.fn();
     const dispatcher = new Dispatcher({
-      policy: new PolicyEngine({ allowedExecutables: [] }),
+      policy: new PolicyEngine({ allowedCommands: [] }),
       approval: new ApprovalGate(approve)
     });
     dispatcher.register("read_file", handler);

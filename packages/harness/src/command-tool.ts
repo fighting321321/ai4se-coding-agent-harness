@@ -1,9 +1,18 @@
-import { spawn } from "node:child_process";
-import { basename } from "node:path";
+import { spawn, type ChildProcessByStdio } from "node:child_process";
+import type { Readable } from "node:stream";
+
+import {
+  isCommandAllowed,
+  isDestructiveCommand,
+  isShellExecutable,
+  snapshotCommandRules,
+  type CommandRule
+} from "./command-rule.js";
 
 export interface CommandToolOptions {
-  allowedExecutables: readonly string[];
+  allowedCommands: readonly CommandRule[];
   timeoutMs?: number;
+  terminationGraceMs?: number;
   maxOutputBytes?: number;
 }
 
@@ -24,33 +33,16 @@ export type CommandToolResult =
   | { ok: true; value: CommandOutput }
   | { ok: false; error: { code: CommandToolErrorCode; message: string } };
 
-const SHELL_EXECUTABLES = new Set([
-  "bash",
-  "cmd",
-  "cmd.exe",
-  "powershell",
-  "powershell.exe",
-  "pwsh",
-  "sh",
-  "zsh"
-]);
-
-function normalizedExecutable(executable: string): string {
-  return process.platform === "win32" ? executable.toLowerCase() : executable;
-}
-
-function isShellExecutable(executable: string): boolean {
-  return SHELL_EXECUTABLES.has(basename(executable).toLowerCase());
-}
-
 export class CommandTool {
-  readonly #allowedExecutables: ReadonlySet<string>;
+  readonly #allowedCommands: readonly CommandRule[];
   readonly #timeoutMs: number;
+  readonly #terminationGraceMs: number;
   readonly #maxOutputBytes: number;
 
   constructor(options: CommandToolOptions) {
-    this.#allowedExecutables = new Set(options.allowedExecutables.map(normalizedExecutable));
+    this.#allowedCommands = snapshotCommandRules(options.allowedCommands);
     this.#timeoutMs = options.timeoutMs ?? 60_000;
+    this.#terminationGraceMs = options.terminationGraceMs ?? 250;
     this.#maxOutputBytes = options.maxOutputBytes ?? 32 * 1024;
   }
 
@@ -62,7 +54,14 @@ export class CommandTool {
       };
     }
 
-    if (!this.#allowedExecutables.has(normalizedExecutable(executable))) {
+    if (isDestructiveCommand(executable, args)) {
+      return {
+        ok: false,
+        error: { code: "COMMAND_NOT_ALLOWED", message: "拒绝执行删除类命令" }
+      };
+    }
+
+    if (!isCommandAllowed(this.#allowedCommands, executable, args)) {
       return {
         ok: false,
         error: { code: "COMMAND_NOT_ALLOWED", message: "可执行文件不在允许列表中" }
@@ -76,7 +75,8 @@ export class CommandTool {
       let truncated = false;
       let timedOut = false;
       let settled = false;
-      let child;
+      let child: ChildProcessByStdio<null, Readable, Readable>;
+      let forceTimeout: ReturnType<typeof setTimeout> | undefined;
 
       const capture = (target: Buffer[], chunk: Buffer): void => {
         const remaining = this.#maxOutputBytes - capturedBytes;
@@ -96,12 +96,58 @@ export class CommandTool {
           return;
         }
         settled = true;
-        clearTimeout(timeout);
+        if (timeout !== undefined) {
+          clearTimeout(timeout);
+        }
+        if (forceTimeout !== undefined) {
+          clearTimeout(forceTimeout);
+        }
+        child.stdout.removeAllListeners();
+        child.stderr.removeAllListeners();
+        child.removeAllListeners("close");
+        child.removeAllListeners("error");
+        child.on("error", () => undefined);
         resolveResult(result);
+      };
+
+      const timeoutResult = (): CommandToolResult => ({
+        ok: false,
+        error: { code: "COMMAND_TIMEOUT", message: "命令执行超过时间限制" }
+      });
+
+      const killPosixGroup = (signal: NodeJS.Signals): void => {
+        if (child.pid === undefined) {
+          child.kill(signal);
+          return;
+        }
+        try {
+          process.kill(-child.pid, signal);
+        } catch {
+          child.kill(signal);
+        }
+      };
+
+      const killWindowsTree = (): void => {
+        if (child.pid === undefined) {
+          child.kill();
+          return;
+        }
+        try {
+          const killer = spawn(
+            "taskkill.exe",
+            ["/pid", String(child.pid), "/t", "/f"],
+            { shell: false, stdio: "ignore", windowsHide: true }
+          );
+          killer.on("error", () => child.kill());
+          killer.unref();
+        } catch {
+          child.kill();
+        }
       };
 
       try {
         child = spawn(executable, [...args], {
+          detached: process.platform !== "win32",
           shell: false,
           stdio: ["ignore", "pipe", "pipe"],
           windowsHide: true
@@ -116,7 +162,23 @@ export class CommandTool {
 
       const timeout = setTimeout(() => {
         timedOut = true;
-        child.kill();
+        if (process.platform === "win32") {
+          killWindowsTree();
+        } else {
+          killPosixGroup("SIGTERM");
+        }
+
+        forceTimeout = setTimeout(() => {
+          if (process.platform === "win32") {
+            killWindowsTree();
+          } else {
+            killPosixGroup("SIGKILL");
+          }
+          child.stdout.destroy();
+          child.stderr.destroy();
+          child.unref();
+          settle(timeoutResult());
+        }, this.#terminationGraceMs);
       }, this.#timeoutMs);
 
       child.stdout.on("data", (chunk: Buffer) => capture(stdout, chunk));
@@ -129,10 +191,7 @@ export class CommandTool {
       });
       child.on("close", (exitCode) => {
         if (timedOut) {
-          settle({
-            ok: false,
-            error: { code: "COMMAND_TIMEOUT", message: "命令执行超过时间限制" }
-          });
+          settle(timeoutResult());
           return;
         }
 

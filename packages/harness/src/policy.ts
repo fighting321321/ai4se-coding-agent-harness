@@ -1,44 +1,19 @@
-import { basename, isAbsolute } from "node:path";
+import { isAbsolute } from "node:path";
 
 import type { Action } from "./action.js";
+import {
+  isCommandAllowed,
+  isDestructiveCommand,
+  isShellExecutable,
+  snapshotCommandRules,
+  type CommandRule
+} from "./command-rule.js";
+import { isSensitivePath } from "./sensitive-path.js";
 
 export type PolicyDecision = "allow" | "ask" | "deny";
 
 export interface PolicyEngineOptions {
-  allowedExecutables: readonly string[];
-}
-
-const SHELL_EXECUTABLES = new Set([
-  "bash",
-  "cmd",
-  "cmd.exe",
-  "powershell",
-  "powershell.exe",
-  "pwsh",
-  "sh",
-  "zsh"
-]);
-
-const DELETE_COMMANDS = new Set([
-  "del",
-  "erase",
-  "remove-item",
-  "rm",
-  "rmdir",
-  "unlink"
-]);
-
-const SENSITIVE_NAMES = new Set([
-  ".env",
-  ".npmrc",
-  ".pypirc",
-  "credentials",
-  "credentials.json",
-  "service-account.json"
-]);
-
-function normalizedExecutable(executable: string): string {
-  return process.platform === "win32" ? executable.toLowerCase() : executable;
+  allowedCommands: readonly CommandRule[];
 }
 
 function pathSegments(path: string): string[] {
@@ -51,29 +26,15 @@ function isDeniedPath(path: string): boolean {
   }
 
   return pathSegments(path).some((segment) => {
-    const normalized = segment.toLowerCase();
-    return (
-      normalized === ".." ||
-      SENSITIVE_NAMES.has(normalized) ||
-      normalized.startsWith(".env.")
-    );
-  });
-}
-
-function isDangerousCommand(executable: string, args: readonly string[]): boolean {
-  const executableName = basename(executable).toLowerCase();
-  if (SHELL_EXECUTABLES.has(executableName) || DELETE_COMMANDS.has(executableName)) {
-    return true;
-  }
-
-  return args.some((argument) => DELETE_COMMANDS.has(argument.toLowerCase()));
+    return segment === "..";
+  }) || isSensitivePath(path);
 }
 
 export class PolicyEngine {
-  readonly #allowedExecutables: ReadonlySet<string>;
+  readonly #allowedCommands: readonly CommandRule[];
 
   constructor(options: PolicyEngineOptions) {
-    this.#allowedExecutables = new Set(options.allowedExecutables.map(normalizedExecutable));
+    this.#allowedCommands = snapshotCommandRules(options.allowedCommands);
   }
 
   evaluate(action: Action): PolicyDecision {
@@ -84,8 +45,9 @@ export class PolicyEngine {
         return isDeniedPath(action.path) ? "deny" : "ask";
       case "run_command":
         if (
-          isDangerousCommand(action.executable, action.args) ||
-          !this.#allowedExecutables.has(normalizedExecutable(action.executable))
+          isShellExecutable(action.executable) ||
+          isDestructiveCommand(action.executable, action.args) ||
+          !isCommandAllowed(this.#allowedCommands, action.executable, action.args)
         ) {
           return "deny";
         }
