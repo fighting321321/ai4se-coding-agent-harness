@@ -16,6 +16,12 @@ export {
 } from "./command-tool.js";
 export type { CommandRule } from "./command-rule.js";
 export {
+  parseHarnessConfig,
+  type ConfigErrorCode,
+  type ConfigParseResult,
+  type HarnessConfig
+} from "./config.js";
+export {
   Dispatcher,
   type DispatcherOptions,
   type DispatchResult
@@ -27,6 +33,14 @@ export {
 } from "./file-tools.js";
 export type { LLMInput, LLMOutput, LLMProvider } from "./llm-provider.js";
 export {
+  JsonMemory,
+  type MemoryErrorCode,
+  type MemoryItem,
+  type MemoryKind,
+  type MemoryResult,
+  type MemorySearchQuery
+} from "./json-memory.js";
+export {
   PathGuard,
   type PathAccess,
   type PathGuardErrorCode,
@@ -37,4 +51,12 @@ export {
   type PolicyDecision,
   type PolicyEngineOptions
 } from "./policy.js";
+export { Redactor } from "./redactor.js";
 export { ScriptedMockExhaustedError, ScriptedMockLLM } from "./scripted-mock-llm.js";
+export {
+  JsonTrace,
+  type TraceEntry,
+  type TraceErrorCode,
+  type TraceResult,
+  type TraceStatus
+} from "./trace.js";
