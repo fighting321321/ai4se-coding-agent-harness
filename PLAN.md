@@ -8,7 +8,7 @@
 
 **目标日期：** 2026-07-25
 
-**当前状态：** G1–G3 已通过，T05 已完成并合入 `dev`
+**当前状态：** G1–G3 已通过，T05 已合入 `dev`；T06 已在功能分支完成本地实现与门禁，待 MR/Pipeline
 
 ## 1. 目标与最小边界
 
@@ -68,7 +68,7 @@ pnpm build
 | Task | 内容 | 分支 | 状态 | 提交上限 |
 | --- | --- | --- | --- | ---: |
 | T05 | 工程骨架与最小 CI | `chore/t05-project-foundation` | 已合入 `dev`（MR !6，merge `f014b42`） | 历史例外 |
-| T06 | Action、LLM 抽象、mock、解析与分发 | `feat/t06-minimal-kernel` | 未开始 | 5 |
+| T06 | Action、LLM 抽象、mock、解析与分发 | `feat/t06-minimal-kernel` | 本地完成，待 MR/Pipeline | 5 |
 | T07 | 受限工具、治理与最小批准 | `feat/t07-safe-tools-policy` | 未开始 | 6 |
 | T08 | 配置、JSON Memory 与脱敏 Trace | `feat/t08-config-memory` | 未开始 | 5 |
 | T09 | 反馈重点维度与自研 Agent Loop | `feat/t09-feedback-loop` | 未开始 | 6 |
@@ -115,6 +115,8 @@ pnpm build
 ```powershell
 pnpm vitest run tests/unit/harness/action-parser.test.ts tests/unit/harness/scripted-mock-llm.test.ts tests/unit/harness/dispatcher.test.ts
 ```
+
+**执行证据（2026-07-18）：** RED 为 3 个文件、15 个用例因 T06 导出不存在而失败；提交 `e419138` 固化测试后，提交 `c4eae99` 完成最小实现，聚焦测试 3/3 文件、15/15 用例 GREEN。Spec 与质量检查均无 Critical；完整门禁为 5/5 测试文件、17/17 用例通过，lint、typecheck、build 全部退出码 0。MR 与 Pipeline 尚未发生，不提前标记完成。
 
 **建议提交：** 规划；RED 测试；最小内核；评审/记录；清空 guiding。
 

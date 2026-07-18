@@ -359,3 +359,15 @@
 - 一致性修复：SPEC 2.0.0 成为新权威范围；PLAN 2.1.0 与其对齐；Action 命令改为 executable/args；架构改为 API → Harness、Web 独立静态展示；T05 标记已合入 MR !6。
 - 过程纪律：后续 T06–T12 每项最多 6 提交，仍保留独立分支/worktree、新鲜 subagent、一次 RED/GREEN、一次 Spec/质量检查、MR Pipeline 与记录；删除无新增信息的重复复检。
 - 当前状态：只完成文档统一，尚未创建 T06 分支或实现 T06 代码。
+
+### 2026-07-18 19:08:34 +08:00 · T06 最小决策与分发内核
+
+- 分支与提交：在专用分支 `feat/t06-minimal-kernel` 执行；规划提交为 `b3dacb9`，RED 测试提交为 `e419138`，最小实现提交为 `c4eae99`。本记录提交与清空 `guiding.md` 的提交随后补齐，保持总计 5 个提交。
+- 基线验证：在 Node `24.14.0`、pnpm `11.14.0` 和 `CI=true` 下，T05 基线的 `test`、`lint`、`typecheck`、`build` 全部通过；冻结安装前后锁文件未变化。受限沙箱内 Vite/Vitest 子进程出现 `spawn EPERM`，获准在同一工作区非沙箱执行后通过，属于环境限制。
+- TDD 证据：先创建三个测试文件，聚焦运行得到 3 个文件、15 个用例失败；失败原因分别为 `parseAction is not a function`、`Dispatcher is not a constructor`、`ScriptedMockLLM is not a constructor`，符合“实现/导出尚不存在”的预期 RED。实现后同一命令为 3/3 文件、15/15 用例通过。
+- 实现范围：新增四类严格 `Action`、单次 `LLMProvider` 接口、按顺序响应并冻结输入快照的 `ScriptedMockLLM`、拒绝缺失/多余/错型字段的 `parseAction`，以及名称唯一且每次至多调用一个 handler 的 `Dispatcher`；公共接口统一由 harness `index.ts` 导出。
+- Spec 检查：没有实现文件工具、命令执行工具、Policy、Memory、Agent Loop、真实 Provider、重试、网络调用或 T07 以后能力，未增加依赖。结论为无 Critical。
+- 质量检查：确认调用输入和内部数组使用不可变快照，解析错误码固定为 `ACTION_PARSE_FAILED`，分发错误码仅为 `TOOL_UNKNOWN`/`TOOL_EXECUTION_FAILED`，handler 异常不泄漏内部消息，同类型 handler 拒绝重复注册，单次 execute 恰调用一次匹配 handler。结论为无 Critical。
+- 评审安排：本任务由用户直接指定当前 Codex 任务负责；当前协作约束不允许再创建未被用户明确要求的子智能体，因此 Spec 与质量检查由当前任务分两轮本地完成，并如实记录该流程差异。人工修改为零。
+- 完整门禁：`pnpm test` 为 5/5 文件、17/17 用例通过；`pnpm lint` 退出码 0；`pnpm typecheck` 覆盖 API、Web、Harness 与 tests，退出码 0；`pnpm build` 完成 API TypeScript 构建和 Web Vite `8.1.5` 构建（14 个模块），退出码 0。
+- 外部状态：MR 与 Pipeline 尚未创建或运行，不伪造 URL/status；应在分支清理完成后由负责人选择是否推送并创建目标为 `dev` 的 MR，禁止 squash。

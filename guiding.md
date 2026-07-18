@@ -73,10 +73,10 @@ git diff --name-only
 
 **提交信息：** `test: 定义T06最小内核行为`
 
-- [ ] `scripted-mock-llm.test.ts`：断言脚本按顺序返回、调用输入被只读复制、脚本耗尽抛出 `ScriptedMockExhaustedError`。
-- [ ] `action-parser.test.ts`：四类合法 Action 解析成功；未知类型、缺失字段、多余字段、字符串命令或非字符串 args 返回 `ACTION_PARSE_FAILED`。
-- [ ] `dispatcher.test.ts`：注册 handler 后只调用一次；未注册类型返回 `TOOL_UNKNOWN`；handler 异常转换为 `TOOL_EXECUTION_FAILED`。
-- [ ] 运行聚焦测试并保存正确 RED：模块或导出不存在，而不是测试语法错误。
+- [x] `scripted-mock-llm.test.ts`：断言脚本按顺序返回、调用输入被只读复制、脚本耗尽抛出 `ScriptedMockExhaustedError`。
+- [x] `action-parser.test.ts`：四类合法 Action 解析成功；未知类型、缺失字段、多余字段、字符串命令或非字符串 args 返回 `ACTION_PARSE_FAILED`。
+- [x] `dispatcher.test.ts`：注册 handler 后只调用一次；未注册类型返回 `TOOL_UNKNOWN`；handler 异常转换为 `TOOL_EXECUTION_FAILED`。
+- [x] 运行聚焦测试并保存正确 RED：模块或导出不存在，而不是测试语法错误。
 
 **RED 命令：**
 
@@ -90,11 +90,11 @@ pnpm vitest run tests/unit/harness/action-parser.test.ts tests/unit/harness/scri
 
 **提交信息：** `feat: 实现T06最小决策与分发内核`
 
-- [ ] 按固定接口实现 Action、LLM 类型与 `ScriptedMockLLM`，不增加重试、网络或循环。
-- [ ] 用项目代码严格检查对象字段和类型，不为 T06 引入额外 schema 依赖。
-- [ ] 实现名称唯一的 handler 注册与单动作分发，异常只转结构化错误。
-- [ ] 从 `packages/harness/src/index.ts` 导出全部 T06 公共接口。
-- [ ] 聚焦测试全部 GREEN，并运行一次轻量重构，保持行为不变。
+- [x] 按固定接口实现 Action、LLM 类型与 `ScriptedMockLLM`，不增加重试、网络或循环。
+- [x] 用项目代码严格检查对象字段和类型，不为 T06 引入额外 schema 依赖。
+- [x] 实现名称唯一的 handler 注册与单动作分发，异常只转结构化错误。
+- [x] 从 `packages/harness/src/index.ts` 导出全部 T06 公共接口。
+- [x] 聚焦测试全部 GREEN，并运行一次轻量重构，保持行为不变。
 
 **GREEN 命令：**
 
@@ -108,10 +108,10 @@ pnpm vitest run tests/unit/harness/action-parser.test.ts tests/unit/harness/scri
 
 **提交信息：** `docs: 记录T06验证结果`
 
-- [ ] Spec 检查：确认没有实现文件工具、Policy、Memory、Agent Loop、真实 Provider 或网络调用。
-- [ ] 质量检查：确认输入复制、严格字段、错误稳定、handler 恰一次调用；修复所有 Critical。
-- [ ] 运行完整门禁并记录退出结果。
-- [ ] 在 `PLAN.md` 和 `AGENT_LOG.md` 记录 T06 提交、RED/GREEN、评审、人工修改和验证结果。
+- [x] Spec 检查：确认没有实现文件工具、Policy、Memory、Agent Loop、真实 Provider 或网络调用。
+- [x] 质量检查：确认输入复制、严格字段、错误稳定、handler 恰一次调用；修复所有 Critical。
+- [x] 运行完整门禁并记录退出结果。
+- [x] 在 `PLAN.md` 和 `AGENT_LOG.md` 记录 T06 提交、RED/GREEN、评审、人工修改和验证结果。
 
 **完整门禁：**
 
