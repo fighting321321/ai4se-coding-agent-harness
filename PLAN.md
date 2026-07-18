@@ -1144,7 +1144,7 @@ flowchart LR
 
 | Txx | Branch | Commit(s) | MR | Pipeline | Spec Review | Quality Review | 状态 |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| T05 | `chore/t05-project-foundation` | — | — | — | — | — | 未开始 |
+| T05 | `chore/t05-project-foundation` | `f5cdbca`、`fbd796d`、`3d70dd4` | 未创建 | 未触发 | 通过（Task 2、Task 3；无 Critical/Important） | 通过（Task 2、Task 3；Task 3 无问题） | 当前分支完成；待推送、MR 与 Pipeline |
 | T06 | `feat/t06-mock-llm` | — | — | — | — | — | 未开始 |
 | T07 | `feat/t07-tool-dispatch` | — | — | — | — | — | 未开始 |
 | T08 | `feat/t08-builtin-tools` | — | — | — | — | — | 未开始 |

@@ -71,9 +71,9 @@ git status --short
 
 **创建：** `apps/api/src/health.ts`、`tests/unit/foundation/health.test.ts`
 
-- [ ] 先写测试，断言 `healthStatus()` 精确返回 `{ status: "ok" }`，并确认实现缺失时测试失败。
-- [ ] 添加最小 `healthStatus()` 实现，不引入 Fastify 路由或业务逻辑。
-- [ ] 运行目标测试和四个根命令，全部通过。
+- [x] 先写测试，断言 `healthStatus()` 精确返回 `{ status: "ok" }`，并确认实现缺失时测试失败。
+- [x] 添加最小 `healthStatus()` 实现，不引入 Fastify 路由或业务逻辑。
+- [x] 运行目标测试和四个根命令，全部通过。
 
 **验证：**
 
@@ -95,9 +95,9 @@ pnpm build
 
 **修改：** `PLAN.md`、`AGENT_LOG.md`、`guiding.md`
 
-- [ ] 记录 OPEN-03 的批准版本、主要提交、验证命令和结果。
-- [ ] 做一次轻量范围检查：确认未提前实现 T06 以后功能，确认没有真实凭据或构建产物进入 Git。
-- [ ] 若核心命令失败，只修复 T05 范围内问题并重新验证。
+- [x] 记录 OPEN-03 的批准版本、主要提交、验证命令和结果。
+- [x] 做一次轻量范围检查：确认未提前实现 T06 以后功能，确认没有真实凭据或构建产物进入 Git。
+- [x] 核心命令在 Codex Node 24 + pnpm 11.14 环境复验通过；未发生需修复的 T05 问题。
 
 **验证：**
 
