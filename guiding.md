@@ -17,9 +17,9 @@
 
 **修改：** `guiding.md`
 
-- [ ] 记录 G3、分支基线、文件范围和精简提交顺序。
-- [ ] 查询并列出 Node.js LTS、pnpm、TypeScript、Fastify、React、Vite、Vitest 的当前稳定候选版本。
-- [ ] 将候选版本交由项目负责人一次性批准；未批准前停止，不运行安装命令。
+- [x] 记录 G3、分支基线、文件范围和精简提交顺序。
+- [x] 查询并列出 Node.js LTS、pnpm、TypeScript、Fastify、React、Vite、Vitest 的当前稳定候选版本。
+- [x] 将候选版本交由项目负责人一次性批准；未批准前停止，不运行安装命令。
 
 **验证：**
 
@@ -46,10 +46,10 @@ git diff --name-only
 
 **修改：** `.gitignore`、`guiding.md`
 
-- [ ] 将获批版本写入根 `package.json`，配置 `test`、`lint`、`typecheck`、`build` 四个根命令。
-- [ ] 建立严格 TypeScript、ESM、Vitest、React/Vite 最小配置和空包导出。
-- [ ] 生成锁文件并确认 `pnpm install --frozen-lockfile` 成功且不会改锁文件。
-- [ ] 确认 `.env`、`node_modules`、构建目录和本地数据库均被忽略。
+- [x] 将获批版本写入根 `package.json`，配置 `test`、`lint`、`typecheck`、`build` 四个根命令。
+- [x] 建立严格 TypeScript、ESM、Vitest、React/Vite 最小配置和空包导出。
+- [x] 生成锁文件并确认 `pnpm install --frozen-lockfile` 成功且不会改锁文件。
+- [x] 确认 `.env`、`node_modules`、构建目录和本地数据库均被忽略。
 
 **验证：**
 
