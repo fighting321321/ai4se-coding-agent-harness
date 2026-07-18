@@ -336,6 +336,12 @@
 - 流程偏离：每个 Task 仍保留一次 Spec 检查和一次质量检查以满足课程最低过程要求，但取消重复独立复审；只让 Critical 阻断下一步。取消 guiding 首尾独立提交纪律，避免无价值提交。
 - 计划基线：`PLAN.md` 升为 2.0.0，T05–T12 串行执行，目标完成日期 2026-07-25。
 
+### 2026-07-18 · 项目结构简化
+
+- 人工批准：项目负责人认为原 domain/shared/runtime/infrastructure 多包拆分过于零散，批准改为 `apps/web`、`apps/api`、`packages/harness`、`tests` 四区。
+- 职责边界：Web 只负责 React 页面；API 只负责 Fastify、本地 CLI 和 Key 边界；Harness 包含全部 Agent 核心；tests 放跨模块验证。
+- 依赖方向：`web → api → harness`；Web 不读取真实 Key，Harness 不依赖 React/Fastify。原空 domain/shared 合并为 harness，后续不再创建 runtime/infrastructure workspace 包。
+
 ### 2026-07-18 · T05 Node 24 类型依赖图修正
 
 - 发现与边界：尽管根 `@types/node` 已固定为 `24.13.3`，Web workspace 未显式声明该类型包，导致 Vite `8.1.5` 与 `@vitejs/plugin-react` `6.0.3` 的 peer 实例仍解析到 `@types/node@26.1.1`。本轮只修正依赖图与记录，不新增业务行为。

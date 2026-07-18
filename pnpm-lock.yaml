@@ -58,9 +58,7 @@ importers:
         specifier: 8.1.5
         version: 8.1.5(@types/node@24.13.3)
 
-  packages/domain: {}
-
-  packages/shared: {}
+  packages/harness: {}
 
 packages:
 

@@ -47,16 +47,13 @@
 ## 4. 最小架构
 
 ```text
-apps/api       本地 CLI/API 装配，不在线部署
-apps/web       静态演示页面，只使用 mock 演示数据
-packages/domain
-               Action、Observation、状态和策略结果类型
-packages/runtime
-               Provider、Dispatcher、Policy、Feedback、Memory、AgentLoop
-packages/infrastructure
-               文件/命令工具、JSON 存储、OpenAI 兼容 HTTP Provider
-tests          单元、最小集成和机制演示测试
+apps/web          React 前端；在线只发布静态 mock 演示
+apps/api          Fastify 后端；本地装配 Harness 和真实 API Key
+packages/harness  Agent 核心；Action、Provider、工具、治理、记忆、反馈和循环
+tests             单元、最小集成和机制演示测试
 ```
+
+依赖方向固定为 `web → api → harness`。Web 不读取 Key，Harness 不依赖 React 或 Fastify。取消空的 `domain`、`shared` 以及原计划中的 `runtime`、`infrastructure` 多包拆分；三个以上职责模块在 `packages/harness/src/` 内按文件划分，不再为每个职责创建 workspace package。
 
 只保留四类 Action：
 
@@ -120,7 +117,7 @@ pnpm build
 
 **状态：** 工程骨架已完成；当前只补 CI。
 
-**Files：** Create `.gitlab-ci.yml`, `tests/unit/ci/pipeline-contract.test.ts`; existing workspace files unchanged unless test discovery requires it.
+**Files：** Create `.gitlab-ci.yml`, `tests/unit/ci/pipeline-contract.test.ts`, `packages/harness/package.json`, `packages/harness/tsconfig.json`, `packages/harness/src/index.ts`; Remove empty `packages/domain/*`, `packages/shared/*`; Modify root scripts and lockfile.
 
 **产出：** 固定 Node 24/pnpm 11.14；`unit-test` job 执行冻结安装、test、lint、typecheck、build；无 `docker:dind`。
 
@@ -128,14 +125,15 @@ pnpm build
 
 1. 写 CI 契约测试并观察缺少 `.gitlab-ci.yml` 的 RED。
 2. 写最小 `.gitlab-ci.yml`，使契约测试 GREEN。
-3. 运行四个根命令一次。
-4. 提交并推送，确认 `unit-test` passed。
+3. 将空的 domain/shared 合并为单一 `@ai4se/harness` 包并更新锁文件。
+4. 运行四个根命令一次。
+5. 提交并推送，确认 `unit-test` passed。
 
 **提交：** `ci: 建立最小GitLab质量门禁`。T05 历史提交数超出新上限，作为已发生事实保留，不改写。
 
 ### T06：最小决策与分发内核
 
-**Files：** Create `packages/domain/src/action.ts`, `packages/runtime/src/llm-provider.ts`, `packages/runtime/src/scripted-mock-llm.ts`, `packages/runtime/src/dispatcher.ts`, unit tests; Modify package exports.
+**Files：** Create `packages/harness/src/action.ts`, `packages/harness/src/llm-provider.ts`, `packages/harness/src/scripted-mock-llm.ts`, `packages/harness/src/dispatcher.ts`, unit tests; Modify `packages/harness/src/index.ts`.
 
 **产出：** 精确 Action union、单次 LLM 调用抽象、脚本化 mock、确定性 Dispatcher。
 
@@ -147,7 +145,7 @@ pnpm build
 
 ### T07：受限工具与治理
 
-**Files：** Create file/command tools, `policy.ts`, tests; Modify Dispatcher registration.
+**Files：** Create `packages/harness/src/file-tools.ts`, `packages/harness/src/command-tool.ts`, `packages/harness/src/policy.ts` and tests; Modify Dispatcher registration.
 
 **产出：** 工作区内读写、命令 allowlist、越界路径拒绝、危险命令拒绝、需要人工批准的结构化结果。
 
@@ -159,7 +157,7 @@ pnpm build
 
 ### T08：最小配置与 JSON Memory
 
-**Files：** Create `config.ts`, `json-memory.ts`, tests; Add ignored local data path.
+**Files：** Create `packages/harness/src/config.ts`, `packages/harness/src/json-memory.ts` and tests; Add ignored local data path.
 
 **产出：** allowlist、步数上限、工作区路径配置；项目约定和最近结果写入单个本地 JSON 文件。
 
@@ -169,7 +167,7 @@ pnpm build
 
 ### T09：反馈闭环与 Agent Loop
 
-**Files：** Create `feedback.ts`, `agent-loop.ts`, tests; Modify runtime exports.
+**Files：** Create `packages/harness/src/feedback.ts`, `packages/harness/src/agent-loop.ts` and tests; Modify Harness exports.
 
 **产出：** task → LLM → Action → Policy → Tool → Feedback → 下一步/停止的自实现循环；失败只允许一次纠正，总步数有硬上限。
 
@@ -181,7 +179,7 @@ pnpm build
 
 ### T10：CLI、机制演示与真实 AI Provider
 
-**Files：** Create CLI, OpenAI-compatible provider, demo fixtures/scripts and tests; Modify package scripts.
+**Files：** Create API CLI entry, `packages/harness/src/openai-compatible-provider.ts`, demo fixtures/scripts and tests; Modify package scripts.
 
 **产出：**
 
@@ -205,7 +203,7 @@ pnpm build
 
 ### T12：分发、文档与最终交付
 
-**Files：** Create/update package entry, README, LICENSES, final audit script; Project owner creates `REFLECTION.md`; Update SPEC_PROCESS, PLAN, AGENT_LOG.
+**Files：** Update `packages/harness` package entry, README, LICENSES, final audit script; Project owner creates `REFLECTION.md`; Update SPEC_PROCESS, PLAN, AGENT_LOG.
 
 **产出：**
 
