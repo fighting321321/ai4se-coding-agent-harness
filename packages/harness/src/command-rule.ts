@@ -8,9 +8,9 @@ export interface CommandRule {
 const SHELL_EXECUTABLES = new Set([
   "bash",
   "cmd",
-  "cmd.exe",
+  "dash",
+  "fish",
   "powershell",
-  "powershell.exe",
   "pwsh",
   "sh",
   "zsh"
@@ -34,7 +34,7 @@ function normalizedExecutable(executable: string): string {
 }
 
 export function isShellExecutable(executable: string): boolean {
-  return SHELL_EXECUTABLES.has(basename(executable).toLowerCase());
+  return SHELL_EXECUTABLES.has(executableName(executable));
 }
 
 export function isDestructiveCommand(
@@ -42,9 +42,13 @@ export function isDestructiveCommand(
   args: readonly string[]
 ): boolean {
   const name = executableName(executable);
+  const normalizedArgs = args.map((argument) => argument.toLowerCase());
   return (
     DESTRUCTIVE_EXECUTABLES.has(name) ||
-    (name === "git" && args.some((argument) => argument.toLowerCase() === "clean"))
+    (name === "git" &&
+      (normalizedArgs.includes("clean") ||
+        normalizedArgs.includes("rm") ||
+        (normalizedArgs.includes("reset") && normalizedArgs.includes("--hard"))))
   );
 }
 

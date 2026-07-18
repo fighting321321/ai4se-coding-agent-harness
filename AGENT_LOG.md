@@ -370,7 +370,7 @@
 - 质量检查：确认调用输入和内部数组使用不可变快照，解析错误码固定为 `ACTION_PARSE_FAILED`，分发错误码仅为 `TOOL_UNKNOWN`/`TOOL_EXECUTION_FAILED`，handler 异常不泄漏内部消息，同类型 handler 拒绝重复注册，单次 execute 恰调用一次匹配 handler。结论为无 Critical。
 - 评审安排：本任务由用户直接指定当前 Codex 任务负责；当前协作约束不允许再创建未被用户明确要求的子智能体，因此 Spec 与质量检查由当前任务分两轮本地完成，并如实记录该流程差异。人工修改为零。
 - 完整门禁：`pnpm test` 为 5/5 文件、17/17 用例通过；`pnpm lint` 退出码 0；`pnpm typecheck` 覆盖 API、Web、Harness 与 tests，退出码 0；`pnpm build` 完成 API TypeScript 构建和 Web Vite `8.1.5` 构建（14 个模块），退出码 0。
-- 外部状态：MR 与 Pipeline 尚未创建或运行，不伪造 URL/status；应在分支清理完成后由负责人选择是否推送并创建目标为 `dev` 的 MR，禁止 squash。
+- 外部状态：后续 MR !7 已以合并提交 `cdcc01f` 进入 `dev`；Pipeline 状态尚未补录，留待最终审计核对。
 
 ### 2026-07-18 · T07 受限工具、治理与最小批准
 
@@ -382,4 +382,12 @@
 - 已知非阻断项：realpath 检查与文件打开仍有 TOCTOU 窗口；Policy 对文件路径只作词法判断，真实目标安全依赖标准 `FileTools` handler；Windows `taskkill` 为 best-effort 且未等待确认；filesystem root 作为 workspace 时新文件路径切片有边界错误；另有 POSIX 后代持管道测试和 UTF-8 截断边界缺口。按本项目“只由 Critical 阻断”规则记录，未扩展 T07 范围。
 - 最终门禁：主控在 Node `24.14.0`、pnpm `11.14.0` 下重新运行 `pnpm test`、`pnpm lint`、`pnpm typecheck`、`pnpm build`；结果为 65/65 测试通过，ESLint 无错误，API/Web/Harness/tests 类型检查通过，API TypeScript 与 Web Vite `8.1.5`（14 modules）构建通过，整体退出码 0。
 - 人工修改：用户仅指定当前任务负责 T07，未直接修改工作区文件；实现由按 PLAN 派出的新鲜 subagent 完成，主控负责全文件阅读、基线、审查、修复闭环和最终验证。
-- 外部状态：MR 与 Pipeline 尚未创建或运行，不伪造 URL/status；分支清理完成后再决定是否推送并创建目标为 `dev` 的 MR，禁止 squash。
+- 外部状态：后续 MR !8 已以合并提交 `4fb39c7` 进入 `dev`；Pipeline 状态尚未补录，留待最终审计核对。
+
+### 2026-07-18 · T08 启动前收尾
+
+- 基线状态：T06、T07 已分别通过 MR !7、MR !8 合入 `dev`，对应合并提交为 `cdcc01f`、`4fb39c7`；同步修正 PLAN 与旧日志中的“待 MR”状态，未猜测 Pipeline 结果。
+- 安全复查：确认 Shell 分类使用不完整名称集合，且 Git 删除类判断只覆盖 `clean`，导致精确白名单可能放行 `dash/fish`、`git rm` 与 `git reset --hard`。
+- TDD 证据：先扩展 CommandTool/Policy 回归测试，聚焦运行得到 8 个预期失败、28 个既有用例通过；最小修复统一 `.exe` 名称归一化并补齐危险 Git 调用后，同一聚焦命令为 36/36 GREEN。
+- 完整门禁：Node `24.14.0`、pnpm `11.14.0` 下 `pnpm test` 为 10/10 文件、73/73 用例通过；lint、typecheck、build 均退出码 0。
+- 范围边界：本提交仅收尾 T07 安全分类和过程记录；不实现 T08 的配置、Memory、Trace 或脱敏功能。
