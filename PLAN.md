@@ -8,7 +8,7 @@
 
 **目标日期：** 2026-07-25
 
-**当前状态：** G1–G3 已通过，T05 已合入 `dev`；T06 已在功能分支完成本地实现与门禁，待 MR/Pipeline
+**当前状态：** G1–G3 已通过，T05 已合入 `dev`；T06、T07 已在各自功能分支完成本地实现与门禁，待 MR/Pipeline
 
 ## 1. 目标与最小边界
 
@@ -69,7 +69,7 @@ pnpm build
 | --- | --- | --- | --- | ---: |
 | T05 | 工程骨架与最小 CI | `chore/t05-project-foundation` | 已合入 `dev`（MR !6，merge `f014b42`） | 历史例外 |
 | T06 | Action、LLM 抽象、mock、解析与分发 | `feat/t06-minimal-kernel` | 本地完成，待 MR/Pipeline | 5 |
-| T07 | 受限工具、治理与最小批准 | `feat/t07-safe-tools-policy` | 未开始 | 6 |
+| T07 | 受限工具、治理与最小批准 | `feat/t07-safe-tools-policy` | 本地完成，待 MR/Pipeline | 7（安全复审例外） |
 | T08 | 配置、JSON Memory 与脱敏 Trace | `feat/t08-config-memory` | 未开始 | 5 |
 | T09 | 反馈重点维度与自研 Agent Loop | `feat/t09-feedback-loop` | 未开始 | 6 |
 | T10 | 安全凭据、真实 Provider、CLI 与三演示 | `feat/t10-cli-provider-demo` | 未开始 | 6 |
@@ -148,6 +148,8 @@ pnpm vitest run tests/unit/harness/action-parser.test.ts tests/unit/harness/scri
 ```powershell
 pnpm vitest run tests/unit/harness/path-guard.test.ts tests/unit/harness/file-tools.test.ts tests/unit/harness/command-tool.test.ts tests/unit/harness/policy.test.ts
 ```
+
+**执行证据（2026-07-18）：** 规划提交 `2b7b7f6` 后，提交 `f05cee2` 先固化 5 个 T07 测试文件；有效 RED 为 26 个用例因 T07 构造器/导出不存在而失败，T06 的 17 个既有用例继续通过。`b58f477`、`3d580e0` 分别实现受限工具与治理/批准；独立审查发现命令参数绕过、真实敏感目标别名和无界超时 3 个 Critical，修复提交 `1524de3` 以精确 `executable + args` 规则、真实路径敏感复检、有界进程终止及删除命令无条件拒绝关闭问题。复审的 Spec compliance 与 Task quality 均 PASS，最终代码审查无 Critical；保留的非阻断项为 realpath 到打开之间的 TOCTOU、Policy 的词法路径判断、Windows 进程树终止确认和根目录 workspace 新文件切片。Node `24.14.0`、pnpm `11.14.0` 下最终 `pnpm test` 为 10/10 文件、65/65 用例通过，lint、typecheck、build 均退出码 0。MR 与 Pipeline 尚未发生，不提前标记完成。
 
 **建议提交：** 规划；RED；文件/命令工具；Policy/批准；评审/记录；清空 guiding。
 
