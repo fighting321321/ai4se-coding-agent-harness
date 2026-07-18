@@ -3,15 +3,14 @@ import { describe, expect, it, vi } from "vitest";
 import {
   ApprovalGate,
   Dispatcher,
-  PolicyEngine,
-  type ApprovalRequest
+  PolicyEngine
 } from "../../../packages/harness/src/index.js";
 
 const writeAction = { type: "write_file", path: "notes.txt", content: "内容" } as const;
 
 describe("ApprovalGate", () => {
   it("ask 只询问一次，明确同意后才调用 handler", async () => {
-    const approve = vi.fn(async (_request: ApprovalRequest) => true);
+    const approve = vi.fn(async () => true);
     const handler = vi.fn(async () => "已写入");
     const gate = new ApprovalGate(approve);
 
