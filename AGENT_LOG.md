@@ -371,3 +371,15 @@
 - 评审安排：本任务由用户直接指定当前 Codex 任务负责；当前协作约束不允许再创建未被用户明确要求的子智能体，因此 Spec 与质量检查由当前任务分两轮本地完成，并如实记录该流程差异。人工修改为零。
 - 完整门禁：`pnpm test` 为 5/5 文件、17/17 用例通过；`pnpm lint` 退出码 0；`pnpm typecheck` 覆盖 API、Web、Harness 与 tests，退出码 0；`pnpm build` 完成 API TypeScript 构建和 Web Vite `8.1.5` 构建（14 个模块），退出码 0。
 - 外部状态：MR 与 Pipeline 尚未创建或运行，不伪造 URL/status；应在分支清理完成后由负责人选择是否推送并创建目标为 `dev` 的 MR，禁止 squash。
+
+### 2026-07-18 · T07 受限工具、治理与最小批准
+
+- 分支与提交：在专用分支 `feat/t07-safe-tools-policy` 执行；规划 `2b7b7f6`，RED 测试 `f05cee2`，受限工具 `b58f477`，治理与批准 `3d580e0`，安全加固 `1524de3`。本记录提交与末尾清空 `guiding.md` 的提交随后补齐；由于安全复审新增一次加固提交，最终总数采用 `guiding.md` 允许的 7 条上限。
+- 基线与环境：固定使用 Node `24.14.0`、pnpm `11.14.0`。系统默认 Node `20.19.4` 不满足 pnpm 引擎；受限沙箱内 Vite/Vitest 会触发 `spawn EPERM`，获准在同一工作区沙箱外按原命令复验，未把环境错误计作 RED 或项目失败。
+- TDD 证据：先提交 5 个 T07 测试文件，聚焦运行得到 26 个失败、17 个 T06 回归通过；失败均为 `PathGuard`、`FileTools`、`CommandTool`、`PolicyEngine`、`ApprovalGate` 构造器/导出尚不存在。初次 GREEN 后，安全审查分别真实复现命令参数绕过、内部链接泄漏敏感内容、无界超时以及完整白名单误放行删除命令，再补回归并修复；最终测试为 10/10 文件、65/65 用例通过。
+- 实现范围：文件读写统一经过 workspace 相对路径、真实路径 containment、敏感文件和符号链接逃逸检查；命令使用 `spawn(executable,args,{ shell:false })`，以可序列化的精确调用规则授权，默认 60 秒超时、stdout/stderr 合计 32 KiB；Shell、删除类和非白名单调用在 spawn 前拒绝。Policy 只返回 `allow | ask | deny`；写入需一次明确批准，拒绝、缺少批准器或批准器异常时 handler 调用为零；Dispatcher 保持 T06 兼容。
+- 独立审查：首次 Spec/质量审查判定 3 个 Critical，全部在 `1524de3` 关闭；复审又发现白名单可显式包含删除命令，amend 后以 `rm -rf .`、`git clean -fdx` 的真实 RED/GREEN 关闭。最终复审的 Spec compliance 与 Task quality 均 PASS；最终全范围代码审查结论为无 Critical、Ready to merge。
+- 已知非阻断项：realpath 检查与文件打开仍有 TOCTOU 窗口；Policy 对文件路径只作词法判断，真实目标安全依赖标准 `FileTools` handler；Windows `taskkill` 为 best-effort 且未等待确认；filesystem root 作为 workspace 时新文件路径切片有边界错误；另有 POSIX 后代持管道测试和 UTF-8 截断边界缺口。按本项目“只由 Critical 阻断”规则记录，未扩展 T07 范围。
+- 最终门禁：主控在 Node `24.14.0`、pnpm `11.14.0` 下重新运行 `pnpm test`、`pnpm lint`、`pnpm typecheck`、`pnpm build`；结果为 65/65 测试通过，ESLint 无错误，API/Web/Harness/tests 类型检查通过，API TypeScript 与 Web Vite `8.1.5`（14 modules）构建通过，整体退出码 0。
+- 人工修改：用户仅指定当前任务负责 T07，未直接修改工作区文件；实现由按 PLAN 派出的新鲜 subagent 完成，主控负责全文件阅读、基线、审查、修复闭环和最终验证。
+- 外部状态：MR 与 Pipeline 尚未创建或运行，不伪造 URL/status；分支清理完成后再决定是否推送并创建目标为 `dev` 的 MR，禁止 squash。
