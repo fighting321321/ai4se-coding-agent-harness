@@ -30,7 +30,19 @@ describe("CommandTool", () => {
     expect(result).toMatchObject({ ok: false, error: { code: "COMMAND_NOT_ALLOWED" } });
   });
 
-  it.each(["cmd", "cmd.exe", "powershell", "powershell.exe", "pwsh", "sh", "bash"])(
+  it.each([
+    "cmd",
+    "cmd.exe",
+    "powershell",
+    "powershell.exe",
+    "pwsh",
+    "sh",
+    "bash",
+    "dash",
+    "dash.exe",
+    "fish",
+    "fish.exe"
+  ])(
     "拒绝 Shell 启动器 %s",
     async (executable) => {
       const result = await new CommandTool({
@@ -89,7 +101,9 @@ describe("CommandTool", () => {
 
   it.each([
     { executableName: "rm", args: ["-rf", "."] },
-    { executableName: "git", args: ["clean", "-fdx"] }
+    { executableName: "git", args: ["clean", "-fdx"] },
+    { executableName: "git", args: ["rm", "--cached", "README.md"] },
+    { executableName: "git", args: ["reset", "--hard"] }
   ])(
     "即使完整调用被列入规则也在 spawn 前拒绝删除命令 $executableName $args",
     async ({ executableName, args }) => {

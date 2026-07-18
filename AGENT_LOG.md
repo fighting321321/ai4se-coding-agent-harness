@@ -370,7 +370,7 @@
 - 质量检查：确认调用输入和内部数组使用不可变快照，解析错误码固定为 `ACTION_PARSE_FAILED`，分发错误码仅为 `TOOL_UNKNOWN`/`TOOL_EXECUTION_FAILED`，handler 异常不泄漏内部消息，同类型 handler 拒绝重复注册，单次 execute 恰调用一次匹配 handler。结论为无 Critical。
 - 评审安排：本任务由用户直接指定当前 Codex 任务负责；当前协作约束不允许再创建未被用户明确要求的子智能体，因此 Spec 与质量检查由当前任务分两轮本地完成，并如实记录该流程差异。人工修改为零。
 - 完整门禁：`pnpm test` 为 5/5 文件、17/17 用例通过；`pnpm lint` 退出码 0；`pnpm typecheck` 覆盖 API、Web、Harness 与 tests，退出码 0；`pnpm build` 完成 API TypeScript 构建和 Web Vite `8.1.5` 构建（14 个模块），退出码 0。
-- 外部状态：MR 与 Pipeline 尚未创建或运行，不伪造 URL/status；应在分支清理完成后由负责人选择是否推送并创建目标为 `dev` 的 MR，禁止 squash。
+- 外部状态：后续 MR !7 已以合并提交 `cdcc01f` 进入 `dev`；Pipeline 状态尚未补录，留待最终审计核对。
 
 ### 2026-07-18 · T07 受限工具、治理与最小批准
 
@@ -382,4 +382,24 @@
 - 已知非阻断项：realpath 检查与文件打开仍有 TOCTOU 窗口；Policy 对文件路径只作词法判断，真实目标安全依赖标准 `FileTools` handler；Windows `taskkill` 为 best-effort 且未等待确认；filesystem root 作为 workspace 时新文件路径切片有边界错误；另有 POSIX 后代持管道测试和 UTF-8 截断边界缺口。按本项目“只由 Critical 阻断”规则记录，未扩展 T07 范围。
 - 最终门禁：主控在 Node `24.14.0`、pnpm `11.14.0` 下重新运行 `pnpm test`、`pnpm lint`、`pnpm typecheck`、`pnpm build`；结果为 65/65 测试通过，ESLint 无错误，API/Web/Harness/tests 类型检查通过，API TypeScript 与 Web Vite `8.1.5`（14 modules）构建通过，整体退出码 0。
 - 人工修改：用户仅指定当前任务负责 T07，未直接修改工作区文件；实现由按 PLAN 派出的新鲜 subagent 完成，主控负责全文件阅读、基线、审查、修复闭环和最终验证。
-- 外部状态：MR 与 Pipeline 尚未创建或运行，不伪造 URL/status；分支清理完成后再决定是否推送并创建目标为 `dev` 的 MR，禁止 squash。
+- 外部状态：后续 MR !8 已以合并提交 `4fb39c7` 进入 `dev`；Pipeline 状态尚未补录，留待最终审计核对。
+
+### 2026-07-18 · T08 启动前收尾
+
+- 基线状态：T06、T07 已分别通过 MR !7、MR !8 合入 `dev`，对应合并提交为 `cdcc01f`、`4fb39c7`；同步修正 PLAN 与旧日志中的“待 MR”状态，未猜测 Pipeline 结果。
+- 安全复查：确认 Shell 分类使用不完整名称集合，且 Git 删除类判断只覆盖 `clean`，导致精确白名单可能放行 `dash/fish`、`git rm` 与 `git reset --hard`。
+- TDD 证据：先扩展 CommandTool/Policy 回归测试，聚焦运行得到 8 个预期失败、28 个既有用例通过；最小修复统一 `.exe` 名称归一化并补齐危险 Git 调用后，同一聚焦命令为 36/36 GREEN。
+- 完整门禁：Node `24.14.0`、pnpm `11.14.0` 下 `pnpm test` 为 10/10 文件、73/73 用例通过；lint、typecheck、build 均退出码 0。
+- 范围边界：本提交仅收尾 T07 安全分类和过程记录；不实现 T08 的配置、Memory、Trace 或脱敏功能。
+
+### 2026-07-18 · T08 配置、JSON Memory 与脱敏 Trace
+
+- 分支与提交：在专用分支 `feat/t08-config-memory` 执行；规划为 `85bbf15`，RED 测试为 `6b70a29`，核心实现为 `ace9242`。本记录提交与末尾清空 `guiding.md` 的提交随后补齐，保持总计 5 个提交。
+- 基线与环境：固定使用 Node `24.14.0`、pnpm `11.14.0`。系统默认 Node `20.19.4` 无法运行 pnpm 11.14；受限沙箱内 Vite/Vitest 触发 `spawn EPERM`，获准在同一工作区沙箱外验证后通过。T08 开始前基线为 10/10 测试文件、73/73 用例通过。
+- TDD 证据：先只创建 4 个 T08 测试文件，聚焦运行得到 21/21 失败，原因均为 `parseHarnessConfig`、`Redactor`、`JsonMemory`、`JsonTrace` 导出或构造器不存在。实现后同一命令为 21/21 GREEN；评审新增 6 个边界用例后为 27/27 GREEN。
+- 实现范围：配置只接受 workspace、精确命令规则、步数、超时、输出上限和 workspace 相对 Memory 路径，并拒绝未知、越界、逃逸及 Key/secret 字段；Memory 使用版本化 JSON、同目录临时文件加 rename 原子更新，支持缺失空库、按 id upsert、有限相关检索、清空和损坏结构稳定错误；Trace 按 step 保存 Action、Policy、Observation、状态和停机原因；Memory 与 Trace 共用递归 Redactor。
+- 脱敏边界：Redactor 遮蔽会话显式敏感值、Bearer、API Key 字段和值以及独立 `sk-…` 形态。测试只使用 fake Key，并直接断言 Memory 拒绝敏感写入、Trace 原始落盘内容、读取结果和错误结构均不含 fake Key 明文。
+- 评审结果：按 Spec 与质量两轮本地检查，补齐命令规则嵌套未知字段、空白存储路径、独立 Key 形态、重复 Memory id、重复 Trace step 和 EOF 空白。未发现未关闭 Critical；原子写入失败不覆盖既有损坏文件，检索默认上限 5、硬上限 100。
+- 流程差异：用户要求当前任务自动完成，但当前协作约束禁止主动派生子智能体，因此没有调用新鲜 subagent；由当前任务逐条映射 SPEC、复查提交差异并增加对抗性测试，如实保留该差异。
+- 最终门禁：Node `24.14.0` 与 pnpm `11.14.0` 下，`pnpm test` 为 14/14 文件、100/100 用例通过；`pnpm lint`、`pnpm typecheck`、`pnpm build` 均退出码 0，Web Vite `8.1.5` 构建 14 个模块成功。
+- 范围审计：未新增依赖、schema 库、数据库或日志框架；未实现 T09 反馈/Agent Loop、T10 真实 Provider/凭据/CLI 或 T11 WebUI。Memory、Trace 默认文件和原子写入临时文件已加入 `.gitignore`。

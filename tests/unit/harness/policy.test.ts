@@ -52,7 +52,9 @@ describe("PolicyEngine", () => {
 
   it.each([
     { executable: "rm", args: ["-rf", "."] },
-    { executable: "git", args: ["clean", "-fdx"] }
+    { executable: "git", args: ["clean", "-fdx"] },
+    { executable: "git", args: ["rm", "--cached", "README.md"] },
+    { executable: "git", args: ["reset", "--hard"] }
   ])("即使完整调用被列入规则也拒绝删除命令 $executable $args", ({ executable, args }) => {
     const policyWithDangerousRule = new PolicyEngine({
       allowedCommands: [{ executable, args }]
