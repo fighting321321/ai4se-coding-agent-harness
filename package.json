@@ -11,12 +11,12 @@
   "scripts": {
     "test": "vitest run --config vitest.workspace.ts",
     "lint": "eslint .",
-    "typecheck": "pnpm --filter @ai4se/api run typecheck && pnpm --filter @ai4se/web run typecheck",
-    "build": "pnpm --filter @ai4se/web run build"
+    "typecheck": "pnpm --filter @ai4se/api run typecheck && pnpm --filter @ai4se/web run typecheck && pnpm --filter @ai4se/domain run typecheck && pnpm --filter @ai4se/shared run typecheck && tsc --noEmit -p tests/tsconfig.json",
+    "build": "pnpm --filter @ai4se/api run build && pnpm --filter @ai4se/web run build"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
-    "@types/node": "26.1.1",
+    "@types/node": "24.13.3",
     "eslint": "10.7.0",
     "typescript": "6.0.3",
     "typescript-eslint": "8.64.0",

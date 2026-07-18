@@ -312,10 +312,17 @@
 
 ### 2026-07-18 · T05 工程骨架、验证与范围审计
 
-- 分支与提交：`chore/t05-project-foundation` 从含 `0b03b78` 的最新 `dev` 创建；已按顺序提交 `f5cdbca`（规划）、`fbd796d`（工程骨架）和 `3d70dd4`（最小健康测试）。MR 尚未创建，Pipeline 尚未触发。
+- 分支与提交：`chore/t05-project-foundation` 从含 `0b03b78` 的最新 `dev` 创建；完整 T05 基线提交链固定为 `f5cdbca..decc79a`（5 条）：`f5cdbca`（规划）、`fbd796d`（工程骨架）、`3d70dd4`（最小健康测试）、`53ef325`（验证记录）和 `decc79a`（清空规划）。其中主实现提交为 `fbd796d` 与 `3d70dd4`。MR 尚未创建，Pipeline 尚未触发。
 - OPEN-03 决策：项目负责人已批准 Node 24 LTS、pnpm `11.14.0`、TypeScript `6.0.3`、Fastify `5.10.0`、React/react-dom `19.2.7`、Vite `8.1.5`、Vitest `4.1.10`、ESLint `10.7.0`、`@eslint/js` `10.0.1`、`typescript-eslint` `8.64.0`。TypeScript 固定为 `6.0.3` 的根因是 `typescript-eslint@8.64.0` 的 peer 范围为 `>=4.8.4 <6.1.0`，故不采用不兼容的 `7.0.2`。
 - Task 2 证据：以 Codex Node `24.14.0` 与 pnpm `11.14.0` 完成冻结安装；锁文件 SHA-256 安装前后相同；`test`、`lint`、`typecheck`、`build` 均通过。独立 Spec 合规与代码质量评审均通过，无 Critical 或 Important 问题。
 - Task 3 RED/GREEN：先只创建测试，目标模块缺失导致 `Cannot find module '../../../apps/api/src/health'`；随后加入纯 `healthStatus()` 后，目标测试及四个根命令通过。独立评审结论为无问题，且未引入 Fastify 路由、服务启动或 T06+ 行为。
 - 环境差异：系统默认 Node `20.19.4` 无法运行 pnpm `11.14.0`（缺少 `node:sqlite`）；最终验证显式使用 Codex Node `24.14.0` 与 pnpm `11.14.0`。受限沙箱中 Vite 配置加载会因子进程限制报 `spawn EPERM`，同一环境的控制器非沙箱代跑与本次非沙箱复验均通过，故不作为项目失败记录。
 - 最终验证：`pnpm test`（1/1 通过）、`pnpm lint`（退出码 0）、`pnpm typecheck`（API/Web `tsc --noEmit` 通过）、`pnpm build`（Vite `8.1.5` 构建 14 个模块成功）、`git diff --check`（退出码 0）与 `git status --short`（无输出）均通过。
-- 轻量审计：检查 `0b03b78..HEAD` 的 4 条 T05 提交和 24 个变更文件；范围包括 `.gitignore`、`PLAN.md`、`AGENT_LOG.md`、`guiding.md`、根配置、最小 API/Web/共享包、健康函数与测试。无 Decision、Runtime、Policy、工具、数据库、Fastify 路由或服务启动行为。`git ls-files` 未列出 `.superpowers/`、`node_modules/`、`dist/` 或 `.env`；提交差异未发现真实 API Key、token、密码或私钥，文档 SHA 与 `git log` 一致。
+- 轻量审计：固定检查范围 `0b03b78..decc79a`，其中包含 5 条 T05 提交和 23 个端点变更文件；范围包括 `.gitignore`、`PLAN.md`、`AGENT_LOG.md`、`guiding.md`、根配置、最小 API/Web/共享包、健康函数与测试。无 Decision、Runtime、Policy、工具、数据库、Fastify 路由或服务启动行为。`git ls-files` 未列出 `.superpowers/`、`node_modules/`、`dist/` 或 `.env`；提交差异未发现真实 API Key、token、密码或私钥，文档 SHA 与 `git log` 一致。
+
+### 2026-07-18 · T05 最终工程门禁修正
+
+- 修正范围：将根 `@types/node` 精确固定到 `24.13.3`，并使用 Node `24.14.0` 与 pnpm `11.14.0` 更新锁文件；避免 Node 26 类型定义放宽 Node 24 目标平台的 API 边界。
+- 类型与构建门禁：API 改为 NodeNext ESM 并实际包含 `src/**/*.ts`，新增独立 `typecheck`、产物构建；根 `typecheck` 覆盖 API、Web、domain、shared 和 tests，根 `build` 同时构建 API 与 Web。domain/shared/tests 均拥有最小 TypeScript 配置。
+- 健康契约：测试使用 TypeScript ESM 的 `../../../apps/api/src/health.js` 说明符，并以静态断言锁定 `healthStatus(): { status: "ok" }`；先观察到 `{ status: string }` 不满足字面量契约的 RED，再以显式返回类型获得 GREEN。
+- 忽略与测试门禁：移除 Vitest 的空测试放行；SQLite 忽略规则增加 `*.db-*`、`*.sqlite-*`、`*.sqlite3-*` sidecar 覆盖。最终验证记录见本地忽略的 `.superpowers/sdd/final-fix-report.md`。
