@@ -391,3 +391,15 @@
 - TDD 证据：先扩展 CommandTool/Policy 回归测试，聚焦运行得到 8 个预期失败、28 个既有用例通过；最小修复统一 `.exe` 名称归一化并补齐危险 Git 调用后，同一聚焦命令为 36/36 GREEN。
 - 完整门禁：Node `24.14.0`、pnpm `11.14.0` 下 `pnpm test` 为 10/10 文件、73/73 用例通过；lint、typecheck、build 均退出码 0。
 - 范围边界：本提交仅收尾 T07 安全分类和过程记录；不实现 T08 的配置、Memory、Trace 或脱敏功能。
+
+### 2026-07-18 · T08 配置、JSON Memory 与脱敏 Trace
+
+- 分支与提交：在专用分支 `feat/t08-config-memory` 执行；规划为 `85bbf15`，RED 测试为 `6b70a29`，核心实现为 `ace9242`。本记录提交与末尾清空 `guiding.md` 的提交随后补齐，保持总计 5 个提交。
+- 基线与环境：固定使用 Node `24.14.0`、pnpm `11.14.0`。系统默认 Node `20.19.4` 无法运行 pnpm 11.14；受限沙箱内 Vite/Vitest 触发 `spawn EPERM`，获准在同一工作区沙箱外验证后通过。T08 开始前基线为 10/10 测试文件、73/73 用例通过。
+- TDD 证据：先只创建 4 个 T08 测试文件，聚焦运行得到 21/21 失败，原因均为 `parseHarnessConfig`、`Redactor`、`JsonMemory`、`JsonTrace` 导出或构造器不存在。实现后同一命令为 21/21 GREEN；评审新增 6 个边界用例后为 27/27 GREEN。
+- 实现范围：配置只接受 workspace、精确命令规则、步数、超时、输出上限和 workspace 相对 Memory 路径，并拒绝未知、越界、逃逸及 Key/secret 字段；Memory 使用版本化 JSON、同目录临时文件加 rename 原子更新，支持缺失空库、按 id upsert、有限相关检索、清空和损坏结构稳定错误；Trace 按 step 保存 Action、Policy、Observation、状态和停机原因；Memory 与 Trace 共用递归 Redactor。
+- 脱敏边界：Redactor 遮蔽会话显式敏感值、Bearer、API Key 字段和值以及独立 `sk-…` 形态。测试只使用 fake Key，并直接断言 Memory 拒绝敏感写入、Trace 原始落盘内容、读取结果和错误结构均不含 fake Key 明文。
+- 评审结果：按 Spec 与质量两轮本地检查，补齐命令规则嵌套未知字段、空白存储路径、独立 Key 形态、重复 Memory id、重复 Trace step 和 EOF 空白。未发现未关闭 Critical；原子写入失败不覆盖既有损坏文件，检索默认上限 5、硬上限 100。
+- 流程差异：用户要求当前任务自动完成，但当前协作约束禁止主动派生子智能体，因此没有调用新鲜 subagent；由当前任务逐条映射 SPEC、复查提交差异并增加对抗性测试，如实保留该差异。
+- 最终门禁：Node `24.14.0` 与 pnpm `11.14.0` 下，`pnpm test` 为 14/14 文件、100/100 用例通过；`pnpm lint`、`pnpm typecheck`、`pnpm build` 均退出码 0，Web Vite `8.1.5` 构建 14 个模块成功。
+- 范围审计：未新增依赖、schema 库、数据库或日志框架；未实现 T09 反馈/Agent Loop、T10 真实 Provider/凭据/CLI 或 T11 WebUI。Memory、Trace 默认文件和原子写入临时文件已加入 `.gitignore`。

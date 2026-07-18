@@ -87,14 +87,21 @@ describe("JsonMemory", () => {
     await expect(memory.read()).resolves.toEqual({ ok: true, value: [] });
   });
 
-  it("损坏或结构错误的 JSON 返回稳定错误且不被覆盖", async () => {
+  it.each([
+    { name: "语法损坏", source: "{broken" },
+    { name: "根结构错误", source: "[]" },
+    {
+      name: "重复 id",
+      source: JSON.stringify({ version: 1, items: [convention, convention] })
+    }
+  ])("$name 的 JSON 返回稳定错误且不被覆盖", async ({ source }) => {
     const path = await memoryPath();
-    await writeFile(path, "{broken", "utf8");
+    await writeFile(path, source, "utf8");
     const memory = new JsonMemory(path, new Redactor());
 
     const result = await memory.read();
 
     expect(result).toMatchObject({ ok: false, error: { code: "MEMORY_CORRUPT" } });
-    await expect(readFile(path, "utf8")).resolves.toBe("{broken");
+    await expect(readFile(path, "utf8")).resolves.toBe(source);
   });
 });

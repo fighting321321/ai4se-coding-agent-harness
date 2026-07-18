@@ -70,7 +70,7 @@ pnpm build
 | T05 | 工程骨架与最小 CI | `chore/t05-project-foundation` | 已合入 `dev`（MR !6，merge `f014b42`） | 历史例外 |
 | T06 | Action、LLM 抽象、mock、解析与分发 | `feat/t06-minimal-kernel` | 已合入 `dev`（MR !7，merge `cdcc01f`） | 5 |
 | T07 | 受限工具、治理与最小批准 | `feat/t07-safe-tools-policy` | 已合入 `dev`（MR !8，merge `4fb39c7`） | 7 |
-| T08 | 配置、JSON Memory 与脱敏 Trace | `feat/t08-config-memory` | 未开始 | 5 |
+| T08 | 配置、JSON Memory 与脱敏 Trace | `feat/t08-config-memory` | 已完成（待 MR） | 5 |
 | T09 | 反馈重点维度与自研 Agent Loop | `feat/t09-feedback-loop` | 未开始 | 6 |
 | T10 | 安全凭据、真实 Provider、CLI 与三演示 | `feat/t10-cli-provider-demo` | 未开始 | 6 |
 | T11 | 静态 WebUI 与 GitLab Pages | `feat/t11-static-web` | 未开始 | 5 |
@@ -153,7 +153,7 @@ pnpm vitest run tests/unit/harness/path-guard.test.ts tests/unit/harness/file-to
 
 **建议提交：** 规划；RED；文件/命令工具；Policy/批准；评审/记录；清空 guiding。
 
-## 8. T08：配置、JSON Memory 与脱敏 Trace
+## 8. T08：配置、JSON Memory 与脱敏 Trace（已完成）
 
 **依赖：** T07。
 
@@ -179,6 +179,8 @@ pnpm vitest run tests/unit/harness/path-guard.test.ts tests/unit/harness/file-to
 ```powershell
 pnpm vitest run tests/unit/harness/config.test.ts tests/unit/harness/json-memory.test.ts tests/unit/harness/redactor.test.ts tests/unit/harness/trace.test.ts
 ```
+
+**执行证据（2026-07-18）：** 规划提交 `85bbf15` 后，提交 `6b70a29` 先固化 4 个测试文件；有效 RED 为 21 个用例因 T08 公共导出不存在而失败。`ace9242` 实现严格配置、原子 JSON Memory、统一 Redactor 与结构化 Trace；聚焦测试初次 GREEN 为 21/21。评审补齐嵌套未知字段、空白路径、独立 `sk-…` 形态、重复 Memory id 和重复 Trace step，最终聚焦测试为 27/27。完整门禁为 14/14 测试文件、100/100 用例通过，lint、typecheck、build 全部退出码 0；未增加依赖、数据库、Agent Loop、真实 Provider、CLI 或 WebUI。
 
 **建议提交：** 规划；RED；配置/Memory/Trace；评审/记录；清空 guiding。
 

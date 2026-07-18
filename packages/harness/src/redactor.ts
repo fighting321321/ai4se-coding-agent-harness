@@ -43,6 +43,7 @@ export class Redactor {
       /\b((?:x[-_])?api[-_ ]?key)\s*([:=])\s*(?:"[^"]*"|'[^']*'|[^\s,;]+)/giu,
       (_match, label: string, separator: string) => `${label}${separator} ${REDACTED}`
     );
+    redacted = redacted.replace(/\bsk-(?:proj-)?[a-z0-9_-]{8,}\b/giu, REDACTED);
 
     return redacted;
   }
@@ -55,4 +56,3 @@ export class Redactor {
     return JSON.stringify(this.redact(value)) !== JSON.stringify(value);
   }
 }
-

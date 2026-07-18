@@ -93,7 +93,8 @@ function parseDocument(source: string): MemoryDocument | undefined {
       Object.keys(value).length !== 2 ||
       value.version !== 1 ||
       !Array.isArray(value.items) ||
-      !value.items.every(isMemoryItem)
+      !value.items.every(isMemoryItem) ||
+      new Set(value.items.map((item) => item.id)).size !== value.items.length
     ) {
       return undefined;
     }
@@ -102,7 +103,6 @@ function parseDocument(source: string): MemoryDocument | undefined {
     return undefined;
   }
 }
-
 function copyItem(item: MemoryItem): MemoryItem {
   return { ...item, tags: [...item.tags] };
 }
@@ -243,4 +243,3 @@ export class JsonMemory {
     }
   }
 }
-

@@ -14,7 +14,8 @@ describe("Redactor", () => {
   it.each([
     "Authorization: Bearer fake-bearer-token",
     "api_key=sk-fake-api-key",
-    "API-KEY: fake-header-key"
+    "API-KEY: fake-header-key",
+    "standalone=sk-fake-standalone-key"
   ])("遮蔽常见凭据形态：%s", (source) => {
     const redacted = new Redactor().redactText(source);
 

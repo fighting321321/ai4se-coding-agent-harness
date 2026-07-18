@@ -57,11 +57,11 @@ git diff --name-only
 
 **提交信息：** `test: 定义T08配置记忆行为`
 
-- [ ] Config：合法配置成功；未知字段、错误数值、路径逃逸和 Key/secret 字段失败。
-- [ ] Memory：空库、写入、更新、相关检索、清空和损坏 JSON 明确失败。
-- [ ] Redactor：显式 fake Key、Bearer 和常见 Key 文本被替换，普通内容保持不变。
-- [ ] Trace：顺序写入并读取；Action/Observation/停机原因中的 fake Key 全部零明文。
-- [ ] 运行聚焦测试并保留正确 RED：T08 模块/导出不存在，而不是测试语法或环境错误。
+- [x] Config：合法配置成功；未知字段、错误数值、路径逃逸和 Key/secret 字段失败。
+- [x] Memory：空库、写入、更新、相关检索、清空和损坏 JSON 明确失败。
+- [x] Redactor：显式 fake Key、Bearer 和常见 Key 文本被替换，普通内容保持不变。
+- [x] Trace：顺序写入并读取；Action/Observation/停机原因中的 fake Key 全部零明文。
+- [x] 运行聚焦测试并保留正确 RED：T08 模块/导出不存在，而不是测试语法或环境错误。
 
 **RED 命令：**
 
@@ -75,11 +75,11 @@ pnpm vitest run tests/unit/harness/config.test.ts tests/unit/harness/json-memory
 
 **提交信息：** `feat: 实现T08配置记忆与追踪`
 
-- [ ] 用项目代码实现严格 Config 解析，不引入 schema、数据库或日志框架依赖。
-- [ ] 实现 JSON Memory 的原子写入、更新、有限相关检索、清空和损坏文件错误。
-- [ ] 实现统一 Redactor，并让 Memory 与 Trace 共用同一脱敏入口。
-- [ ] 实现本地 JSON Trace，保留规定字段和明确停机原因。
-- [ ] 更新 Harness 公共导出与 `.gitignore`，聚焦测试全部 GREEN。
+- [x] 用项目代码实现严格 Config 解析，不引入 schema、数据库或日志框架依赖。
+- [x] 实现 JSON Memory 的原子写入、更新、有限相关检索、清空和损坏文件错误。
+- [x] 实现统一 Redactor，并让 Memory 与 Trace 共用同一脱敏入口。
+- [x] 实现本地 JSON Trace，保留规定字段和明确停机原因。
+- [x] 更新 Harness 公共导出与 `.gitignore`，聚焦测试全部 GREEN。
 
 ---
 
@@ -87,10 +87,10 @@ pnpm vitest run tests/unit/harness/config.test.ts tests/unit/harness/json-memory
 
 **提交信息：** `docs: 记录T08验证结果`
 
-- [ ] Spec 检查：逐项核对配置、Memory、Trace、脱敏和零数据库，不实现 T09 以后能力。
-- [ ] 质量检查：重点检查原子写入、损坏 JSON、路径限制、检索上限和递归脱敏；修复所有 Critical。
-- [ ] 用 fake Key 扫描 T08 测试产物和错误文本，确认零明文。
-- [ ] 运行完整门禁，并在 `PLAN.md`、`AGENT_LOG.md` 如实记录 RED/GREEN、评审和验证结果。
+- [x] Spec 检查：逐项核对配置、Memory、Trace、脱敏和零数据库，不实现 T09 以后能力。
+- [x] 质量检查：重点检查原子写入、损坏 JSON、路径限制、检索上限和递归脱敏；修复所有 Critical。
+- [x] 用 fake Key 扫描 T08 测试产物和错误文本，确认零明文。
+- [x] 运行完整门禁，并在 `PLAN.md`、`AGENT_LOG.md` 如实记录 RED/GREEN、评审和验证结果。
 
 **完整门禁：**
 

@@ -94,7 +94,8 @@ function parseDocument(source: string): TraceDocument | undefined {
       Object.keys(value).length !== 2 ||
       value.version !== 1 ||
       !Array.isArray(value.entries) ||
-      !value.entries.every(isTraceEntry)
+      !value.entries.every(isTraceEntry) ||
+      new Set(value.entries.map((entry) => entry.step)).size !== value.entries.length
     ) {
       return undefined;
     }

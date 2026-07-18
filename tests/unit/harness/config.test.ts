@@ -27,6 +27,14 @@ describe("parseHarnessConfig", () => {
       code: "CONFIG_UNKNOWN_FIELD"
     },
     {
+      name: "命令规则中的未知字段",
+      input: {
+        ...validConfig,
+        allowedCommands: [{ executable: "pnpm", args: ["test"], shell: false }]
+      },
+      code: "CONFIG_UNKNOWN_FIELD"
+    },
+    {
       name: "越界的最大步数",
       input: { ...validConfig, maxSteps: 0 },
       code: "CONFIG_INVALID_VALUE"
@@ -39,6 +47,11 @@ describe("parseHarnessConfig", () => {
     {
       name: "逃逸 Memory 路径",
       input: { ...validConfig, memoryPath: "../memory.json" },
+      code: "CONFIG_STORAGE_PATH_INVALID"
+    },
+    {
+      name: "空白 Memory 路径",
+      input: { ...validConfig, memoryPath: "   " },
       code: "CONFIG_STORAGE_PATH_INVALID"
     },
     {

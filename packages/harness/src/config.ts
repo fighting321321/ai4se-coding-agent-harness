@@ -94,7 +94,7 @@ function isIntegerInRange(value: unknown, minimum: number, maximum: number): val
 function validStoragePath(path: unknown): path is string {
   if (
     typeof path !== "string" ||
-    path.length === 0 ||
+    path.trim().length === 0 ||
     path.includes("\0") ||
     isAbsolute(path) ||
     /^[a-z]:/iu.test(path)
@@ -144,10 +144,24 @@ export function parseHarnessConfig(input: unknown): ConfigParseResult {
     return failure("CONFIG_UNKNOWN_FIELD", `配置包含未知字段：${extraField}`);
   }
 
+  if (Array.isArray(input.allowedCommands)) {
+    for (const rule of input.allowedCommands) {
+      if (isRecord(rule)) {
+        const extraCommandField = unknownField(rule, COMMAND_FIELDS);
+        if (extraCommandField !== undefined) {
+          return failure(
+            "CONFIG_UNKNOWN_FIELD",
+            `命令规则包含未知字段：${extraCommandField}`
+          );
+        }
+      }
+    }
+  }
+
   const allowedCommands = parseCommandRules(input.allowedCommands);
   if (
     typeof input.workspace !== "string" ||
-    input.workspace.length === 0 ||
+    input.workspace.trim().length === 0 ||
     input.workspace.includes("\0") ||
     allowedCommands === undefined
   ) {
@@ -181,4 +195,3 @@ export function parseHarnessConfig(input: unknown): ConfigParseResult {
     }
   };
 }
-

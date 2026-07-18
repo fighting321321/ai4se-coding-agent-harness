@@ -76,4 +76,21 @@ describe("JsonTrace", () => {
     });
     await expect(readFile(path, "utf8")).resolves.toBe("[]");
   });
+
+  it("拒绝包含重复 step 的 Trace 结构", async () => {
+    const path = await tracePath();
+    const entry: TraceEntry = {
+      step: 1,
+      action: { type: "finish", summary: "完成" },
+      policy: "allow",
+      status: "completed"
+    };
+    const source = JSON.stringify({ version: 1, entries: [entry, entry] });
+    await writeFile(path, source, "utf8");
+
+    const result = await new JsonTrace(path, new Redactor()).read();
+
+    expect(result).toMatchObject({ ok: false, error: { code: "TRACE_CORRUPT" } });
+    await expect(readFile(path, "utf8")).resolves.toBe(source);
+  });
 });
