@@ -309,3 +309,42 @@
 - 经验：外部模型复验是发现歧义的证据来源，不应成为无限重试门槛；当修订、失败证据、范围边界均可追溯时，负责人可以显式接受剩余风险，但必须保留未通过事实。
 - Gate：G2、G3 已通过。T04 分支仍只含文档；T05 必须在 T04 合入 `dev` 后从最新 `dev` 创建独立分支/worktree。OPEN-03 未批准前，不得安装依赖或创建工程骨架。
 - 下一步：提交本次审计；随后以独立提交只清空 `guiding.md`，再将本分支合入 `dev`，禁止 squash。
+
+### 2026-07-18 · T05 工程骨架、验证与范围审计
+
+- 分支与提交：`chore/t05-project-foundation` 从含 `0b03b78` 的最新 `dev` 创建；完整 T05 基线提交链固定为 `f5cdbca..decc79a`（5 条）：`f5cdbca`（规划）、`fbd796d`（工程骨架）、`3d70dd4`（最小健康测试）、`53ef325`（验证记录）和 `decc79a`（清空规划）。其中主实现提交为 `fbd796d` 与 `3d70dd4`。MR 尚未创建，Pipeline 尚未触发。
+- OPEN-03 决策：项目负责人已批准 Node 24 LTS、pnpm `11.14.0`、TypeScript `6.0.3`、Fastify `5.10.0`、React/react-dom `19.2.7`、Vite `8.1.5`、Vitest `4.1.10`、ESLint `10.7.0`、`@eslint/js` `10.0.1`、`typescript-eslint` `8.64.0`。TypeScript 固定为 `6.0.3` 的根因是 `typescript-eslint@8.64.0` 的 peer 范围为 `>=4.8.4 <6.1.0`，故不采用不兼容的 `7.0.2`。
+- Task 2 证据：以 Codex Node `24.14.0` 与 pnpm `11.14.0` 完成冻结安装；锁文件 SHA-256 安装前后相同；`test`、`lint`、`typecheck`、`build` 均通过。独立 Spec 合规与代码质量评审均通过，无 Critical 或 Important 问题。
+- Task 3 RED/GREEN：先只创建测试，目标模块缺失导致 `Cannot find module '../../../apps/api/src/health'`；随后加入纯 `healthStatus()` 后，目标测试及四个根命令通过。独立评审结论为无问题，且未引入 Fastify 路由、服务启动或 T06+ 行为。
+- 环境差异：系统默认 Node `20.19.4` 无法运行 pnpm `11.14.0`（缺少 `node:sqlite`）；最终验证显式使用 Codex Node `24.14.0` 与 pnpm `11.14.0`。受限沙箱中 Vite 配置加载会因子进程限制报 `spawn EPERM`，同一环境的控制器非沙箱代跑与本次非沙箱复验均通过，故不作为项目失败记录。
+- 最终验证：`pnpm test`（1/1 通过）、`pnpm lint`（退出码 0）、`pnpm typecheck`（API/Web `tsc --noEmit` 通过）、`pnpm build`（Vite `8.1.5` 构建 14 个模块成功）、`git diff --check`（退出码 0）与 `git status --short`（无输出）均通过。
+- 轻量审计：固定检查范围 `0b03b78..decc79a`，其中包含 5 条 T05 提交和 23 个端点变更文件；范围包括 `.gitignore`、`PLAN.md`、`AGENT_LOG.md`、`guiding.md`、根配置、最小 API/Web/共享包、健康函数与测试。无 Decision、Runtime、Policy、工具、数据库、Fastify 路由或服务启动行为。`git ls-files` 未列出 `.superpowers/`、`node_modules/`、`dist/` 或 `.env`；提交差异未发现真实 API Key、token、密码或私钥，文档 SHA 与 `git log` 一致。
+
+### 2026-07-18 · T05 最终工程门禁修正
+
+- 修正范围：将根 `@types/node` 精确固定到 `24.13.3`，并使用 Node `24.14.0` 与 pnpm `11.14.0` 更新锁文件；避免 Node 26 类型定义放宽 Node 24 目标平台的 API 边界。
+- 类型与构建门禁：API 改为 NodeNext ESM 并实际包含 `src/**/*.ts`，新增独立 `typecheck`、产物构建；根 `typecheck` 覆盖 API、Web、domain、shared 和 tests，根 `build` 同时构建 API 与 Web。domain/shared/tests 均拥有最小 TypeScript 配置。
+- 健康契约：测试使用 TypeScript ESM 的 `../../../apps/api/src/health.js` 说明符，并以静态断言锁定 `healthStatus(): { status: "ok" }`；先观察到 `{ status: string }` 不满足字面量契约的 RED，再以显式返回类型获得 GREEN。
+- 忽略与测试门禁：移除 Vitest 的空测试放行；SQLite 忽略规则增加 `*.db-*`、`*.sqlite-*`、`*.sqlite3-*` sidecar 覆盖。最终验证记录见本地忽略的 `.superpowers/sdd/final-fix-report.md`。
+
+### 2026-07-18 · 一周最小交付重规划
+
+- 人工决策：项目负责人认为原 T05–T20 计划无法在可接受时间内完成，明确要求一周内取得最低课程作业结果、总体任务最多到 T12、T06–T12 每个任务最多 6 个提交，并删除无新增信息的重复复检。
+- 保留硬项：自实现 agent loop、真实 OpenAI 兼容 API、mock LLM 确定性测试、工具、记忆、治理、反馈、配置、机制演示、CI、分发、README、反思和在线 WebUI。
+- 核心删减：数据库、多用户、SSE、复杂审批/决策状态机、向量检索、线上后端、Docker/DinD、企业级凭据设施、性能与故障矩阵以及原 T13–T20。
+- 交付选择：真实学校 API 只在本地 Harness 使用；CI 与静态 WebUI 使用 mock。在线 URL 采用 GitLab Pages，不要求服务器权限。
+- 流程偏离：每个 Task 仍保留一次 Spec 检查和一次质量检查以满足课程最低过程要求，但取消重复独立复审；只让 Critical 阻断下一步。取消 guiding 首尾独立提交纪律，避免无价值提交。
+- 计划基线：`PLAN.md` 升为 2.0.0，T05–T12 串行执行，目标完成日期 2026-07-25。
+
+### 2026-07-18 · 项目结构简化
+
+- 人工批准：项目负责人认为原 domain/shared/runtime/infrastructure 多包拆分过于零散，批准改为 `apps/web`、`apps/api`、`packages/harness`、`tests` 四区。
+- 职责边界：Web 只负责 React 页面；API 只负责 Fastify、本地 CLI 和 Key 边界；Harness 包含全部 Agent 核心；tests 放跨模块验证。
+- 依赖方向：`web → api → harness`；Web 不读取真实 Key，Harness 不依赖 React/Fastify。原空 domain/shared 合并为 harness，后续不再创建 runtime/infrastructure workspace 包。
+
+### 2026-07-18 · T05 Node 24 类型依赖图修正
+
+- 发现与边界：尽管根 `@types/node` 已固定为 `24.13.3`，Web workspace 未显式声明该类型包，导致 Vite `8.1.5` 与 `@vitejs/plugin-react` `6.0.3` 的 peer 实例仍解析到 `@types/node@26.1.1`。本轮只修正依赖图与记录，不新增业务行为。
+- 修正：在 `apps/web` 显式精确固定 `@types/node` 为 `24.13.3`，用 Codex Node `24.14.0` 与 pnpm `11.14.0` 重建锁文件和本地依赖链接。锁文件中 `@types/node@26.1.1`、`@types/node: 26.1.1` 及 Node 26 的 Vite/plugin-react snapshot 均为零命中。
+- 实例证据：`apps/web/node_modules/vite` 的 junction 指向 `vite@8.1.5_@types+node@24.13.3`，`@vitejs/plugin-react` 指向其 Node 24 peer 实例，`apps/web/node_modules/@types/node` 指向 `@types+node@24.13.3`。
+- 验证：冻结安装、聚焦健康测试及根 `test`、`lint`、`typecheck`、`build` 全部通过；API `tsc --listFiles` 明确列出 `apps/api/src/health.ts`。完整命令与退出结果记录在忽略的 `.superpowers/sdd/final-version-fix-report.md`。

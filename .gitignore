@@ -3,3 +3,24 @@
 
 # 仅供本地查阅的课程资料
 guide/
+
+# 本地环境与依赖
+.env
+.env.*
+node_modules/
+.pnpm-store/
+
+# 构建和测试产物
+dist/
+coverage/
+
+# 本地数据库
+*.db
+*.db-*
+*.sqlite
+*.sqlite-*
+*.sqlite3
+*.sqlite3-*
+
+# 工作流暂存
+.superpowers/
