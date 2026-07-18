@@ -1,6 +1,7 @@
 import { isAbsolute } from "node:path";
 
 import type { CommandRule } from "./command-rule.js";
+import { Redactor } from "./redactor.js";
 
 export interface HarnessConfig {
   workspace: string;
@@ -133,6 +134,9 @@ export function parseHarnessConfig(input: unknown): ConfigParseResult {
   const secretField = findSecretField(input);
   if (secretField !== undefined) {
     return failure("CONFIG_SECRET_FIELD", `配置不得包含敏感字段：${secretField}`);
+  }
+  if (new Redactor().containsSensitive(input)) {
+    return failure("CONFIG_SECRET_FIELD", "配置不得包含 API Key 或其他凭据值");
   }
 
   if (!isRecord(input)) {

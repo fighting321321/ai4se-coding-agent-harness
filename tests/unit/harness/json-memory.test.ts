@@ -7,7 +7,8 @@ import { describe, expect, it } from "vitest";
 import {
   JsonMemory,
   Redactor,
-  type MemoryItem
+  type MemoryItem,
+  type MemorySearchQuery
 } from "../../../packages/harness/src/index.js";
 
 async function memoryPath(): Promise<string> {
@@ -59,6 +60,20 @@ describe("JsonMemory", () => {
     });
 
     expect(result).toEqual({ ok: true, value: [recent] });
+  });
+
+  it.each([
+    { name: "非数组 tags", query: { tags: "typescript" } },
+    { name: "null keywords", query: { keywords: null } }
+  ])("$name 返回查询错误而不是抛出异常", async ({ query }) => {
+    const memory = new JsonMemory(await memoryPath(), new Redactor());
+
+    const result = await memory.search(query as unknown as MemorySearchQuery);
+
+    expect(result).toMatchObject({
+      ok: false,
+      error: { code: "MEMORY_INVALID_QUERY" }
+    });
   });
 
   it("拒绝将敏感值写入 Memory", async () => {

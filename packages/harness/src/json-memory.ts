@@ -107,10 +107,14 @@ function copyItem(item: MemoryItem): MemoryItem {
   return { ...item, tags: [...item.tags] };
 }
 
-function validTerms(terms: readonly string[] | undefined): boolean {
+function validTerms(terms: unknown): terms is readonly string[] | undefined {
   return (
     terms === undefined ||
-    (terms.length <= 20 && terms.every((term) => term.length > 0 && term.length <= 128))
+    (Array.isArray(terms) &&
+      terms.length <= 20 &&
+      terms.every(
+        (term) => typeof term === "string" && term.length > 0 && term.length <= 128
+      ))
   );
 }
 

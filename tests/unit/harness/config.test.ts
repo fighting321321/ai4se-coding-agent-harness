@@ -68,6 +68,16 @@ describe("parseHarnessConfig", () => {
         ]
       },
       code: "CONFIG_SECRET_FIELD"
+    },
+    {
+      name: "合法字段中隐藏的 API Key 值",
+      input: {
+        ...validConfig,
+        allowedCommands: [
+          { executable: "tool", args: ["--token", "sk-fake-config-secret"] }
+        ]
+      },
+      code: "CONFIG_SECRET_FIELD"
     }
   ])("拒绝$name", ({ input, code }) => {
     const result = parseHarnessConfig(input);

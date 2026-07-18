@@ -403,3 +403,11 @@
 - 流程差异：用户要求当前任务自动完成，但当前协作约束禁止主动派生子智能体，因此没有调用新鲜 subagent；由当前任务逐条映射 SPEC、复查提交差异并增加对抗性测试，如实保留该差异。
 - 最终门禁：Node `24.14.0` 与 pnpm `11.14.0` 下，`pnpm test` 为 14/14 文件、100/100 用例通过；`pnpm lint`、`pnpm typecheck`、`pnpm build` 均退出码 0，Web Vite `8.1.5` 构建 14 个模块成功。
 - 范围审计：未新增依赖、schema 库、数据库或日志框架；未实现 T09 反馈/Agent Loop、T10 真实 Provider/凭据/CLI 或 T11 WebUI。Memory、Trace 默认文件和原子写入临时文件已加入 `.gitignore`。
+
+### 2026-07-18 · T09 启动前 T08 收尾
+
+- 合并状态：T08 已通过 MR !9 以 `6de04f9` 合入 `dev`；同步修正 PLAN 顶部状态与任务表，Pipeline 状态仍留待最终审计核对。
+- 根因审查：配置只扫描敏感字段名，合法 `args` 中的 `sk-…` 值可通过；Trace 类型遗漏 SPEC 的 `running` 且强制 Action；Memory 查询校验假定 tags/keywords 一定为数组。
+- TDD 证据：先新增配置敏感值、无 Action running Trace、非数组 tags 与 null keywords 四个回归用例；聚焦测试得到 4 个预期失败、21 个既有用例通过。最小修复后同一命令为 3/3 文件、25/25 用例通过。
+- 修复范围：配置复用统一 Redactor 拒绝凭据值；Trace 恢复 `running` 与可选 Action 契约；Memory 对运行时非数组查询返回 `MEMORY_INVALID_QUERY`。未实现任何 T09 Agent Loop 或反馈功能。
+- 完整门禁：Node `24.14.0`、pnpm `11.14.0` 下 14/14 测试文件、104/104 用例通过；lint、typecheck、build 均退出码 0。

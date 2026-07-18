@@ -7,11 +7,11 @@ import { parseAction } from "./action-parser.js";
 import type { PolicyDecision } from "./policy.js";
 import type { Redactor } from "./redactor.js";
 
-export type TraceStatus = "completed" | "blocked" | "failed";
+export type TraceStatus = "running" | "completed" | "blocked" | "failed";
 
 export interface TraceEntry {
   step: number;
-  action: Action;
+  action?: Action;
   policy: PolicyDecision;
   observation?: string;
   status: TraceStatus;
@@ -58,19 +58,21 @@ function isTraceEntry(value: unknown): value is TraceEntry {
       ["step", "action", "policy", "observation", "status", "stopReason"].includes(field)
     ) ||
     !fields.includes("step") ||
-    !fields.includes("action") ||
     !fields.includes("policy") ||
     !fields.includes("status")
   ) {
     return false;
   }
-  const action = parseAction(value.action);
+  const actionValid = value.action === undefined || parseAction(value.action).ok;
   return (
     Number.isInteger(value.step) &&
     (value.step as number) > 0 &&
-    action.ok &&
+    actionValid &&
     (value.policy === "allow" || value.policy === "ask" || value.policy === "deny") &&
-    (value.status === "completed" || value.status === "blocked" || value.status === "failed") &&
+    (value.status === "running" ||
+      value.status === "completed" ||
+      value.status === "blocked" ||
+      value.status === "failed") &&
     (value.observation === undefined || typeof value.observation === "string") &&
     (value.stopReason === undefined || typeof value.stopReason === "string")
   );
@@ -79,10 +81,14 @@ function isTraceEntry(value: unknown): value is TraceEntry {
 function copyEntry(entry: TraceEntry): TraceEntry {
   return {
     ...entry,
-    action:
-      entry.action.type === "run_command"
-        ? { ...entry.action, args: [...entry.action.args] }
-        : { ...entry.action }
+    ...(entry.action === undefined
+      ? {}
+      : {
+          action:
+            entry.action.type === "run_command"
+              ? { ...entry.action, args: [...entry.action.args] }
+              : { ...entry.action }
+        })
   };
 }
 

@@ -16,6 +16,19 @@ async function tracePath(): Promise<string> {
 }
 
 describe("JsonTrace", () => {
+  it("记录尚无 Action 的 running 轮次", async () => {
+    const trace = new JsonTrace(await tracePath(), new Redactor());
+    const entry = {
+      step: 1,
+      policy: "allow",
+      observation: "等待模型输出",
+      status: "running"
+    } as unknown as TraceEntry;
+
+    expect(await trace.append(entry)).toEqual({ ok: true, value: entry });
+    await expect(trace.read()).resolves.toEqual({ ok: true, value: [entry] });
+  });
+
   it("按 step 顺序写入和读取结构化 Trace", async () => {
     const trace = new JsonTrace(await tracePath(), new Redactor());
     const second: TraceEntry = {
