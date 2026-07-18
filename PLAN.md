@@ -1,73 +1,36 @@
-# Coding Agent Harness 一周最小交付计划
+# Coding Agent Harness 课程最小实现计划
 
-版本：2.0.0
+> **For agentic workers:** 按 T06–T12 串行执行；每个 Task 使用独立 branch/worktree、一次新鲜 subagent、TDD、Spec 检查、质量检查和 MR Pipeline。步骤用 `guiding.md` 细化，不扩展本计划范围。
 
-批准日期：2026-07-18
+**版本：** 2.1.0
 
-目标完成日期：2026-07-25
-项目负责人：徐黄浩
+**SPEC 基线：** `SPEC.md` 2.0.0
 
-## 1. 目标
+**目标日期：** 2026-07-25
 
-在一周内交付一个可运行、可测试、可演示、可分发的最小 Coding Agent Harness。项目必须由自己的代码实现 agent loop，不依赖现成 agent runner；必须能接入学校提供的 OpenAI 兼容 API，也必须能用 mock LLM 完成全部离线测试。
+**当前状态：** G1–G3 已通过，T05 已完成并合入 `dev`
 
-本版本以课程最低交付为唯一范围。原 1.0.x 中 T13–T20、多用户平台、复杂部署和企业级机制全部取消，不再作为实现承诺。
+## 1. 目标与最小边界
 
-## 2. 一周硬约束
+在 T05 的可运行骨架上，用 T06–T12 交付满足原始课程要求的最小 Coding Agent Harness：自研循环、六维最低实现、反馈重点维度、mock 测试、三项演示、安全凭据、真实学校 API 本地入口、GitLab Pages、npm tarball、README、过程证据和本人反思。
 
-- 只保留 T05–T12，T12 为最终交付。
-- T06–T12 每个 Task 最多 6 个提交，目标 3–5 个；T05 已存在的历史提交不改写。
-- 每个 Task 只做一次 Spec 检查、一次质量检查、一次完整门禁；仅 Critical 问题返工。
-- 每个功能保留一次可证明的 RED/GREEN；不重复执行无新增信息的复检。
-- CI 不使用 Docker、Docker-in-Docker 或 Auto DevOps buildpack。
-- 不部署后端；在线 URL 使用 GitLab Pages 静态 WebUI。
-- 真实 API Key 不进入 Git、日志、测试、CI 或浏览器。
-- `REFLECTION.md` 正文由项目负责人本人撰写，AI 不代写。
+不实现数据库、多用户、SSE、Rebaseline、复杂审批、Docker 或线上后端。
 
-## 3. 课程最低要求映射
-
-| 课程要求 | 最小实现 |
-| --- | --- |
-| 自实现 agent loop | T09 实现单循环、一次纠正和明确停止条件 |
-| LLM 抽象 | T06 `LLMProvider` + `ScriptedMockLLM`，T10 真实兼容 Provider |
-| 工具 | T07 文件读取、受限写入、受限命令 |
-| 记忆 | T08 本地 JSON Memory |
-| 治理 | T07 路径边界、危险命令拒绝、需要批准状态 |
-| 反馈 | T09 根据退出码形成反馈并驱动一次纠正 |
-| 配置 | T08 JSON/环境变量最小配置 |
-| 重点机制 | 治理 + 失败反馈闭环 |
-| 确定性测试 | mock LLM 单元测试，不联网 |
-| 机制演示 | T10 三个可重复 CLI 场景 |
-| 真实 AI | T10 本地接入学校 OpenAI 兼容 API |
-| CI | T05 `.gitlab-ci.yml` 的 `unit-test` job |
-| 在线 WebUI | T11 GitLab Pages 静态演示 |
-| 分发 | T12 `pnpm pack` 生成 npm tarball |
-| 文档 | 保留 SPEC、PLAN、SPEC_PROCESS、AGENT_LOG、README、REFLECTION |
-
-## 4. 最小架构
+## 2. 固定架构与接口
 
 ```text
-apps/web          React 前端；在线只发布静态 mock 演示
-apps/api          Fastify 后端；本地装配 Harness 和真实 API Key
-packages/harness  Agent 核心；Action、Provider、工具、治理、记忆、反馈和循环
-tests             单元、最小集成和机制演示测试
+apps/api → packages/harness
+apps/web（独立静态演示）
+tests（跨模块测试与演示）
 ```
-
-依赖方向固定为 `web → api → harness`。Web 不读取 Key，Harness 不依赖 React 或 Fastify。取消空的 `domain`、`shared` 以及原计划中的 `runtime`、`infrastructure` 多包拆分；三个以上职责模块在 `packages/harness/src/` 内按文件划分，不再为每个职责创建 workspace package。
-
-只保留四类 Action：
 
 ```ts
 type Action =
   | { type: "read_file"; path: string }
   | { type: "write_file"; path: string; content: string }
-  | { type: "run_command"; command: string }
+  | { type: "run_command"; executable: string; args: readonly string[] }
   | { type: "finish"; summary: string };
-```
 
-核心接口：
-
-```ts
 interface LLMProvider {
   complete(input: LLMInput): Promise<LLMOutput>;
 }
@@ -77,24 +40,17 @@ interface AgentLoop {
 }
 ```
 
-## 5. 明确删除的内容
+命令不得使用 Shell 字符串；Web 不依赖本地 API；真实 Key 只在本地 CLI 的安全凭据模块中使用。
 
-以下内容不会实现：
+## 3. 统一轻量执行规则
 
-- SQLite、migration、并发任务、多人登录、RBAC。
-- SSE、审计事件流、复杂审批状态机、Rebaseline、决策版本图。
-- 向量数据库、语义检索、跨用户记忆和长期知识库。
-- Web 后端、在线真实模型调用、在线 API Key 输入。
-- Docker 镜像、Kubernetes、云数据库、HTTPS 运维和备份恢复。
-- 多 Provider 凭据轮换、操作系统 Keychain、加密数据库。
-- 性能压测、故障注入矩阵、浏览器 e2e 和复杂无障碍审计。
-- 原 T13–T20 的独立任务与 Gate。
+每个 Txx：
 
-删减理由：项目负责人明确要求在 2026-07-25 前取得最低课程作业结果，并接受工程深度和扩展能力下降的风险。
-
-## 6. 通用完成门禁
-
-每个 Task 只执行一次：
+1. 从最新 `dev` 建独立 branch/worktree，首提交写精简 `guiding.md`。
+2. 派一个新鲜 subagent，只提供 SPEC、PLAN 和当前 Task 文件。
+3. 每个功能保留一次真实 RED → GREEN；不做重复复检。
+4. 完成后先做一次 Spec 合规检查，再做一次代码质量检查；只强制修复 Critical。
+5. 运行一次完整门禁：
 
 ```powershell
 pnpm test
@@ -103,163 +59,270 @@ pnpm typecheck
 pnpm build
 ```
 
-规则：
+6. 更新 PLAN/AGENT_LOG，末提交清空 `guiding.md`，推送 MR；Pipeline passed 后合入 `dev`，禁止 squash。
 
-- 聚焦测试先 RED 后 GREEN。
-- Spec 检查只判断是否越界或漏掉当前 Task 接口。
-- 质量检查只阻断 Critical；非 Critical 记录后不返工。
-- 不允许跳过、删除或弱化已存在测试来获得绿色结果。
-- 每个 MR 最终 Pipeline 必须通过。
+每个后续 Task 最多 6 个提交，目标 4–5 个。任务严格串行，不维护复杂并行 DAG。
 
-## 7. T05–T12 执行任务
+## 4. 状态总览
 
-### T05：工程骨架与最小 GitLab CI
+| Task | 内容 | 分支 | 状态 | 提交上限 |
+| --- | --- | --- | --- | ---: |
+| T05 | 工程骨架与最小 CI | `chore/t05-project-foundation` | 已合入 `dev`（MR !6，merge `f014b42`） | 历史例外 |
+| T06 | Action、LLM 抽象、mock、解析与分发 | `feat/t06-minimal-kernel` | 未开始 | 5 |
+| T07 | 受限工具、治理与最小批准 | `feat/t07-safe-tools-policy` | 未开始 | 6 |
+| T08 | 配置、JSON Memory 与脱敏 Trace | `feat/t08-config-memory` | 未开始 | 5 |
+| T09 | 反馈重点维度与自研 Agent Loop | `feat/t09-feedback-loop` | 未开始 | 6 |
+| T10 | 安全凭据、真实 Provider、CLI 与三演示 | `feat/t10-cli-provider-demo` | 未开始 | 6 |
+| T11 | 静态 WebUI 与 GitLab Pages | `feat/t11-static-web` | 未开始 | 5 |
+| T12 | npm 分发、README、反思与最终审计 | `docs/t12-final-delivery` | 未开始 | 6 |
 
-**状态：** 工程骨架已完成；当前只补 CI。
+## 5. T05：工程骨架与最小 CI（已完成）
 
-**Files：** Create `.gitlab-ci.yml`, `tests/unit/ci/pipeline-contract.test.ts`, `packages/harness/package.json`, `packages/harness/tsconfig.json`, `packages/harness/src/index.ts`; Remove empty `packages/domain/*`, `packages/shared/*`; Modify root scripts and lockfile.
+**产物：** Node 24/pnpm 11 workspace、API/Web/Harness/tests、健康测试、`unit-test` GitLab job。
 
-**产出：** 固定 Node 24/pnpm 11.14；`unit-test` job 执行冻结安装、test、lint、typecheck、build；无 `docker:dind`。
+**主要提交：** `fbd796d`、`3d70dd4`、`62b95da`、`2e902e0`。
 
-**步骤：**
+**合并：** MR !6 → `dev`，merge commit `f014b42`。
 
-1. 写 CI 契约测试并观察缺少 `.gitlab-ci.yml` 的 RED。
-2. 写最小 `.gitlab-ci.yml`，使契约测试 GREEN。
-3. 将空的 domain/shared 合并为单一 `@ai4se/harness` 包并更新锁文件。
-4. 运行四个根命令一次。
-5. 提交并推送，确认 `unit-test` passed。
+**待最终审计：** 在 T12 记录 MR !6 的最终 Pipeline URL/status；无法获取时如实标记证据缺口，不伪造。
 
-**提交：** `ci: 建立最小GitLab质量门禁`。T05 历史提交数超出新上限，作为已发生事实保留，不改写。
+## 6. T06：最小决策与分发内核
 
-### T06：最小决策与分发内核
+**目标：** 完成决策封装的最小可测试内核，不实现真实工具或循环。
 
-**Files：** Create `packages/harness/src/action.ts`, `packages/harness/src/llm-provider.ts`, `packages/harness/src/scripted-mock-llm.ts`, `packages/harness/src/dispatcher.ts`, unit tests; Modify `packages/harness/src/index.ts`.
+**Files：**
 
-**产出：** 精确 Action union、单次 LLM 调用抽象、脚本化 mock、确定性 Dispatcher。
+- Create `packages/harness/src/action.ts`
+- Create `packages/harness/src/llm-provider.ts`
+- Create `packages/harness/src/scripted-mock-llm.ts`
+- Create `packages/harness/src/action-parser.ts`
+- Create `packages/harness/src/dispatcher.ts`
+- Modify `packages/harness/src/index.ts`
+- Create `tests/unit/harness/action-parser.test.ts`
+- Create `tests/unit/harness/scripted-mock-llm.test.ts`
+- Create `tests/unit/harness/dispatcher.test.ts`
 
-**测试：** mock 按顺序返回；未知/非法 Action 拒绝；Dispatcher 每次只执行一个 Action。
+**行为：**
 
-**步骤：** RED 测试 → 最小类型与实现 → 聚焦 GREEN → 一次双检查和全门禁 → MR。
+- `ScriptedMockLLM` 按顺序返回脚本并记录调用，耗尽时返回明确错误。
+- Parser 严格接受 SPEC 四类 Action；`run_command` 必须是 executable + args。
+- Dispatcher 每次只分发一个 Action；未知类型和 handler 异常转结构化结果。
 
-**提交上限：** 4。
+**TDD：** 先写 mock 顺序/耗尽、非法 Action、单次分发 RED；再做最小实现并 GREEN。
 
-### T07：受限工具与治理
+**聚焦验证：**
 
-**Files：** Create `packages/harness/src/file-tools.ts`, `packages/harness/src/command-tool.ts`, `packages/harness/src/policy.ts` and tests; Modify Dispatcher registration.
+```powershell
+pnpm vitest run tests/unit/harness/action-parser.test.ts tests/unit/harness/scripted-mock-llm.test.ts tests/unit/harness/dispatcher.test.ts
+```
 
-**产出：** 工作区内读写、命令 allowlist、越界路径拒绝、危险命令拒绝、需要人工批准的结构化结果。
+**建议提交：** 规划；RED 测试；最小内核；评审/记录；清空 guiding。
 
-**重点机制：** 治理是主要贡献之一；所有规则必须由确定性代码实现，不写成提示词。
+## 7. T07：受限工具、治理与最小批准
 
-**测试：** `../` 逃逸、绝对路径逃逸、危险删除命令零副作用；允许命令正常返回退出码和截断输出。
+**依赖：** T06。
 
-**提交上限：** 5。
+**Files：**
 
-### T08：最小配置与 JSON Memory
+- Create `packages/harness/src/path-guard.ts`
+- Create `packages/harness/src/file-tools.ts`
+- Create `packages/harness/src/command-tool.ts`
+- Create `packages/harness/src/policy.ts`
+- Create `packages/harness/src/approval.ts`
+- Modify `packages/harness/src/dispatcher.ts`, `packages/harness/src/index.ts`
+- Create corresponding tests under `tests/unit/harness/`
 
-**Files：** Create `packages/harness/src/config.ts`, `packages/harness/src/json-memory.ts` and tests; Add ignored local data path.
+**行为：**
 
-**产出：** allowlist、步数上限、工作区路径配置；项目约定和最近结果写入单个本地 JSON 文件。
+- 路径限制在 workspace，拒绝绝对路径、`..`、`.env` 和符号链接逃逸。
+- 命令以 `spawn(executable,args)` 运行；白名单、60 秒超时、32 KiB 输出上限。
+- Policy 返回 allow/ask/deny；删除类和 Shell 启动器 deny，写入可 ask。
+- ask 在当前 CLI 会话中等待一次明确批准；批准前工具调用为零。
 
-**测试：** 配置缺失快速失败；写入后可读取；损坏 JSON 返回明确错误；Key 永不写入 Memory。
+**TDD：** 路径逃逸、危险命令、未批准写入先 RED；实现后断言副作用计数为零并 GREEN。
 
-**提交上限：** 4。
+**聚焦验证：**
 
-### T09：反馈闭环与 Agent Loop
+```powershell
+pnpm vitest run tests/unit/harness/path-guard.test.ts tests/unit/harness/file-tools.test.ts tests/unit/harness/command-tool.test.ts tests/unit/harness/policy.test.ts
+```
 
-**Files：** Create `packages/harness/src/feedback.ts`, `packages/harness/src/agent-loop.ts` and tests; Modify Harness exports.
+**建议提交：** 规划；RED；文件/命令工具；Policy/批准；评审/记录；清空 guiding。
 
-**产出：** task → LLM → Action → Policy → Tool → Feedback → 下一步/停止的自实现循环；失败只允许一次纠正，总步数有硬上限。
+## 8. T08：配置、JSON Memory 与脱敏 Trace
 
-**测试：** 首次命令失败后 mock 改变下一动作并成功；连续失败停止；危险动作不调用工具；finish 正常结束。
+**依赖：** T07。
 
-**重点机制：** 失败反馈闭环是主要贡献之二。
+**Files：**
 
-**提交上限：** 5。
+- Create `packages/harness/src/config.ts`
+- Create `packages/harness/src/json-memory.ts`
+- Create `packages/harness/src/redactor.ts`
+- Create `packages/harness/src/trace.ts`
+- Create corresponding unit tests
+- Modify `.gitignore`, `packages/harness/src/index.ts`
 
-### T10：CLI、机制演示与真实 AI Provider
+**行为：**
 
-**Files：** Create API CLI entry, `packages/harness/src/openai-compatible-provider.ts`, demo fixtures/scripts and tests; Modify package scripts.
+- JSON 配置严格校验 workspace、allowlist、步数、超时、输出、Memory 路径；Key 不进入配置。
+- Memory 支持写入、相关检索、更新、清除；损坏 JSON 明确失败。
+- Trace 记录每轮 Action/Policy/Observation/停机原因并统一脱敏。
 
-**产出：**
+**TDD：** 错误配置、Memory 往返/损坏、fake Key 跨 Memory/Trace 零明文先 RED 后 GREEN。
 
-- `pnpm demo` 离线展示危险动作拦截、失败后纠正和记忆行为。
-- `pnpm agent --task "..."` 可使用真实学校 API。
-- 配置 `AI4SE_API_BASE_URL`、`AI4SE_API_KEY`、`AI4SE_MODEL`；输出不得包含 Key。
+**聚焦验证：**
 
-**测试：** HTTP 使用本地 stub；401/429/5xx 转成结构化错误；日志脱敏；最终由负责人本地执行一次受控真实调用。
+```powershell
+pnpm vitest run tests/unit/harness/config.test.ts tests/unit/harness/json-memory.test.ts tests/unit/harness/redactor.test.ts tests/unit/harness/trace.test.ts
+```
 
-**提交上限：** 5。
+**建议提交：** 规划；RED；配置/Memory/Trace；评审/记录；清空 guiding。
 
-### T11：静态 WebUI 与 GitLab Pages
+## 9. T09：反馈重点维度与 Agent Loop
 
-**Files：** Modify Web app; Create deterministic demo data; Modify `.gitlab-ci.yml` to add `pages` job; Add UI unit tests.
+**依赖：** T08。
 
-**产出：** 在线页面展示项目简介、一次运行轨迹、治理拦截、反馈纠正、记忆和运行命令。页面不接触真实 Key、不调用真实 API。
+**Files：**
 
-**CI：** `pages` 构建 Web 并发布 `public/`；不使用 Docker service。
+- Create `packages/harness/src/feedback.ts`
+- Create `packages/harness/src/agent-loop.ts`
+- Create `tests/unit/harness/feedback.test.ts`
+- Create `tests/integration/harness/agent-loop.test.ts`
+- Modify `packages/harness/src/index.ts`
 
-**提交上限：** 4。
+**行为：**
 
-### T12：分发、文档与最终交付
+- 自研 task → context/memory → LLM → parse → policy → tool → feedback → next/stop 循环。
+- 反馈分类 pass/fail/timeout/environment_error，摘要进入下一轮。
+- 默认最大 8 步；业务失败只自动修正一次；第二次失败停止。
+- finish、deny、ask、最大步数和环境错误都有明确 RunResult。
 
-**Files：** Update `packages/harness` package entry, README, LICENSES, final audit script; Project owner creates `REFLECTION.md`; Update SPEC_PROCESS, PLAN, AGENT_LOG.
+**TDD：** 第一次动作失败、第二次动作改变并成功；连续失败停止；危险动作零调用；finish 完成。
 
-**产出：**
+**聚焦验证：**
 
-- `pnpm pack` 生成可安装 tarball，并在全新目录完成安装/运行 smoke。
-- README 包含简介、安装、运行、API Key 配置、分发、目录、安全边界、Pages URL 和限制。
-- 最终 CI passed；机制演示可重复；仓库无真实凭据。
-- 项目负责人本人完成反思正文。
+```powershell
+pnpm vitest run tests/unit/harness/feedback.test.ts tests/integration/harness/agent-loop.test.ts
+```
 
-**提交上限：** 5。
+**建议提交：** 规划；反馈 RED/GREEN；Loop RED；Loop GREEN/重构；评审/记录；清空 guiding。
 
-## 8. 七日时间表
+## 10. T10：安全凭据、真实 Provider、CLI 与机制演示
 
-| 日期 | 目标 |
+**依赖：** T09。
+
+**Files：**
+
+- Create `packages/harness/src/credential-store.ts`
+- Create `packages/harness/src/openai-compatible-provider.ts`
+- Create `apps/api/src/cli.ts`
+- Create `tests/unit/harness/credential-store.test.ts`
+- Create `tests/unit/harness/openai-compatible-provider.test.ts`
+- Create `tests/integration/demos/mechanisms.test.ts`
+- Modify package scripts and Harness exports
+
+**行为：**
+
+- 隐藏输入主密码；scrypt + AES-256-GCM 加密文件；支持 init/status/update/clear。
+- Provider 只做单次兼容 API 调用；本地 HTTP stub 测试 401/429/5xx 与脱敏。
+- `pnpm agent --task "..."` 本地运行；真实学校 API 只由负责人受控 smoke。
+- `pnpm demo` 自动断言危险动作零调用、失败后改变动作、第二次失败确定性停机。
+
+**TDD：** 加密 roundtrip/tamper、状态/更新/清除、HTTP stub、三演示全部先 RED 后 GREEN。
+
+**聚焦验证：**
+
+```powershell
+pnpm vitest run tests/unit/harness/credential-store.test.ts tests/unit/harness/openai-compatible-provider.test.ts tests/integration/demos/mechanisms.test.ts
+pnpm demo
+```
+
+**建议提交：** 规划；凭据；Provider/CLI；三演示；评审/记录；清空 guiding。
+
+## 11. T11：静态 WebUI 与 GitLab Pages
+
+**依赖：** T10 的脱敏 mock Trace 格式。
+
+**Files：**
+
+- Modify `apps/web/src/main.tsx`, `apps/web/vite.config.ts`, `apps/web/package.json`
+- Create `apps/web/src/demo-data.ts`, `apps/web/src/App.tsx`, `apps/web/src/styles.css`
+- Create Web unit tests
+- Modify `.gitlab-ci.yml` 增加 `pages` job
+
+**行为：** 展示价值、架构、固定运行轨迹、治理拦截、失败修正、Memory 摘要和命令；不连接 API、不读取 Key。页面提供清晰状态、键盘可操作基础交互和真实 Pages URL。
+
+**TDD：** 核心标题、轨迹顺序、危险动作状态和零 Key 文本先 RED 后 GREEN。
+
+**验证：**
+
+```powershell
+pnpm --filter @ai4se/web test
+pnpm --filter @ai4se/web build
+```
+
+**建议提交：** 规划；UI RED；静态 UI；Pages/评审记录；清空 guiding。
+
+## 12. T12：分发、文档与最终交付
+
+**依赖：** T11 合入，Pages 可访问。
+
+**Files：**
+
+- Modify `packages/harness/package.json` and build config
+- Create package/CLI entry and pack smoke test
+- Create `README.md`, `LICENSES.md`, final audit script
+- Project owner creates `REFLECTION.md`
+- Modify `.gitlab-ci.yml`, `SPEC_PROCESS.md`, `PLAN.md`, `AGENT_LOG.md`
+
+**行为：**
+
+- `pnpm pack` 生成 tarball并在全新临时目录安装、运行离线 smoke。
+- CI 运行 test/lint/typecheck/build/demo/secret scan/package build，`unit-test` 保持精确名称。
+- README 包含课程要求的全部章节、Pages URL 和凭据安全流程。
+- 项目负责人本人完成 1500–2500 字 REFLECTION；AI 润色必须标注。
+- 扫描当前文件和 Git 历史中的真实凭据；发现疑似真实 Key 时停止并人工处理。
+
+**最终验证：**
+
+```powershell
+pnpm install --frozen-lockfile
+pnpm test
+pnpm lint
+pnpm typecheck
+pnpm build
+pnpm demo
+pnpm pack
+```
+
+还需确认：npm tarball smoke、GitLab Pages 可访问、最终 `dev → main` MR、`main` 最新 Pipeline passed。
+
+**建议提交：** 规划；打包/smoke；README/许可证；负责人反思；最终审计；清空 guiding。
+
+## 13. Guide 硬性要求覆盖
+
+| Guide 要求 | 覆盖位置 |
 | --- | --- |
-| 2026-07-18 | T05 CI passed 并合入 |
-| 2026-07-19 | T06 |
-| 2026-07-20 | T07 |
-| 2026-07-21 | T08 |
-| 2026-07-22 | T09 |
-| 2026-07-23 | T10 |
-| 2026-07-24 | T11 |
-| 2026-07-25 | T12 与最终提交 |
+| SPEC 至少 5 用户故事、架构、数据、安全、验收、风险 | SPEC 2.0.0 |
+| 自研循环与六维最低实现 | T06–T09 |
+| 一个重点维度深入 | T09 反馈闭环 |
+| mock LLM 确定性测试 | T06–T10 |
+| 三项机制演示 | T10 |
+| 安全存储、隐藏录入、状态/更新/清除 | T10 |
+| 至少 3 个模块与一键测试 | T05 + 根脚本 |
+| 分支/worktree/subagent/TDD/双检查/MR | 每个 Txx 统一规则 |
+| `unit-test` CI 且最后 passed | T05/T12 |
+| 包管理器分发 | T12 npm tarball |
+| README 必需章节 | T12 |
+| 在线 WebUI URL | T11 GitLab Pages |
+| REFLECTION 本人撰写 | T12 |
+| 完整过程记录和多个提交/MR | 全程 AGENT_LOG/PLAN |
 
-任务严格串行；不再建立复杂并行 DAG。
+## 14. 明确停止线
 
-## 9. 分支与提交规则
-
-| Task | Branch | 最大提交数 |
-| --- | --- | ---: |
-| T05 | `chore/t05-project-foundation` | 历史例外 |
-| T06 | `feat/t06-minimal-kernel` | 4 |
-| T07 | `feat/t07-safe-tools-policy` | 5 |
-| T08 | `feat/t08-config-memory` | 4 |
-| T09 | `feat/t09-feedback-loop` | 5 |
-| T10 | `feat/t10-cli-provider-demo` | 5 |
-| T11 | `feat/t11-static-web` | 4 |
-| T12 | `docs/t12-final-delivery` | 5 |
-
-每个 Task 一个 MR。取消“guiding 必须单独首尾提交”的额外纪律；需要 guiding 时与计划提交合并，避免无价值提交。
-
-## 10. 最终交付清单
-
-- [ ] `SPEC.md`, `PLAN.md`, `SPEC_PROCESS.md`, `AGENT_LOG.md`
-- [ ] 自实现 Harness 源码，包含六个最低维度和重点治理/反馈闭环
-- [ ] mock LLM 确定性单元测试与三项机制演示
-- [ ] 可选真实学校 API 本地运行入口，Key 无泄露
-- [ ] `.gitlab-ci.yml`，包含 `unit-test`，最后一次 Pipeline passed
-- [ ] GitLab Pages WebUI URL
-- [ ] npm tarball 分发与全新目录 smoke
-- [ ] README 必需章节
-- [ ] 项目负责人本人撰写的 `REFLECTION.md`
-- [ ] 完整 commit/MR 记录，无真实凭据
-
-## 11. 批准与风险
-
-- 项目负责人于 2026-07-18 明确要求：一周内完成、最多到 T12、每个后续 Task 不超过 6 个提交、删除无助于最低课程结果的复检和功能。
-- 项目负责人确认最终产品必须能接入学校 API；mock 仅用于测试和静态演示。
-- 项目负责人批准 GitLab Pages 静态 WebUI，不部署线上后端。
-- 已接受风险：功能广度、企业级安全、可扩展性和线上真实交互明显降低；换取一周内形成完整作业结果。
+- 不因“看起来更完整”恢复已删企业级功能。
+- 不把环境变量当作唯一安全凭据方案。
+- 不把静态 WebUI 描述成在线 Agent。
+- 不使用现成 Agent Runner。
+- 不在测试、CI 或仓库中使用真实 Key。
+- 不为形式重复无新增信息的验证，但课程要求的 TDD、一次双检查、MR 和 Pipeline 不能省略。

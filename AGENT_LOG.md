@@ -348,3 +348,14 @@
 - 修正：在 `apps/web` 显式精确固定 `@types/node` 为 `24.13.3`，用 Codex Node `24.14.0` 与 pnpm `11.14.0` 重建锁文件和本地依赖链接。锁文件中 `@types/node@26.1.1`、`@types/node: 26.1.1` 及 Node 26 的 Vite/plugin-react snapshot 均为零命中。
 - 实例证据：`apps/web/node_modules/vite` 的 junction 指向 `vite@8.1.5_@types+node@24.13.3`，`@vitejs/plugin-react` 指向其 Node 24 peer 实例，`apps/web/node_modules/@types/node` 指向 `@types+node@24.13.3`。
 - 验证：冻结安装、聚焦健康测试及根 `test`、`lint`、`typecheck`、`build` 全部通过；API `tsc --listFiles` 明确列出 `apps/api/src/health.ts`。完整命令与退出结果记录在忽略的 `.superpowers/sdd/final-version-fix-report.md`。
+
+### 2026-07-18 · 课程最小范围对齐
+
+- 当前分支：`docs/course-minimal-scope`，从 `dev` 的 T05 合并提交 `f014b42` 创建；本分支只修改权威文档，不实现 T06 功能。
+- 用户目标：降低时间和 token 消耗，以“能运行、能演示、能提交”的暑期课程最低结果为准；明确选择方案 A，并要求不遗漏 `guide/` 原始作业硬项。
+- Guide 输入：完整读取 A 类 Coding Agent Harness 专属要求和通用要求；`ADVANCED_LAB_PROJECT.md` 属于另一课后挑战项目，不作为本 Harness 的交付范围。
+- 保留范围：决策封装、工具、记忆、治理、反馈、配置，自研循环，可注入 mock，反馈重点维度，三演示，安全凭据，真实 Provider 本地入口，CI、Pages、npm 分发、README、AGENT_LOG、SPEC_PROCESS 和本人反思。
+- 删除范围：SQLite、多用户/RBAC、决策版本/Rebaseline、SSE、Docker、线上后端、多 Provider、性能/故障矩阵和浏览器 e2e。
+- 一致性修复：SPEC 2.0.0 成为新权威范围；PLAN 2.1.0 与其对齐；Action 命令改为 executable/args；架构改为 API → Harness、Web 独立静态展示；T05 标记已合入 MR !6。
+- 过程纪律：后续 T06–T12 每项最多 6 提交，仍保留独立分支/worktree、新鲜 subagent、一次 RED/GREEN、一次 Spec/质量检查、MR Pipeline 与记录；删除无新增信息的重复复检。
+- 当前状态：只完成文档统一，尚未创建 T06 分支或实现 T06 代码。
