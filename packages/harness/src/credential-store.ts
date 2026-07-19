@@ -5,9 +5,17 @@ import {
   randomUUID,
   scrypt
 } from "node:crypto";
-import { mkdir, readFile, rename, unlink, writeFile } from "node:fs/promises";
+import {
+  mkdir,
+  open,
+  readFile,
+  rename,
+  unlink,
+  writeFile,
+  type FileHandle
+} from "node:fs/promises";
 import { dirname } from "node:path";
-import { promisify } from "node:util";
+import { setTimeout as delay } from "node:timers/promises";
 
 export type CredentialStatus = "configured" | "unconfigured";
 
@@ -22,6 +30,21 @@ export type CredentialResult<T> =
   | { ok: true; value: T }
   | { ok: false; error: { code: CredentialErrorCode; message: string } };
 
+export interface CredentialStoreFileSystem {
+  mkdir(path: string, options: { recursive: true }): Promise<string | undefined>;
+  open(path: string, flags: "wx"): Promise<FileHandle>;
+  readFile(path: string, encoding: "utf8"): Promise<string>;
+  rename(source: string, destination: string): Promise<void>;
+  unlink(path: string): Promise<void>;
+  writeFile(path: string, value: string, encoding: "utf8"): Promise<void>;
+}
+
+export interface CredentialStoreOptions {
+  fileSystem?: Partial<CredentialStoreFileSystem>;
+  lockMaxAttempts?: number;
+  lockRetryDelayMs?: number;
+}
+
 interface CredentialDocument {
   version: 1;
   salt: string;
@@ -35,7 +58,26 @@ type LoadedDocument =
   | { kind: "loaded"; document: CredentialDocument }
   | { kind: "failure"; result: CredentialResult<never> };
 
-const deriveKey = promisify(scrypt);
+interface HeldLock {
+  handle: FileHandle;
+  owner: string;
+}
+
+const DEFAULT_FILE_SYSTEM: CredentialStoreFileSystem = {
+  mkdir,
+  open,
+  readFile,
+  rename,
+  unlink,
+  writeFile
+};
+
+const SCRYPT_OPTIONS = {
+  N: 2 ** 17,
+  r: 8,
+  p: 1,
+  maxmem: 256 * 1024 * 1024
+} as const;
 
 function failure<T>(
   code: CredentialErrorCode,
@@ -96,7 +138,15 @@ function parseDocument(source: string): CredentialDocument | undefined {
 }
 
 async function keyFromPassword(masterPassword: string, salt: Buffer): Promise<Buffer> {
-  return (await deriveKey(masterPassword, salt, 32)) as Buffer;
+  return await new Promise<Buffer>((resolve, reject) => {
+    scrypt(masterPassword, salt, 32, SCRYPT_OPTIONS, (error, key) => {
+      if (error === null) {
+        resolve(key);
+      } else {
+        reject(error);
+      }
+    });
+  });
 }
 
 async function encrypt(
@@ -146,15 +196,23 @@ async function decrypt(
   }
 }
 
-async function atomicWrite(path: string, document: CredentialDocument): Promise<void> {
+async function atomicWrite(
+  fileSystem: CredentialStoreFileSystem,
+  path: string,
+  document: CredentialDocument
+): Promise<void> {
   const temporaryPath = `${path}.${process.pid}.${randomUUID()}.tmp`;
-  await mkdir(dirname(path), { recursive: true });
+  await fileSystem.mkdir(dirname(path), { recursive: true });
   try {
-    await writeFile(temporaryPath, `${JSON.stringify(document, null, 2)}\n`, "utf8");
-    await rename(temporaryPath, path);
+    await fileSystem.writeFile(
+      temporaryPath,
+      `${JSON.stringify(document, null, 2)}\n`,
+      "utf8"
+    );
+    await fileSystem.rename(temporaryPath, path);
   } catch (error) {
     try {
-      await unlink(temporaryPath);
+      await fileSystem.unlink(temporaryPath);
     } catch {
       // 临时文件可能尚未创建，原始写入错误应优先返回。
     }
@@ -164,15 +222,23 @@ async function atomicWrite(path: string, document: CredentialDocument): Promise<
 
 export class CredentialStore {
   readonly #path: string;
+  readonly #lockPath: string;
+  readonly #fileSystem: CredentialStoreFileSystem;
+  readonly #lockMaxAttempts: number;
+  readonly #lockRetryDelayMs: number;
 
-  constructor(path: string) {
+  constructor(path: string, options: CredentialStoreOptions = {}) {
     this.#path = path;
+    this.#lockPath = `${path}.lock`;
+    this.#fileSystem = { ...DEFAULT_FILE_SYSTEM, ...options.fileSystem };
+    this.#lockMaxAttempts = validPositiveInteger(options.lockMaxAttempts, 100);
+    this.#lockRetryDelayMs = validNonnegativeInteger(options.lockRetryDelayMs, 20);
   }
 
   async #load(): Promise<LoadedDocument> {
     let source: string;
     try {
-      source = await readFile(this.#path, "utf8");
+      source = await this.#fileSystem.readFile(this.#path, "utf8");
     } catch (error) {
       if (errorCode(error) === "ENOENT") {
         return { kind: "missing" };
@@ -193,6 +259,90 @@ export class CredentialStore {
     return { kind: "loaded", document };
   }
 
+  async #acquireLock(): Promise<CredentialResult<HeldLock>> {
+    try {
+      await this.#fileSystem.mkdir(dirname(this.#lockPath), { recursive: true });
+    } catch {
+      return failure("CREDENTIAL_IO_ERROR", "无法获得凭据文件锁");
+    }
+
+    for (let attempt = 0; attempt < this.#lockMaxAttempts; attempt += 1) {
+      let handle: FileHandle;
+      try {
+        handle = await this.#fileSystem.open(this.#lockPath, "wx");
+      } catch (error) {
+        if (
+          errorCode(error) === "EEXIST" &&
+          attempt + 1 < this.#lockMaxAttempts
+        ) {
+          await delay(this.#lockRetryDelayMs);
+          continue;
+        }
+        return failure("CREDENTIAL_IO_ERROR", "无法获得凭据文件锁");
+      }
+
+      const owner = randomUUID();
+      try {
+        await handle.writeFile(owner, "utf8");
+        return { ok: true, value: { handle, owner } };
+      } catch {
+        try {
+          await handle.close();
+        } catch {
+          // 锁句柄关闭错误不应泄露底层信息。
+        }
+        try {
+          await this.#fileSystem.unlink(this.#lockPath);
+        } catch {
+          // 仅尝试清理本调用刚创建的锁文件。
+        }
+        return failure("CREDENTIAL_IO_ERROR", "无法获得凭据文件锁");
+      }
+    }
+
+    return failure("CREDENTIAL_IO_ERROR", "无法获得凭据文件锁");
+  }
+
+  async #releaseLock(lock: HeldLock): Promise<boolean> {
+    let closed = true;
+    try {
+      await lock.handle.close();
+    } catch {
+      closed = false;
+    }
+
+    try {
+      const owner = await this.#fileSystem.readFile(this.#lockPath, "utf8");
+      if (owner !== lock.owner) {
+        return false;
+      }
+      await this.#fileSystem.unlink(this.#lockPath);
+      return closed;
+    } catch {
+      return false;
+    }
+  }
+
+  async #withMutationLock<T>(
+    operation: () => Promise<CredentialResult<T>>
+  ): Promise<CredentialResult<T>> {
+    const acquired = await this.#acquireLock();
+    if (!acquired.ok) {
+      return acquired;
+    }
+
+    let result: CredentialResult<T>;
+    try {
+      result = await operation();
+    } catch {
+      result = failure("CREDENTIAL_IO_ERROR", "无法修改凭据文件");
+    }
+    if (!(await this.#releaseLock(acquired.value))) {
+      return failure("CREDENTIAL_IO_ERROR", "无法释放凭据文件锁");
+    }
+    return result;
+  }
+
   async status(): Promise<CredentialResult<CredentialStatus>> {
     const loaded = await this.#load();
     if (loaded.kind === "failure") {
@@ -205,20 +355,26 @@ export class CredentialStore {
   }
 
   async init(masterPassword: string, apiKey: string): Promise<CredentialResult<void>> {
-    const loaded = await this.#load();
-    if (loaded.kind === "failure") {
-      return loaded.result;
-    }
-    if (loaded.kind === "loaded") {
-      return failure("CREDENTIAL_ALREADY_CONFIGURED", "凭据已配置");
-    }
+    return await this.#withMutationLock(async () => {
+      const loaded = await this.#load();
+      if (loaded.kind === "failure") {
+        return loaded.result;
+      }
+      if (loaded.kind === "loaded") {
+        return failure("CREDENTIAL_ALREADY_CONFIGURED", "凭据已配置");
+      }
 
-    try {
-      await atomicWrite(this.#path, await encrypt(masterPassword, apiKey));
-      return { ok: true, value: undefined };
-    } catch {
-      return failure("CREDENTIAL_IO_ERROR", "无法写入凭据文件");
-    }
+      try {
+        await atomicWrite(
+          this.#fileSystem,
+          this.#path,
+          await encrypt(masterPassword, apiKey)
+        );
+        return { ok: true, value: undefined };
+      } catch {
+        return failure("CREDENTIAL_IO_ERROR", "无法写入凭据文件");
+      }
+    });
   }
 
   async read(masterPassword: string): Promise<CredentialResult<string>> {
@@ -240,44 +396,64 @@ export class CredentialStore {
     masterPassword: string,
     apiKey: string
   ): Promise<CredentialResult<void>> {
-    const loaded = await this.#load();
-    if (loaded.kind === "failure") {
-      return loaded.result;
-    }
-    if (loaded.kind === "missing") {
-      return failure("CREDENTIAL_NOT_CONFIGURED", "凭据尚未配置");
-    }
-
-    try {
-      const authenticated = await decrypt(masterPassword, loaded.document);
-      if (!authenticated.ok) {
-        return authenticated;
+    return await this.#withMutationLock(async () => {
+      const loaded = await this.#load();
+      if (loaded.kind === "failure") {
+        return loaded.result;
       }
-      await atomicWrite(this.#path, await encrypt(masterPassword, apiKey));
-      return { ok: true, value: undefined };
-    } catch {
-      return failure("CREDENTIAL_IO_ERROR", "无法更新凭据文件");
-    }
+      if (loaded.kind === "missing") {
+        return failure("CREDENTIAL_NOT_CONFIGURED", "凭据尚未配置");
+      }
+
+      try {
+        const authenticated = await decrypt(masterPassword, loaded.document);
+        if (!authenticated.ok) {
+          return authenticated;
+        }
+        await atomicWrite(
+          this.#fileSystem,
+          this.#path,
+          await encrypt(masterPassword, apiKey)
+        );
+        return { ok: true, value: undefined };
+      } catch {
+        return failure("CREDENTIAL_IO_ERROR", "无法更新凭据文件");
+      }
+    });
   }
 
   async clear(masterPassword: string): Promise<CredentialResult<void>> {
-    const loaded = await this.#load();
-    if (loaded.kind === "failure") {
-      return loaded.result;
-    }
-    if (loaded.kind === "missing") {
-      return failure("CREDENTIAL_NOT_CONFIGURED", "凭据尚未配置");
-    }
-
-    try {
-      const authenticated = await decrypt(masterPassword, loaded.document);
-      if (!authenticated.ok) {
-        return authenticated;
+    return await this.#withMutationLock(async () => {
+      const loaded = await this.#load();
+      if (loaded.kind === "failure") {
+        return loaded.result;
       }
-      await unlink(this.#path);
-      return { ok: true, value: undefined };
-    } catch {
-      return failure("CREDENTIAL_IO_ERROR", "无法清除凭据文件");
-    }
+      if (loaded.kind === "missing") {
+        return failure("CREDENTIAL_NOT_CONFIGURED", "凭据尚未配置");
+      }
+
+      try {
+        const authenticated = await decrypt(masterPassword, loaded.document);
+        if (!authenticated.ok) {
+          return authenticated;
+        }
+        await this.#fileSystem.unlink(this.#path);
+        return { ok: true, value: undefined };
+      } catch {
+        return failure("CREDENTIAL_IO_ERROR", "无法清除凭据文件");
+      }
+    });
   }
+}
+
+function validPositiveInteger(value: number | undefined, fallback: number): number {
+  return value !== undefined && Number.isInteger(value) && value > 0
+    ? Math.min(value, 1_000)
+    : fallback;
+}
+
+function validNonnegativeInteger(value: number | undefined, fallback: number): number {
+  return value !== undefined && Number.isInteger(value) && value >= 0
+    ? Math.min(value, 1_000)
+    : fallback;
 }

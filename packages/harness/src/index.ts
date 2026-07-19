@@ -25,6 +25,8 @@ export {
   CredentialStore,
   type CredentialErrorCode,
   type CredentialResult,
+  type CredentialStoreFileSystem,
+  type CredentialStoreOptions,
   type CredentialStatus
 } from "./credential-store.js";
 export {
