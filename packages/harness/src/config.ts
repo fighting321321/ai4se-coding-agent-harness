@@ -1,6 +1,7 @@
 import { isAbsolute } from "node:path";
 
 import type { CommandRule } from "./command-rule.js";
+import { validProviderBaseUrl } from "./openai-compatible-provider.js";
 import { Redactor } from "./redactor.js";
 
 export interface HarnessConfig {
@@ -10,6 +11,10 @@ export interface HarnessConfig {
   commandTimeoutMs: number;
   maxOutputBytes: number;
   memoryPath: string;
+  provider: {
+    baseUrl: string;
+    model: string;
+  };
 }
 
 export type ConfigErrorCode =
@@ -29,10 +34,12 @@ const CONFIG_FIELDS = new Set([
   "maxSteps",
   "commandTimeoutMs",
   "maxOutputBytes",
-  "memoryPath"
+  "memoryPath",
+  "provider"
 ]);
 
 const COMMAND_FIELDS = new Set(["executable", "args"]);
+const PROVIDER_FIELDS = new Set(["baseUrl", "model"]);
 
 function failure(code: ConfigErrorCode, message: string): ConfigParseResult {
   return { ok: false, error: { code, message } };
@@ -162,14 +169,28 @@ export function parseHarnessConfig(input: unknown): ConfigParseResult {
     }
   }
 
+  if (isRecord(input.provider)) {
+    const extraProviderField = unknownField(input.provider, PROVIDER_FIELDS);
+    if (extraProviderField !== undefined) {
+      return failure(
+        "CONFIG_UNKNOWN_FIELD",
+        `Provider 配置包含未知字段：${extraProviderField}`
+      );
+    }
+  }
+
   const allowedCommands = parseCommandRules(input.allowedCommands);
   if (
     typeof input.workspace !== "string" ||
     input.workspace.trim().length === 0 ||
     input.workspace.includes("\0") ||
-    allowedCommands === undefined
+    allowedCommands === undefined ||
+    !isRecord(input.provider) ||
+    !validProviderBaseUrl(input.provider.baseUrl) ||
+    typeof input.provider.model !== "string" ||
+    input.provider.model.trim().length === 0
   ) {
-    return failure("CONFIG_INVALID_VALUE", "workspace 或命令规则格式无效");
+    return failure("CONFIG_INVALID_VALUE", "workspace、命令规则或 Provider 配置无效");
   }
 
   if (
@@ -195,7 +216,11 @@ export function parseHarnessConfig(input: unknown): ConfigParseResult {
       maxSteps: input.maxSteps,
       commandTimeoutMs: input.commandTimeoutMs,
       maxOutputBytes: input.maxOutputBytes,
-      memoryPath: input.memoryPath
+      memoryPath: input.memoryPath,
+      provider: {
+        baseUrl: input.provider.baseUrl,
+        model: input.provider.model
+      }
     }
   };
 }

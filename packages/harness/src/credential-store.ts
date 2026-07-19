@@ -20,6 +20,7 @@ import { setTimeout as delay } from "node:timers/promises";
 export type CredentialStatus = "configured" | "unconfigured";
 
 export type CredentialErrorCode =
+  | "CREDENTIAL_INVALID_INPUT"
   | "CREDENTIAL_NOT_CONFIGURED"
   | "CREDENTIAL_ALREADY_CONFIGURED"
   | "CREDENTIAL_AUTH_FAILED"
@@ -84,6 +85,18 @@ function failure<T>(
   message: string
 ): CredentialResult<T> {
   return { ok: false, error: { code, message } };
+}
+
+function validMasterPassword(masterPassword: string): boolean {
+  return masterPassword.trim().length >= 12;
+}
+
+function validApiKey(apiKey: string): boolean {
+  return apiKey.trim().length > 0;
+}
+
+function invalidInput<T>(): CredentialResult<T> {
+  return failure("CREDENTIAL_INVALID_INPUT", "凭据输入无效");
 }
 
 function errorCode(error: unknown): string | undefined {
@@ -355,6 +368,9 @@ export class CredentialStore {
   }
 
   async init(masterPassword: string, apiKey: string): Promise<CredentialResult<void>> {
+    if (!validMasterPassword(masterPassword) || !validApiKey(apiKey)) {
+      return invalidInput();
+    }
     return await this.#withMutationLock(async () => {
       const loaded = await this.#load();
       if (loaded.kind === "failure") {
@@ -378,6 +394,9 @@ export class CredentialStore {
   }
 
   async read(masterPassword: string): Promise<CredentialResult<string>> {
+    if (!validMasterPassword(masterPassword)) {
+      return invalidInput();
+    }
     const loaded = await this.#load();
     if (loaded.kind === "failure") {
       return loaded.result;
@@ -396,6 +415,9 @@ export class CredentialStore {
     masterPassword: string,
     apiKey: string
   ): Promise<CredentialResult<void>> {
+    if (!validMasterPassword(masterPassword) || !validApiKey(apiKey)) {
+      return invalidInput();
+    }
     return await this.#withMutationLock(async () => {
       const loaded = await this.#load();
       if (loaded.kind === "failure") {
@@ -423,6 +445,9 @@ export class CredentialStore {
   }
 
   async clear(masterPassword: string): Promise<CredentialResult<void>> {
+    if (!validMasterPassword(masterPassword)) {
+      return invalidInput();
+    }
     return await this.#withMutationLock(async () => {
       const loaded = await this.#load();
       if (loaded.kind === "failure") {

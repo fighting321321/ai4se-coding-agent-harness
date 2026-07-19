@@ -29,6 +29,9 @@ importers:
 
   apps/api:
     dependencies:
+      '@ai4se/harness':
+        specifier: workspace:*
+        version: link:../../packages/harness
       fastify:
         specifier: 5.10.0
         version: 5.10.0

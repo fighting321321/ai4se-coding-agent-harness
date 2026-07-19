@@ -52,6 +52,12 @@ export {
 } from "./file-tools.js";
 export type { LLMInput, LLMOutput, LLMProvider } from "./llm-provider.js";
 export {
+  OpenAICompatibleProvider,
+  OpenAICompatibleProviderError,
+  type OpenAICompatibleProviderErrorCode,
+  type OpenAICompatibleProviderOptions
+} from "./openai-compatible-provider.js";
+export {
   JsonMemory,
   type MemoryErrorCode,
   type MemoryItem,

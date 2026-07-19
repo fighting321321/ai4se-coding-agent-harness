@@ -79,6 +79,11 @@ async function credentialPath(): Promise<string> {
   return join(directory, "credentials.json");
 }
 
+async function credentialPathInMissingDirectory(): Promise<string> {
+  const directory = await mkdtemp(join(tmpdir(), "ai4se-credential-input-"));
+  return join(directory, "missing", "credentials.json");
+}
+
 function replaceBase64Byte(source: string): string {
   const bytes = Buffer.from(source, "base64");
   bytes[0] = (bytes[0] ?? 0) ^ 1;
@@ -86,6 +91,100 @@ function replaceBase64Byte(source: string): string {
 }
 
 describe("CredentialStore", () => {
+  it.each(["", "short", "            "])(
+    "init 在加锁前拒绝无效主密码且不创建目录：%j",
+    async (masterPassword) => {
+      const path = await credentialPathInMissingDirectory();
+
+      const result = await new CredentialStore(path).init(
+        masterPassword,
+        "sk-valid-input-test"
+      );
+
+      expect(result).toEqual({
+        ok: false,
+        error: {
+          code: "CREDENTIAL_INVALID_INPUT",
+          message: "凭据输入无效"
+        }
+      });
+      await expect(access(dirname(path))).rejects.toMatchObject({ code: "ENOENT" });
+    }
+  );
+
+  it("init 在加锁前拒绝空白 API Key 且不创建目录", async () => {
+    const path = await credentialPathInMissingDirectory();
+
+    const result = await new CredentialStore(path).init(
+      "valid-master-password",
+      "  \t  "
+    );
+
+    expect(result).toMatchObject({
+      ok: false,
+      error: { code: "CREDENTIAL_INVALID_INPUT" }
+    });
+    await expect(access(dirname(path))).rejects.toMatchObject({ code: "ENOENT" });
+  });
+
+  it.each(["read", "update", "clear"] as const)(
+    "%s 拒绝无效主密码并保持凭据文件不变",
+    async (operation) => {
+      const path = await credentialPath();
+      const store = new CredentialStore(path);
+      await store.init("valid-master-password", "sk-original-input-test");
+      const original = await readFile(path, "utf8");
+
+      const result = operation === "read"
+        ? await store.read(" short ")
+        : operation === "update"
+          ? await store.update(" short ", "sk-replacement-input-test")
+          : await store.clear(" short ");
+
+      expect(result).toMatchObject({
+        ok: false,
+        error: { code: "CREDENTIAL_INVALID_INPUT" }
+      });
+      expect(JSON.stringify(result)).not.toContain("short");
+      await expect(readFile(path, "utf8")).resolves.toBe(original);
+    }
+  );
+
+  it("update 在修改前拒绝空白 API Key 并保持凭据文件不变", async () => {
+    const path = await credentialPath();
+    const store = new CredentialStore(path);
+    await store.init("valid-master-password", "sk-original-input-test");
+    const original = await readFile(path, "utf8");
+
+    const result = await store.update("valid-master-password", "   ");
+
+    expect(result).toMatchObject({
+      ok: false,
+      error: { code: "CREDENTIAL_INVALID_INPUT" }
+    });
+    await expect(readFile(path, "utf8")).resolves.toBe(original);
+  });
+
+  it("只验证秘密的去空白值并保留有效秘密的原始字节", async () => {
+    const path = await credentialPath();
+    const store = new CredentialStore(path);
+    const masterPassword = "  preserve-master-password  ";
+    const apiKey = "  sk-preserve-api-key  ";
+
+    await expect(store.init(masterPassword, apiKey)).resolves.toEqual({
+      ok: true,
+      value: undefined
+    });
+    await expect(store.read(masterPassword)).resolves.toEqual({
+      ok: true,
+      value: apiKey
+    });
+    await expect(store.read(masterPassword.trim())).resolves.toMatchObject({
+      ok: false,
+      error: { code: "CREDENTIAL_AUTH_FAILED" }
+    });
+  });
+
   it("把不存在的凭据文件报告为未配置", async () => {
     const store = new CredentialStore(await credentialPath());
 
