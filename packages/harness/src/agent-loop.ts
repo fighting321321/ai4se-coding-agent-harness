@@ -1,4 +1,5 @@
 import { parseAction } from "./action-parser.js";
+import { ApprovalGate } from "./approval.js";
 import type { Dispatcher } from "./dispatcher.js";
 import { classifyFeedback } from "./feedback.js";
 import type { JsonMemory } from "./json-memory.js";
@@ -22,6 +23,7 @@ export interface AgentLoopOptions {
   dispatcher: Dispatcher;
   trace: JsonTrace;
   policy: PolicyEngine;
+  approval?: ApprovalGate;
   maxSteps?: number;
 }
 
@@ -41,6 +43,7 @@ export class AgentLoop {
   readonly #dispatcher: Dispatcher;
   readonly #trace: JsonTrace;
   readonly #policy: PolicyEngine;
+  readonly #approval: ApprovalGate;
   readonly #maxSteps: number;
   readonly #redactor = new Redactor();
 
@@ -50,13 +53,19 @@ export class AgentLoop {
     this.#dispatcher = options.dispatcher;
     this.#trace = options.trace;
     this.#policy = options.policy;
+    this.#approval = options.approval ?? new ApprovalGate();
     this.#maxSteps = options.maxSteps ?? DEFAULT_MAX_STEPS;
     if (!Number.isInteger(this.#maxSteps) || this.#maxSteps < 1) {
       throw new Error("maxSteps 必须是正整数");
     }
   }
 
-  async #result(status: RunStatus, summary: string, steps: number): Promise<RunResult> {
+  async #result(
+    status: RunStatus,
+    summary: string,
+    steps: number,
+    traceStartStep: number
+  ): Promise<RunResult> {
     const current = await this.#trace.read();
     if (!current.ok) {
       return {
@@ -66,7 +75,12 @@ export class AgentLoop {
         trace: []
       };
     }
-    return { status, summary, steps, trace: current.value };
+    return {
+      status,
+      summary,
+      steps,
+      trace: current.value.filter((entry) => entry.step >= traceStartStep)
+    };
   }
 
   async #append(entry: TraceEntry): Promise<boolean> {
@@ -75,10 +89,19 @@ export class AgentLoop {
   }
 
   async run(task: string): Promise<RunResult> {
+    const currentTrace = await this.#trace.read();
+    if (!currentTrace.ok) {
+      return { status: "failed", summary: "Trace 读取失败", steps: 1, trace: [] };
+    }
+    const traceStartStep = currentTrace.value.reduce(
+      (next, entry) => Math.max(next, entry.step + 1),
+      1
+    );
     let observations: readonly string[] = [];
     let businessFailures = 0;
 
-    for (let step = 1; step <= this.#maxSteps; step += 1) {
+    for (let iteration = 1; iteration <= this.#maxSteps; iteration += 1) {
+      const step = traceStartStep + iteration - 1;
       const memory = await this.#memory.search({ keywords: taskKeywords(task), limit: 5 });
       if (!memory.ok) {
         const appended = await this.#append({
@@ -89,8 +112,8 @@ export class AgentLoop {
           stopReason: "memory_error"
         });
         return appended
-          ? await this.#result("failed", "Memory 检索失败", step)
-          : await this.#result("failed", "Trace 写入失败", step);
+          ? await this.#result("failed", "Memory 检索失败", iteration, traceStartStep)
+          : await this.#result("failed", "Trace 写入失败", iteration, traceStartStep);
       }
 
       let output: { raw: unknown };
@@ -109,8 +132,8 @@ export class AgentLoop {
           stopReason: "provider_error"
         });
         return appended
-          ? await this.#result("failed", "Provider 调用失败", step)
-          : await this.#result("failed", "Trace 写入失败", step);
+          ? await this.#result("failed", "Provider 调用失败", iteration, traceStartStep)
+          : await this.#result("failed", "Trace 写入失败", iteration, traceStartStep);
       }
 
       const parsed = parseAction(output.raw);
@@ -123,8 +146,8 @@ export class AgentLoop {
           stopReason: "parse_error"
         });
         return appended
-          ? await this.#result("failed", "Action 解析失败", step)
-          : await this.#result("failed", "Trace 写入失败", step);
+          ? await this.#result("failed", "Action 解析失败", iteration, traceStartStep)
+          : await this.#result("failed", "Trace 写入失败", iteration, traceStartStep);
       }
 
       const action = parsed.value;
@@ -139,8 +162,8 @@ export class AgentLoop {
           stopReason: "policy_denied"
         });
         return appended
-          ? await this.#result("blocked", "策略拒绝该动作", step)
-          : await this.#result("failed", "Trace 写入失败", step);
+          ? await this.#result("blocked", "策略拒绝该动作", iteration, traceStartStep)
+          : await this.#result("failed", "Trace 写入失败", iteration, traceStartStep);
       }
 
       if (action.type === "finish") {
@@ -153,14 +176,19 @@ export class AgentLoop {
           stopReason: "finish"
         });
         if (!appended.ok) {
-          return await this.#result("failed", "Trace 写入失败", step);
+          return await this.#result("failed", "Trace 写入失败", iteration, traceStartStep);
         }
         const summary =
           appended.value.action?.type === "finish" ? appended.value.action.summary : action.summary;
-        return await this.#result("completed", summary, step);
+        return await this.#result("completed", summary, iteration, traceStartStep);
       }
 
-      const dispatched = await this.#dispatcher.execute(action);
+      const approval = await this.#approval.execute(decision, { action }, () =>
+        this.#dispatcher.execute(action)
+      );
+      const dispatched = approval.ok
+        ? approval.value
+        : { ok: false as const, error: approval.error };
       if (!dispatched.ok && isApprovalBlock(dispatched.error.code)) {
         const appended = await this.#append({
           step,
@@ -171,8 +199,8 @@ export class AgentLoop {
           stopReason: dispatched.error.code
         });
         return appended
-          ? await this.#result("blocked", "动作未获批准", step)
-          : await this.#result("failed", "Trace 写入失败", step);
+          ? await this.#result("blocked", "动作未获批准", iteration, traceStartStep)
+          : await this.#result("failed", "Trace 写入失败", iteration, traceStartStep);
       }
 
       const feedback = classifyFeedback(dispatched, this.#redactor);
@@ -181,7 +209,7 @@ export class AgentLoop {
       }
 
       const secondBusinessFailure = businessFailures >= 2;
-      const limitReached = step === this.#maxSteps;
+      const limitReached = iteration === this.#maxSteps;
       const traceStatus =
         secondBusinessFailure ||
         feedback.category === "timeout" ||
@@ -207,24 +235,29 @@ export class AgentLoop {
         ...(stopReason === undefined ? {} : { stopReason })
       });
       if (!appended) {
-        return await this.#result("failed", "Trace 写入失败", step);
+        return await this.#result("failed", "Trace 写入失败", iteration, traceStartStep);
       }
 
       if (secondBusinessFailure) {
-        return await this.#result("failed", "连续两次业务失败", step);
+        return await this.#result("failed", "连续两次业务失败", iteration, traceStartStep);
       }
       if (feedback.category === "timeout") {
-        return await this.#result("failed", "命令执行超时", step);
+        return await this.#result("failed", "命令执行超时", iteration, traceStartStep);
       }
       if (feedback.category === "environment_error") {
-        return await this.#result("failed", "执行环境错误", step);
+        return await this.#result("failed", "执行环境错误", iteration, traceStartStep);
       }
       if (limitReached) {
-        return await this.#result("max_steps", "达到最大步数", step);
+        return await this.#result("max_steps", "达到最大步数", iteration, traceStartStep);
       }
       observations = feedback.category === "fail" ? [feedback.observation] : [];
     }
 
-    return await this.#result("max_steps", "达到最大步数", this.#maxSteps);
+    return await this.#result(
+      "max_steps",
+      "达到最大步数",
+      this.#maxSteps,
+      traceStartStep
+    );
   }
 }

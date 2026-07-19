@@ -31,15 +31,19 @@ describe("classifyFeedback", () => {
     });
   });
 
-  it("把嵌套命令结果的非零退出码归类为业务 fail", () => {
+  it("把非零退出码和脱敏输出摘要归类为业务 fail", () => {
+    const secret = "sk-fake-command-key";
     const result: DispatchResult = {
       ok: true,
-      value: { ok: true, value: { exitCode: 7, stdout: "", stderr: "failed", truncated: false } }
+      value: {
+        ok: true,
+        value: { exitCode: 7, stdout: "fallback", stderr: `failed ${secret}`, truncated: false }
+      }
     };
 
-    expect(classifyFeedback(result, new Redactor())).toEqual({
+    expect(classifyFeedback(result, new Redactor([secret]))).toEqual({
       category: "fail",
-      observation: "fail: command exited 7"
+      observation: "fail: command exited 7: failed [REDACTED] | fallback"
     });
   });
 

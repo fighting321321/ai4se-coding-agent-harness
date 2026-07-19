@@ -422,3 +422,11 @@
 - 独立评审：新鲜实现 subagent 完成三个实现提交；任务评审首次发现 1 个 Important——deny/未批准测试未显式证明 handler 零调用，补真实 Dispatcher handler 计数后复审通过。全分支审查再发现 3 个 Important 和 1 个 Minor：非命令成功 Observation 文案不准确、脱敏/截断测试未触发真实路径、错误矩阵缺 timeout/终态/无重试断言、默认 8 步未锁定。统一修复后，通用成功文案改为 `pass: tool completed`，结构化错误诊断真实经过 Redactor 与 160 字符截断，并逐项锁定 timeout、错误 Trace、调用上限和默认 8 轮。最终复审结论为 `Ready to merge: Yes`，无 Critical/Important；仅记录 1 个不阻断 Minor：契约外自定义 handler 若返回非字符串 `error.message`，类型守卫可进一步收紧，未为此扩展有效 ToolResult 范围。
 - 完整门禁：主控使用项目根脚本重新运行 `pnpm test`、`pnpm lint`、`pnpm typecheck`、`pnpm build`；评审修复后的结果为 16/16 测试文件、122/122 用例通过，ESLint 无错误，API/Web/Harness/tests 类型检查通过，API TypeScript 与 Web Vite `8.1.5`（14 modules）构建通过，整体退出码均为 0。沙箱内 Vitest/Vite 的 `spawn EPERM` 在同一工作树沙箱外按原命令复验通过。
 - 范围审计：未新增依赖，未修改锁文件；未实现真实 Provider、凭据、CLI、网络、机制演示或 WebUI。项目 AI 指令另行补充“优先检查和复用仓库环境”规则；该本地 `.agents/AGENTS.md` 被仓库忽略，不占用 T09 提交。
+
+### 2026-07-19 · T10 启动前 T09 合并后收尾
+
+- 合并状态：T09 已通过 MR !11 以 merge commit `3b0d3fe` 合入 `dev`；本轮直接在 `dev` 收尾，不创建或共用 T10 分支，也未实现 T10 功能。
+- 根因：AgentLoop 与 Dispatcher 可分别持有治理对象，裸 Dispatcher 会让 `ask` 动作绕过批准；非零命令反馈只保留退出码，未回灌 stdout/stderr 摘要；每次 `run()` 都从 step 1 开始，导致复用同一 Trace 时重复冲突；PLAN 仍误记为待 MR。
+- RED 证据：先改为裸 Dispatcher 并新增批准、反馈摘要、Trace 连续运行回归，聚焦测试得到 6 个预期失败；其中未批准写入实际执行、批准回调 0 次、摘要缺失、损坏 Trace 在 Provider 后才失败、第二次运行写入失败均被真实复现。
+- GREEN 修复：AgentLoop 统一执行 Policy/Approval 后再调用 Dispatcher；失败命令优先汇总 stderr、stdout，经 Redactor 脱敏并受 160 字符上限约束；运行前读取 Trace，从最大 step 后追加，RunResult 只返回本次运行条目；损坏 Trace 在 Provider/handler 前停止。
+- 验证：聚焦测试 2/2 文件、20/20 用例通过；完整门禁 16/16 文件、124/124 用例通过，`lint`、`typecheck`、`build` 均退出码 0。未新增依赖、数据库、Provider、CLI 或 WebUI。

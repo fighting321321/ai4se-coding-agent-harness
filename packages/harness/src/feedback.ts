@@ -15,6 +15,8 @@ interface ToolFailure {
 
 interface CommandOutput {
   exitCode: number | null;
+  stdout?: string;
+  stderr?: string;
 }
 
 interface ToolSuccess {
@@ -44,8 +46,17 @@ function isToolSuccess(value: unknown): value is ToolSuccess {
 function isCommandOutput(value: unknown): value is CommandOutput {
   return (
     isRecord(value) &&
-    (typeof value.exitCode === "number" || value.exitCode === null)
+    (typeof value.exitCode === "number" || value.exitCode === null) &&
+    (value.stdout === undefined || typeof value.stdout === "string") &&
+    (value.stderr === undefined || typeof value.stderr === "string")
   );
+}
+
+function commandDiagnostic(value: CommandOutput): string | undefined {
+  const parts = [value.stderr, value.stdout]
+    .filter((part): part is string => typeof part === "string" && part.trim().length > 0)
+    .map((part) => part.trim());
+  return parts.length === 0 ? undefined : parts.join(" | ");
 }
 
 function observation(redactor: Redactor, value: string): string {
@@ -83,9 +94,15 @@ export function classifyFeedback(result: DispatchResult, redactor: Redactor): Fe
 
   const value = isToolSuccess(result.value) ? result.value.value : result.value;
   if (isCommandOutput(value) && value.exitCode !== null && value.exitCode !== 0) {
+    const diagnostic = commandDiagnostic(value);
     return {
       category: "fail",
-      observation: observation(redactor, `fail: command exited ${value.exitCode}`)
+      observation: observation(
+        redactor,
+        diagnostic === undefined
+          ? `fail: command exited ${value.exitCode}`
+          : `fail: command exited ${value.exitCode}: ${diagnostic}`
+      )
     };
   }
 

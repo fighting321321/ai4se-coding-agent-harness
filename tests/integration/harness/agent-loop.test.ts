@@ -2,7 +2,7 @@ import { mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import {
   AgentLoop,
@@ -34,7 +34,7 @@ async function createHarness(
   const policy = new PolicyEngine({
     allowedCommands: [{ executable: "safe-tool", args: ["run"] }]
   });
-  const dispatcher = new Dispatcher({ policy, approval: options.approval });
+  const dispatcher = new Dispatcher();
   const handlerCalls = { readFile: 0, writeFile: 0, runCommand: 0 };
   dispatcher.register("read_file", (action) => {
     handlerCalls.readFile += 1;
@@ -63,6 +63,7 @@ async function createHarness(
       dispatcher,
       trace,
       policy,
+      approval: options.approval,
       maxSteps: options.maxSteps
     }),
     handlerCalls,
@@ -110,7 +111,9 @@ describe("AgentLoop", () => {
     expect(harness.handlerCalls.runCommand).toBe(1);
     expect(harness.provider.calls).toHaveLength(3);
     expect(harness.provider.calls[0]?.context).toEqual(["repair tests without network"]);
-    expect(harness.provider.calls[1]?.observations).toEqual(["fail: command exited 1"]);
+    expect(harness.provider.calls[1]?.observations).toEqual([
+      "fail: command exited 1: [REDACTED]"
+    ]);
     expect(JSON.stringify(result.trace)).not.toContain("sk-fake-agent-key");
     expect(result.trace.map((entry) => entry.status)).toEqual([
       "running",
@@ -176,6 +179,23 @@ describe("AgentLoop", () => {
     expect(approvalRequired.handlerCalls).toEqual({ readFile: 0, writeFile: 0, runCommand: 0 });
     expect(deniedResult.trace[0]).toMatchObject({ policy: "deny", status: "blocked" });
     expect(approvalResult.trace[0]).toMatchObject({ policy: "ask", status: "blocked" });
+  });
+
+  it("ask 动作仅在明确批准后执行一次", async () => {
+    const approve = vi.fn(async () => true);
+    const harness = await createHarness(
+      [
+        { raw: { type: "write_file", path: "result.txt", content: "value" } },
+        { raw: { type: "finish", summary: "done" } }
+      ],
+      { approval: new ApprovalGate(approve) }
+    );
+
+    const result = await harness.loop.run("write result");
+
+    expect(result).toMatchObject({ status: "completed", steps: 2 });
+    expect(approve).toHaveBeenCalledTimes(1);
+    expect(harness.handlerCalls.writeFile).toBe(1);
   });
 
   it("达到最大步数时返回 max_steps 并在 Trace 明确保留终止原因", async () => {
@@ -260,8 +280,28 @@ describe("AgentLoop", () => {
     const result = await harness.loop.run("trace failure");
 
     expect(result).toMatchObject({ status: "failed", steps: 1, trace: [] });
-    expect(harness.provider.calls).toHaveLength(1);
+    expect(harness.provider.calls).toHaveLength(0);
     expect(harness.handlerCalls).toEqual({ readFile: 0, writeFile: 0, runCommand: 0 });
+  });
+
+  it("同一 AgentLoop 可以连续运行并追加唯一 Trace step", async () => {
+    const harness = await createHarness([
+      { raw: { type: "finish", summary: "first" } },
+      { raw: { type: "finish", summary: "second" } }
+    ]);
+
+    const first = await harness.loop.run("first task");
+    const second = await harness.loop.run("second task");
+    const persisted = await harness.trace.read();
+
+    expect(first).toMatchObject({ status: "completed", summary: "first", steps: 1 });
+    expect(second).toMatchObject({ status: "completed", summary: "second", steps: 1 });
+    expect(first.trace.map((entry) => entry.step)).toEqual([1]);
+    expect(second.trace.map((entry) => entry.step)).toEqual([2]);
+    expect(persisted).toMatchObject({ ok: true });
+    if (persisted.ok) {
+      expect(persisted.value.map((entry) => entry.step)).toEqual([1, 2]);
+    }
   });
 
   it("环境错误在第一轮失败，不重试 Provider 或命令 handler", async () => {
