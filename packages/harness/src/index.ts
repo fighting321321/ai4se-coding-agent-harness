@@ -22,6 +22,12 @@ export {
 } from "./command-tool.js";
 export type { CommandRule } from "./command-rule.js";
 export {
+  CredentialStore,
+  type CredentialErrorCode,
+  type CredentialResult,
+  type CredentialStatus
+} from "./credential-store.js";
+export {
   parseHarnessConfig,
   type ConfigErrorCode,
   type ConfigParseResult,
