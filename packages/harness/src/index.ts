@@ -1,4 +1,10 @@
 export type { Action } from "./action.js";
+export {
+  AgentLoop,
+  type AgentLoopOptions,
+  type RunResult,
+  type RunStatus
+} from "./agent-loop.js";
 export { parseAction, type ActionParseResult } from "./action-parser.js";
 export {
   ApprovalGate,

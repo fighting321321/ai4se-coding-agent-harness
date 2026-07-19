@@ -19,6 +19,18 @@ describe("classifyFeedback", () => {
     });
   });
 
+  it("把成功的非命令工具归类为通用 pass", () => {
+    const result: DispatchResult = {
+      ok: true,
+      value: { ok: true, value: "README.md" }
+    };
+
+    expect(classifyFeedback(result, new Redactor())).toEqual({
+      category: "pass",
+      observation: "pass: tool completed"
+    });
+  });
+
   it("把嵌套命令结果的非零退出码归类为业务 fail", () => {
     const result: DispatchResult = {
       ok: true,
@@ -55,17 +67,27 @@ describe("classifyFeedback", () => {
     });
   });
 
-  it("脱敏并稳定截断 observation，且不包含完整工具输出", () => {
+  it("脱敏并稳定截断嵌套结构化错误的 observation", () => {
     const secret = "sk-fake-feedback-key";
+    const diagnostic = `诊断 ${secret} ${"x".repeat(500)}`;
     const result: DispatchResult = {
       ok: true,
-      value: { ok: true, value: { exitCode: 9, stdout: secret, stderr: "x".repeat(500), truncated: true } }
+      value: {
+        ok: false,
+        error: {
+          code: "TOOL_EXECUTION_FAILED",
+          message: diagnostic
+        }
+      }
     };
 
     const feedback = classifyFeedback(result, new Redactor([secret]));
 
-    expect(feedback).toEqual({ category: "fail", observation: "fail: command exited 9" });
+    expect(feedback.category).toBe("environment_error");
+    expect(feedback.observation).toContain("[REDACTED]");
     expect(feedback.observation).not.toContain(secret);
+    expect(feedback.observation).not.toContain(diagnostic);
     expect(feedback.observation.length).toBeLessThanOrEqual(160);
+    expect(feedback.observation.length).toBe(160);
   });
 });

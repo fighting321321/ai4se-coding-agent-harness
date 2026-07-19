@@ -10,7 +10,7 @@ export interface FeedbackResult {
 
 interface ToolFailure {
   ok: false;
-  error: { code: string };
+  error: { code: string; message?: string };
 }
 
 interface CommandOutput {
@@ -52,14 +52,23 @@ function observation(redactor: Redactor, value: string): string {
   return redactor.redactText(value).slice(0, MAX_OBSERVATION_LENGTH);
 }
 
-function fromFailure(redactor: Redactor, code: string): FeedbackResult {
+function fromFailure(
+  redactor: Redactor,
+  code: string,
+  diagnostic?: string
+): FeedbackResult {
   if (code === "COMMAND_TIMEOUT") {
     return { category: "timeout", observation: observation(redactor, "timeout: COMMAND_TIMEOUT") };
   }
 
   return {
     category: "environment_error",
-    observation: observation(redactor, `environment_error: ${code}`)
+    observation: observation(
+      redactor,
+      diagnostic === undefined
+        ? `environment_error: ${code}`
+        : `environment_error: ${code}: ${diagnostic}`
+    )
   };
 }
 
@@ -69,7 +78,7 @@ export function classifyFeedback(result: DispatchResult, redactor: Redactor): Fe
   }
 
   if (isToolFailure(result.value)) {
-    return fromFailure(redactor, result.value.error.code);
+    return fromFailure(redactor, result.value.error.code, result.value.error.message);
   }
 
   const value = isToolSuccess(result.value) ? result.value.value : result.value;
@@ -87,5 +96,12 @@ export function classifyFeedback(result: DispatchResult, redactor: Redactor): Fe
     };
   }
 
-  return { category: "pass", observation: observation(redactor, "pass: command exited 0") };
+  if (isCommandOutput(value)) {
+    return {
+      category: "pass",
+      observation: observation(redactor, "pass: command exited 0")
+    };
+  }
+
+  return { category: "pass", observation: observation(redactor, "pass: tool completed") };
 }

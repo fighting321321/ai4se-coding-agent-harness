@@ -35,14 +35,24 @@ async function createHarness(
     allowedCommands: [{ executable: "safe-tool", args: ["run"] }]
   });
   const dispatcher = new Dispatcher({ policy, approval: options.approval });
-  dispatcher.register("read_file", (action) => `read:${action.path}`);
-  dispatcher.register("write_file", () => "written");
-  dispatcher.register("run_command", () =>
-    options.runCommand?.() ?? {
-      ok: true,
-      value: { exitCode: 0, stdout: "", stderr: "", truncated: false }
-    }
-  );
+  const handlerCalls = { readFile: 0, writeFile: 0, runCommand: 0 };
+  dispatcher.register("read_file", (action) => {
+    handlerCalls.readFile += 1;
+    return `read:${action.path}`;
+  });
+  dispatcher.register("write_file", () => {
+    handlerCalls.writeFile += 1;
+    return "written";
+  });
+  dispatcher.register("run_command", () => {
+    handlerCalls.runCommand += 1;
+    return (
+      options.runCommand?.() ?? {
+        ok: true,
+        value: { exitCode: 0, stdout: "", stderr: "", truncated: false }
+      }
+    );
+  });
   dispatcher.register("finish", (action) => action.summary);
   const provider = new ScriptedMockLLM(script);
 
@@ -55,6 +65,7 @@ async function createHarness(
       policy,
       maxSteps: options.maxSteps
     }),
+    handlerCalls,
     memory,
     memoryPath,
     provider,
@@ -96,6 +107,7 @@ describe("AgentLoop", () => {
     expect(result.summary).toBe("已修复 [REDACTED]");
     expect(result.steps).toBe(3);
     expect(commandCalls).toBe(1);
+    expect(harness.handlerCalls.runCommand).toBe(1);
     expect(harness.provider.calls).toHaveLength(3);
     expect(harness.provider.calls[0]?.context).toEqual(["repair tests without network"]);
     expect(harness.provider.calls[1]?.observations).toEqual(["fail: command exited 1"]);
@@ -128,8 +140,12 @@ describe("AgentLoop", () => {
     expect(result.status).toBe("failed");
     expect(result.steps).toBe(2);
     expect(commandCalls).toBe(2);
+    expect(harness.handlerCalls.runCommand).toBe(2);
     expect(harness.provider.calls).toHaveLength(2);
-    expect(result.trace.at(-1)).toMatchObject({ status: "failed" });
+    expect(result.trace.at(-1)).toMatchObject({
+      status: "failed",
+      stopReason: "second_business_failure"
+    });
   });
 
   it("finish 在不执行额外工具后完成", async () => {
@@ -139,6 +155,7 @@ describe("AgentLoop", () => {
 
     expect(result).toMatchObject({ status: "completed", summary: "done", steps: 1 });
     expect(harness.provider.calls).toHaveLength(1);
+    expect(harness.handlerCalls).toEqual({ readFile: 0, writeFile: 0, runCommand: 0 });
     expect(result.trace[0]).toMatchObject({ policy: "allow", status: "completed" });
   });
 
@@ -155,6 +172,8 @@ describe("AgentLoop", () => {
 
     expect(deniedResult).toMatchObject({ status: "blocked", steps: 1 });
     expect(approvalResult).toMatchObject({ status: "blocked", steps: 1 });
+    expect(denied.handlerCalls).toEqual({ readFile: 0, writeFile: 0, runCommand: 0 });
+    expect(approvalRequired.handlerCalls).toEqual({ readFile: 0, writeFile: 0, runCommand: 0 });
     expect(deniedResult.trace[0]).toMatchObject({ policy: "deny", status: "blocked" });
     expect(approvalResult.trace[0]).toMatchObject({ policy: "ask", status: "blocked" });
   });
@@ -173,15 +192,80 @@ describe("AgentLoop", () => {
 
     expect(result).toMatchObject({ status: "max_steps", steps: 2 });
     expect(harness.provider.calls).toHaveLength(2);
+    expect(harness.handlerCalls.readFile).toBe(2);
     expect(result.trace.at(-1)).toMatchObject({ stopReason: "max_steps" });
   });
 
-  it("解析、Provider、Memory、Trace 和环境错误均返回 failed", async () => {
-    const parseFailure = await createHarness([{ raw: { type: "unknown" } }]);
-    const providerFailure = await createHarness([]);
-    const memoryFailure = await createHarness([{ raw: { type: "finish", summary: "nope" } }]);
-    const traceFailure = await createHarness([{ raw: { type: "finish", summary: "nope" } }]);
-    const environmentFailure = await createHarness(
+  it("使用默认上限时恰好执行 8 轮，不请求第 9 个脚本动作", async () => {
+    const harness = await createHarness([
+      ...Array.from({ length: 8 }, (_, index) => ({
+        raw: { type: "read_file", path: `file-${index + 1}.txt` }
+      })),
+      { raw: { type: "finish", summary: "不应请求" } }
+    ]);
+
+    const result = await harness.loop.run("default bounded task");
+
+    expect(result).toMatchObject({ status: "max_steps", steps: 8 });
+    expect(harness.provider.calls).toHaveLength(8);
+    expect(harness.handlerCalls.readFile).toBe(8);
+    expect(result.trace).toHaveLength(8);
+    expect(result.trace.at(-1)).toMatchObject({ status: "failed", stopReason: "max_steps" });
+  });
+
+  it("解析错误在第一轮失败，不重试 Provider 或 handler", async () => {
+    const harness = await createHarness([{ raw: { type: "unknown" } }]);
+
+    const result = await harness.loop.run("parse failure");
+
+    expect(result).toMatchObject({ status: "failed", steps: 1 });
+    expect(harness.provider.calls).toHaveLength(1);
+    expect(harness.handlerCalls).toEqual({ readFile: 0, writeFile: 0, runCommand: 0 });
+    expect(result.trace).toEqual([
+      expect.objectContaining({ status: "failed", stopReason: "parse_error" })
+    ]);
+  });
+
+  it("Provider 错误在第一轮失败，不执行 handler", async () => {
+    const harness = await createHarness([]);
+
+    const result = await harness.loop.run("provider failure");
+
+    expect(result).toMatchObject({ status: "failed", steps: 1 });
+    expect(harness.provider.calls).toHaveLength(1);
+    expect(harness.handlerCalls).toEqual({ readFile: 0, writeFile: 0, runCommand: 0 });
+    expect(result.trace).toEqual([
+      expect.objectContaining({ status: "failed", stopReason: "provider_error" })
+    ]);
+  });
+
+  it("Memory 错误在 Provider 前失败，且不执行 handler", async () => {
+    const harness = await createHarness([{ raw: { type: "finish", summary: "不应请求" } }]);
+    await writeFile(harness.memoryPath, "[]", "utf8");
+
+    const result = await harness.loop.run("memory failure");
+
+    expect(result).toMatchObject({ status: "failed", steps: 1 });
+    expect(harness.provider.calls).toHaveLength(0);
+    expect(harness.handlerCalls).toEqual({ readFile: 0, writeFile: 0, runCommand: 0 });
+    expect(result.trace).toEqual([
+      expect.objectContaining({ status: "failed", stopReason: "memory_error" })
+    ]);
+  });
+
+  it("Trace 存储损坏时返回空 Trace，不伪造失败条目", async () => {
+    const harness = await createHarness([{ raw: { type: "finish", summary: "nope" } }]);
+    await writeFile(harness.tracePath, "[]", "utf8");
+
+    const result = await harness.loop.run("trace failure");
+
+    expect(result).toMatchObject({ status: "failed", steps: 1, trace: [] });
+    expect(harness.provider.calls).toHaveLength(1);
+    expect(harness.handlerCalls).toEqual({ readFile: 0, writeFile: 0, runCommand: 0 });
+  });
+
+  it("环境错误在第一轮失败，不重试 Provider 或命令 handler", async () => {
+    const harness = await createHarness(
       [{ raw: { type: "run_command", executable: "safe-tool", args: ["run"] } }],
       {
         runCommand: () => ({
@@ -190,19 +274,35 @@ describe("AgentLoop", () => {
         })
       }
     );
-    await writeFile(memoryFailure.memoryPath, "[]", "utf8");
-    await writeFile(traceFailure.tracePath, "[]", "utf8");
 
-    const parseResult = await parseFailure.loop.run("parse failure");
-    const providerResult = await providerFailure.loop.run("provider failure");
-    const memoryResult = await memoryFailure.loop.run("memory failure");
-    const traceResult = await traceFailure.loop.run("trace failure");
-    const environmentResult = await environmentFailure.loop.run("environment failure");
+    const result = await harness.loop.run("environment failure");
 
-    expect(parseResult.status).toBe("failed");
-    expect(providerResult.status).toBe("failed");
-    expect(memoryResult.status).toBe("failed");
-    expect(traceResult.status).toBe("failed");
-    expect(environmentResult.status).toBe("failed");
+    expect(result).toMatchObject({ status: "failed", steps: 1 });
+    expect(harness.provider.calls).toHaveLength(1);
+    expect(harness.handlerCalls.runCommand).toBe(1);
+    expect(result.trace).toEqual([
+      expect.objectContaining({ status: "failed", stopReason: "environment_error" })
+    ]);
+  });
+
+  it("COMMAND_TIMEOUT 在第一轮失败，不重试 Provider 或命令 handler", async () => {
+    const harness = await createHarness(
+      [{ raw: { type: "run_command", executable: "safe-tool", args: ["run"] } }],
+      {
+        runCommand: () => ({
+          ok: false,
+          error: { code: "COMMAND_TIMEOUT", message: "timeout" }
+        })
+      }
+    );
+
+    const result = await harness.loop.run("timeout failure");
+
+    expect(result).toMatchObject({ status: "failed", steps: 1 });
+    expect(harness.provider.calls).toHaveLength(1);
+    expect(harness.handlerCalls.runCommand).toBe(1);
+    expect(result.trace).toEqual([
+      expect.objectContaining({ status: "failed", stopReason: "timeout" })
+    ]);
   });
 });
