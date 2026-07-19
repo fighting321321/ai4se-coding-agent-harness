@@ -27,6 +27,11 @@ export {
   type DispatchResult
 } from "./dispatcher.js";
 export {
+  classifyFeedback,
+  type FeedbackCategory,
+  type FeedbackResult
+} from "./feedback.js";
+export {
   FileTools,
   type FileToolErrorCode,
   type FileToolResult
