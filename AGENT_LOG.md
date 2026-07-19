@@ -411,3 +411,14 @@
 - TDD 证据：先新增配置敏感值、无 Action running Trace、非数组 tags 与 null keywords 四个回归用例；聚焦测试得到 4 个预期失败、21 个既有用例通过。最小修复后同一命令为 3/3 文件、25/25 用例通过。
 - 修复范围：配置复用统一 Redactor 拒绝凭据值；Trace 恢复 `running` 与可选 Action 契约；Memory 对运行时非数组查询返回 `MEMORY_INVALID_QUERY`。未实现任何 T09 Agent Loop 或反馈功能。
 - 完整门禁：Node `24.14.0`、pnpm `11.14.0` 下 14/14 测试文件、104/104 用例通过；lint、typecheck、build 均退出码 0。
+
+### 2026-07-19 · T09 反馈重点维度与自研 Agent Loop
+
+- 分支与提交：在独立 worktree 的 `feat/t09-feedback-loop` 执行；规划为 `8ebcc58`，Feedback RED/GREEN 为 `a839e38`，AgentLoop RED 为 `5933435`，循环实现与评审修复为 `af8d5e5`。本记录提交与末尾清空 `guiding.md` 的提交随后补齐，保持总计 6 个提交。
+- 基线与环境：固定使用仓库现有依赖、Node `24.14.0` 与 pnpm `11.14.0`，开始前 14/14 测试文件、104/104 用例通过。独立 worktree 复用与锁文件一致的主仓库依赖；pnpm 运行前依赖校验因 worktree 路径元数据不同会尝试安装，故关闭自动安装检查，并用本地忽略的 wrapper 保证根脚本内嵌 pnpm 仍使用 Node 24。未下载、升级或改写锁文件。
+- TDD 证据：Feedback 测试先得到 5/5 失败，原因均为 `classifyFeedback is not a function`，实现后 5/5 GREEN；AgentLoop 集成测试先得到 6/6 失败，原因均为 `AgentLoop is not a constructor`，实现后与 Feedback 初次聚焦测试合计 11/11 GREEN。最终审查针对非命令成功文案新增真实 RED，修复后增强聚焦测试为 18/18 GREEN。
+- 实现范围：新增 `pass | fail | timeout | environment_error` 结构化分类和最多 160 字符的脱敏 Observation；AgentLoop 串联 task、JSON Memory、ScriptedMockLLM、严格 Action 解析、共享 Policy/Approval/Dispatcher、单工具执行、Feedback、Trace 与终止状态。默认最多 8 步；首次业务失败回灌，第二次业务失败立即停止；finish、blocked、failed 与 max_steps 都返回稳定 RunResult。
+- 安全与错误边界：Policy deny 在 Dispatcher 前停止；ask 仍由真实 ApprovalGate 决定，deny 与缺少批准的 read/write handler 均显式断言零调用。Provider、解析、Memory、Trace、timeout 与执行环境错误均确定性失败，不自动重试副作用。测试只使用 fake Key，Trace 和完成摘要不保留明文。
+- 独立评审：新鲜实现 subagent 完成三个实现提交；任务评审首次发现 1 个 Important——deny/未批准测试未显式证明 handler 零调用，补真实 Dispatcher handler 计数后复审通过。全分支审查再发现 3 个 Important 和 1 个 Minor：非命令成功 Observation 文案不准确、脱敏/截断测试未触发真实路径、错误矩阵缺 timeout/终态/无重试断言、默认 8 步未锁定。统一修复后，通用成功文案改为 `pass: tool completed`，结构化错误诊断真实经过 Redactor 与 160 字符截断，并逐项锁定 timeout、错误 Trace、调用上限和默认 8 轮。最终复审结论为 `Ready to merge: Yes`，无 Critical/Important；仅记录 1 个不阻断 Minor：契约外自定义 handler 若返回非字符串 `error.message`，类型守卫可进一步收紧，未为此扩展有效 ToolResult 范围。
+- 完整门禁：主控使用项目根脚本重新运行 `pnpm test`、`pnpm lint`、`pnpm typecheck`、`pnpm build`；评审修复后的结果为 16/16 测试文件、122/122 用例通过，ESLint 无错误，API/Web/Harness/tests 类型检查通过，API TypeScript 与 Web Vite `8.1.5`（14 modules）构建通过，整体退出码均为 0。沙箱内 Vitest/Vite 的 `spawn EPERM` 在同一工作树沙箱外按原命令复验通过。
+- 范围审计：未新增依赖，未修改锁文件；未实现真实 Provider、凭据、CLI、网络、机制演示或 WebUI。项目 AI 指令另行补充“优先检查和复用仓库环境”规则；该本地 `.agents/AGENTS.md` 被仓库忽略，不占用 T09 提交。

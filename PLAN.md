@@ -8,7 +8,7 @@
 
 **目标日期：** 2026-07-25
 
-**当前状态：** G1–G3 已通过，T05–T08 已合入 `dev`；T09 待创建独立功能分支
+**当前状态：** G1–G3 已通过，T05–T08 已合入 `dev`；T09 实现与评审完成，待 MR 合入 `dev`
 
 ## 1. 目标与最小边界
 
@@ -71,7 +71,7 @@ pnpm build
 | T06 | Action、LLM 抽象、mock、解析与分发 | `feat/t06-minimal-kernel` | 已合入 `dev`（MR !7，merge `cdcc01f`） | 5 |
 | T07 | 受限工具、治理与最小批准 | `feat/t07-safe-tools-policy` | 已合入 `dev`（MR !8，merge `4fb39c7`） | 7 |
 | T08 | 配置、JSON Memory 与脱敏 Trace | `feat/t08-config-memory` | 已合入 `dev`（MR !9，merge `6de04f9`） | 5 |
-| T09 | 反馈重点维度与自研 Agent Loop | `feat/t09-feedback-loop` | 未开始 | 6 |
+| T09 | 反馈重点维度与自研 Agent Loop | `feat/t09-feedback-loop` | 实现与评审完成，待 MR | 6 |
 | T10 | 安全凭据、真实 Provider、CLI 与三演示 | `feat/t10-cli-provider-demo` | 未开始 | 6 |
 | T11 | 静态 WebUI 与 GitLab Pages | `feat/t11-static-web` | 未开始 | 5 |
 | T12 | npm 分发、README、反思与最终审计 | `docs/t12-final-delivery` | 未开始 | 6 |
@@ -210,6 +210,8 @@ pnpm vitest run tests/unit/harness/config.test.ts tests/unit/harness/json-memory
 ```powershell
 pnpm vitest run tests/unit/harness/feedback.test.ts tests/integration/harness/agent-loop.test.ts
 ```
+
+**执行证据（2026-07-19）：** 规划提交 `8ebcc58` 后，`a839e38` 先完成 Feedback 的真实 RED→GREEN，`5933435` 只提交 AgentLoop 行为 RED，`af8d5e5` 实现循环并吸收两轮评审修复。最终实现 4 类反馈、默认 8 步、一次业务修正、第二次业务失败停止、四种 RunStatus、Memory/Observation 回灌、Policy/Approval 零副作用阻断和脱敏 Trace；未实现 T10+。评审补强通用工具成功文案、真实脱敏/截断、timeout/错误终态及默认 8 步覆盖。完整门禁为 16/16 测试文件、122/122 用例通过，lint、typecheck、build 均退出码 0。
 
 **建议提交：** 规划；反馈 RED/GREEN；Loop RED；Loop GREEN/重构；评审/记录；清空 guiding。
 
