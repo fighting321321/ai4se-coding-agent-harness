@@ -8,7 +8,7 @@
 | 批准日期 | 2026-07-20 |
 | 项目负责人 | 徐黄浩 |
 | 权威需求来源 | 本文件；`guide/AI4SE_Final_Project_通用要求.md` 与 `guide/AI4SE_Final_Project_A_Coding_Agent_Harness.md` 是不可删减的上位要求 |
-| 当前 Gate | G1、G2、G3 已通过；T05–T10 已完成，T11 双模式 WebUI 设计已批准 |
+| 当前 Gate | G1、G2、G3 已通过；T05–T10 已合入 `dev`，T11 本地实现、全分支审查与真实学校 API smoke 已完成，等待负责人 push/MR、Pipeline 与 Pages URL |
 | 实现范围 | T05–T12，一周内完成最低可用课程作业 |
 
 本版本取代 SPEC 1.0.0 的实现承诺。旧版本保留为 Git 历史和过程证据，不再要求实现数据库、多用户平台、复杂决策版本、SSE、Docker 或线上后端。任何删减都不得违反上述两份课程原始要求。

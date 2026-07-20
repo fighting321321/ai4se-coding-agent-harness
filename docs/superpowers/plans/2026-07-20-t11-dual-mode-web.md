@@ -8,6 +8,8 @@
 
 **Tech Stack:** Node.js 24.14.x、pnpm 11.14.0、TypeScript 6 strict、Fastify 5.10、React 19.2、Vite 8.1、Vitest 4.1、GitLab CI/Pages。
 
+**Status:** T11 本地实现、聚焦验证、全分支审查修复与真实学校 API smoke 已完成；负责人尚需执行 push、非 squash MR、Pipeline 与 Pages URL 验证。
+
 ## Global Constraints
 
 - Node.js 必须满足 `>=24.0.0 <25.0.0`，pnpm 必须为 `11.14.0`；使用仓库现有 lockfile 和依赖，不升级版本、不新增运行时依赖。
@@ -43,7 +45,7 @@
 - `POST /api/runs` consumes `{ task, baseUrl, model, apiKey }` and returns either a `RunResult` or `{ error: { code, message } }` without echoing input.
 - CLI consumes `runHarnessTask` and preserves all existing output, exit codes, credential commands and cached approval behavior.
 
-- [ ] **Step 1: Write the failing provider stop-reason and API tests**
+- [x] **Step 1: Write the failing provider stop-reason and API tests**
 
 Add this focused AgentLoop case to `tests/integration/harness/agent-loop.test.ts`:
 
@@ -107,7 +109,7 @@ expect(await readFile(join(cwd, ".ai4se", "trace.json"), "utf8"))
 
 Use table tests for unknown/missing fields, blank strings, non-local remote HTTP, absent/wrong Origin and non-JSON content. Assert stable codes `RUN_REQUEST_INVALID`, `RUN_ORIGIN_FORBIDDEN`, `RUN_CONTENT_TYPE_INVALID`, and no injected runner call. Stub a write Action and assert status `blocked`, `stopReason: "APPROVAL_REQUIRED"`, and no file creation. Use an injected runner throwing an error containing the test Key and assert `RUN_INTERNAL_ERROR` with no leak.
 
-- [ ] **Step 2: Run the focused tests and verify RED**
+- [x] **Step 2: Run the focused tests and verify RED**
 
 Run:
 
@@ -117,7 +119,7 @@ pnpm vitest run tests/integration/harness/agent-loop.test.ts tests/integration/a
 
 Expected: FAIL because `buildLocalWebServer` and `runHarnessTask` do not exist and AgentLoop still emits generic `provider_error`.
 
-- [ ] **Step 3: Implement the shared runner**
+- [x] **Step 3: Implement the shared runner**
 
 Create `apps/api/src/run-task.ts` around the existing assembly currently inside `cli.ts`:
 
@@ -159,7 +161,7 @@ const provider = new OpenAICompatibleProvider({
 
 Register the same four tools as the old CLI, construct `JsonMemory`, `JsonTrace`, `PolicyEngine`, `ApprovalGate`, `CommandTool`, and return `{ ok: true, value: await loop.run(task) }`. Catch only config read/parse failures into stable errors; do not serialize `options` or exception causes. Move `cachedApproval` only if needed by CLI; Web must pass no approval handler.
 
-- [ ] **Step 4: Preserve safe Provider error categories**
+- [x] **Step 4: Preserve safe Provider error categories**
 
 In `packages/harness/src/agent-loop.ts`, add a closed allowlist mapper:
 
@@ -186,7 +188,7 @@ function providerStopReason(error: unknown): string {
 
 Use the mapped value only for `stopReason`; keep the observation and summary generic so exception messages and remote bodies never appear.
 
-- [ ] **Step 5: Implement the Fastify factory and process entry**
+- [x] **Step 5: Implement the Fastify factory and process entry**
 
 Create `apps/api/src/local-web-server.ts` with these exact public types and constants:
 
@@ -231,7 +233,7 @@ await app.listen({ host: "127.0.0.1", port: parsedPort });
 
 Add `"start:web": "node dist/server-entry.js"` to `apps/api/package.json`.
 
-- [ ] **Step 6: Refactor CLI to call the shared runner**
+- [x] **Step 6: Refactor CLI to call the shared runner**
 
 Keep argument parsing and credential commands in `cli.ts`. After reading the encrypted credential, call:
 
@@ -249,7 +251,7 @@ const result = await runHarnessTask({
 
 Map config result codes to the existing fixed CLI messages and preserve completed/non-completed exit codes exactly. Delete only imports and assembly code made redundant by the extraction.
 
-- [ ] **Step 7: Run GREEN and commit**
+- [x] **Step 7: Run GREEN and commit**
 
 Run:
 
@@ -290,9 +292,9 @@ git commit -m "feat: 增加T11本地运行API"
 - `App` is the public static page and imports only `demo-data.ts` plus styles through its entry.
 - `LocalApp` composes `<App />` and the local runner form; only `main.local.tsx` imports it.
 - `submitLocalRun(request, send = runLocalAgent)` always resolves to `{ apiKey: "", result?, error? }`, so callers clear the controlled Key after both success and failure.
-- Vite `mode === "local"` rewrites the HTML entry from `/src/main.tsx` to `/src/main.local.tsx`; default build remains static.
+- Vite `mode === "local-run"` rewrites the HTML entry from `/src/main.tsx` to `/src/main.local.tsx`; default build remains static. Vite 8.1.5 reserves `local`, so the approved internal mode is `local-run`.
 
-- [ ] **Step 1: Write the failing static/local contract tests**
+- [x] **Step 1: Write the failing static/local contract tests**
 
 Create `tests/unit/web/static-page.test.ts` using `renderToStaticMarkup`:
 
@@ -331,7 +333,7 @@ expect(send).toHaveBeenCalledWith(request);
 
 Repeat with a rejected promise and assert `apiKey: ""`, fixed error text, and no secret in `JSON.stringify(result)`. Stub `fetch` for `runLocalAgent`, assert exactly one `POST /api/runs`, JSON content type, no retry, stable handling of non-2xx, and no use of `localStorage`/`sessionStorage` anywhere in `apps/web/src`.
 
-- [ ] **Step 2: Run Web tests and verify RED**
+- [x] **Step 2: Run Web tests and verify RED**
 
 Run:
 
@@ -341,7 +343,7 @@ pnpm vitest run tests/unit/web/static-page.test.ts tests/unit/web/local-run-clie
 
 Expected: FAIL because App, LocalApp, demo data and local client do not exist.
 
-- [ ] **Step 3: Implement typed fake data and static App**
+- [x] **Step 3: Implement typed fake data and static App**
 
 In `demo-data.ts`, export readonly structures for architecture nodes, three mechanisms, memory summaries, commands and two ordered mock runs. Use only fake values. One run demonstrates feedback correction and completion; the other independently demonstrates a dangerous action being blocked, because a blocked Harness run cannot continue to `finish`:
 
@@ -366,7 +368,7 @@ export const demoRuns = [
 
 `App.tsx` renders a skip link, `header/nav/main/section/footer`, hero and static-boundary callout, architecture, mechanism cards, ordered Trace, Memory summaries, command blocks and security limitations. It must not import `LocalApp` or `local-run-client`.
 
-- [ ] **Step 4: Implement local client and controlled form**
+- [x] **Step 4: Implement local client and controlled form**
 
 In `local-run-client.ts` define request/response types matching Task 1 and:
 
@@ -390,7 +392,7 @@ export async function submitLocalRun(
 
 `LocalApp.tsx` uses controlled React state for the four fields and submit status. Do not persist state. Disable submit while running. In the submit handler, copy the current request only for the call, await `submitLocalRun`, then set Key to `outcome.apiKey` for both success and failure. Display returned ordered Trace or the fixed error in an `aria-live="polite"` status area. Explain that `ask` actions are rejected and CLI is required for encrypted persistent credentials/approval.
 
-- [ ] **Step 5: Implement separate entries and Vite mode selection**
+- [x] **Step 5: Implement separate entries and Vite mode selection**
 
 `main.tsx` mounts only `<App />`; `main.local.tsx` mounts only `<LocalApp />`. Both import `styles.css`.
 
@@ -401,7 +403,7 @@ export default defineConfig(({ mode }) => ({
   base: "./",
   plugins: [
     react(),
-    ...(mode === "local" ? [{
+    ...(mode === "local-run" ? [{
       name: "ai4se-local-entry",
       transformIndexHtml(html: string) {
         return html.replace("/src/main.tsx", "/src/main.local.tsx");
@@ -417,13 +419,13 @@ export default defineConfig(({ mode }) => ({
 }));
 ```
 
-Add `"dev:local": "vite --mode local --strictPort"` and focused `test` script to `apps/web/package.json`. Do not add dependencies.
+Add `"dev:local": "vite --mode local-run --strictPort"` and focused `test` script to `apps/web/package.json`. Do not add dependencies.
 
-- [ ] **Step 6: Implement accessible responsive CSS**
+- [x] **Step 6: Implement accessible responsive CSS**
 
 Use CSS custom properties for neutral background, ink, muted text, border, allow/ask/deny/success colors; use a centered max-width layout, responsive grid cards, horizontal-safe Trace, wrapping code, `:focus-visible` outline, `.skip-link`, and a single-column breakpoint at 720px. Do not reference remote fonts, images, stylesheets or scripts. Respect `prefers-reduced-motion` by avoiding required motion entirely.
 
-- [ ] **Step 7: Run GREEN, build both modes, scan artifact and commit**
+- [x] **Step 7: Run GREEN, build both modes, scan artifact and commit**
 
 Run:
 
@@ -432,7 +434,7 @@ pnpm vitest run tests/unit/web/static-page.test.ts tests/unit/web/local-run-clie
 pnpm --filter @ai4se/web typecheck
 pnpm --filter @ai4se/web build
 Get-ChildItem -File -Recurse apps/web/dist | Select-String -Pattern '/api/runs|127\.0\.0\.1|localhost|type="password"|sk-'
-pnpm --filter @ai4se/web exec vite build --mode local
+pnpm --filter @ai4se/web exec vite build --mode local-run
 pnpm lint
 ```
 
@@ -458,10 +460,10 @@ git commit -m "feat: 实现T11双模式Web页面"
 - Modify: `AGENT_LOG.md`
 
 **Interfaces:**
-- Root `pnpm web:local` first builds Harness/API, then `scripts/local-web.mjs` starts the compiled API and `vite --mode local` together; terminating the parent terminates both children.
+- Root `pnpm web:local` first builds Harness/API, then `scripts/local-web.mjs` starts the compiled API and Web `dev:local` (Vite `local-run` mode) together; terminating the parent terminates both children.
 - GitLab job remains exactly `unit-test`; `pages` depends on it, builds default static Web, copies only `apps/web/dist` contents into `public`, and exposes `public` artifact.
 
-- [ ] **Step 1: Write failing CI and launcher contract tests**
+- [x] **Step 1: Write failing CI and launcher contract tests**
 
 Extend `tests/unit/ci/pipeline-contract.test.ts` to read `.gitlab-ci.yml`, `package.json`, and `scripts/local-web.mjs`. Assert:
 
@@ -478,7 +480,7 @@ expect(launcher).toContain("127.0.0.1");
 
 Also assert `pages` has `needs: ["unit-test"]`, runs only for `$CI_DEFAULT_BRANCH`, and no artifact path under `.ai4se`.
 
-- [ ] **Step 2: Run CI contract and verify RED**
+- [x] **Step 2: Run CI contract and verify RED**
 
 Run:
 
@@ -488,7 +490,7 @@ pnpm vitest run tests/unit/ci/pipeline-contract.test.ts
 
 Expected: FAIL because `pages`, `web:local` and launcher do not exist.
 
-- [ ] **Step 3: Implement the local process launcher**
+- [x] **Step 3: Implement the local process launcher**
 
 Create `scripts/local-web.mjs` using only Node built-ins. Obtain pnpm from `process.env.npm_execpath`; reject if absent. Spawn with `shell: false`:
 
@@ -513,7 +515,7 @@ Add root scripts:
 "web:local": "pnpm --filter @ai4se/harness build && pnpm --filter @ai4se/api build && node scripts/local-web.mjs"
 ```
 
-- [ ] **Step 4: Add the Pages job**
+- [x] **Step 4: Add the Pages job**
 
 Update `.gitlab-ci.yml`:
 
@@ -545,7 +547,7 @@ pages:
 
 Do not add environment secrets or publish API artifacts.
 
-- [ ] **Step 5: Verify contracts and manually smoke the local pair**
+- [x] **Step 5: Verify contracts and manually smoke the local pair**
 
 Run:
 
@@ -554,9 +556,9 @@ pnpm vitest run tests/unit/ci/pipeline-contract.test.ts
 pnpm web:local
 ```
 
-Expected: contract test passes; launcher reports API on `127.0.0.1:4174` and Vite on `127.0.0.1:5173`. Stop with Ctrl+C after confirming both processes terminate. Do not enter a real Key during this smoke.
+Expected: contract test passes; launcher reports that API startup is in progress on `127.0.0.1:4174`, while API/Vite listening logs provide ready evidence for `127.0.0.1:4174` and `127.0.0.1:5173`. Stop with Ctrl+C after confirming both processes terminate. Do not enter a real Key during this smoke.
 
-- [ ] **Step 6: Run complete verification, review, and update evidence**
+- [x] **Step 6: Run complete verification, review, and update evidence**
 
 Run fresh:
 
@@ -588,9 +590,9 @@ git commit -m "ci: 发布T11静态页面并记录审查"
 
 **Interfaces:**
 - Produces an empty tracked `guiding.md` as the final T11 branch commit.
-- Leaves push, MR, Pipeline, Pages URL and real school API smoke to the project owner.
+- Leaves push, MR, Pipeline and Pages URL to the project owner；真实学校 API smoke 已于 2026-07-21 使用限额临时 Key 完成。
 
-- [ ] **Step 1: Confirm the branch gate**
+- [x] **Step 1: Confirm the branch gate**
 
 Run:
 
@@ -602,7 +604,7 @@ git diff --check dev...HEAD
 
 Expected: six T11 commits before cleanup, no unintended files, no diff errors, and all Task 1–3 review gates closed.
 
-- [ ] **Step 2: Empty only `guiding.md` and commit**
+- [x] **Step 2: Empty only `guiding.md` and commit**
 
 Use `apply_patch` to remove the contents while preserving the file. Then run:
 
@@ -626,3 +628,9 @@ Report all fresh verification results and explicitly list owner-only actions:
 ```
 
 Do not perform those remote or secret-bearing operations as the agent.
+
+Owner-only outstanding work:
+
+- [x] 使用负责人提供的学校 API endpoint、model 与限额临时 Key 完成本地 smoke；`qwen-turbo` 返回 `completed` 与 `finish` Trace，Key 自动清空。
+- [ ] 推送 `feat/t11-static-web` 并创建目标为 `dev` 的非 squash MR。
+- [ ] 等待真实 Pipeline passed，记录可访问的 Pages URL 后再合并。

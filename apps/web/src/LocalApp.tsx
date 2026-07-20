@@ -3,6 +3,24 @@ import { useState, type FormEvent } from "react";
 import { App } from "./App.js";
 import { submitLocalRun, type LocalRunResponse } from "./local-run-client.js";
 
+export function LocalRunResultView({ result }: { readonly result: LocalRunResponse }) {
+  return (
+    <section className="local-result" aria-labelledby="local-result-title">
+      <h3 id="local-result-title">运行结果</h3>
+      <p><strong>安全摘要：</strong>{result.summary}</p>
+      <ol className="local-trace">
+        {result.trace.map((entry) => (
+          <li key={entry.step}>
+            Step {entry.step}：{entry.action?.type ?? "action"} · {entry.policy} · {entry.status}
+            {entry.observation === undefined ? null : <> · {entry.observation}</>}
+            {entry.stopReason === undefined ? null : <> · 停止原因：{entry.stopReason}</>}
+          </li>
+        ))}
+      </ol>
+    </section>
+  );
+}
+
 export function LocalApp() {
   const [task, setTask] = useState("");
   const [baseUrl, setBaseUrl] = useState("");
@@ -42,7 +60,7 @@ export function LocalApp() {
           <div className="run-status" role="status" aria-live="polite">
             {running ? "本地任务运行中" : error ?? (result === undefined ? "本地运行尚未开始" : `任务状态：${result.status}`)}
           </div>
-          {result === undefined ? null : <ol className="local-trace">{result.trace.map((entry) => <li key={entry.step}>Step {entry.step}：{entry.action?.type ?? "action"} · {entry.policy} · {entry.status} · {entry.observation ?? ""}</li>)}</ol>}
+          {result === undefined ? null : <LocalRunResultView result={result} />}
         </section>
       </section>
     </>

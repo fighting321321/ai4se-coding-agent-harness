@@ -5,6 +5,15 @@ import {
   submitLocalRun,
   type LocalRunRequest
 } from "../../../apps/web/src/local-run-client.js";
+import { LocalRunResultView } from "../../../apps/web/src/LocalApp.js";
+import { createRequire } from "node:module";
+
+import type * as React from "../../../apps/web/node_modules/@types/react/index.d.ts";
+import type * as ReactDomServer from "../../../apps/web/node_modules/@types/react-dom/server.d.ts";
+
+const require = createRequire(import.meta.url);
+const { createElement } = require("../../../apps/web/node_modules/react") as typeof React;
+const { renderToStaticMarkup } = require("../../../apps/web/node_modules/react-dom/server") as typeof ReactDomServer;
 
 const request: LocalRunRequest = {
   task: "finish safely",
@@ -119,5 +128,40 @@ describe("本地运行客户端", () => {
       "本地运行请求失败"
     );
     expect(fetchImpl).toHaveBeenCalledTimes(1);
+  });
+
+  it("网络连接失败映射为本地服务未启动", async () => {
+    const fetchImpl = vi.fn(async () => {
+      throw new Error(`connect failed ${request.apiKey}`);
+    });
+
+    await expect(runLocalAgent(request, fetchImpl as typeof fetch)).rejects.toThrow(
+      "本地服务未启动"
+    );
+    await expect(submitLocalRun(request, (nextRequest) => runLocalAgent(nextRequest, fetchImpl as typeof fetch)))
+      .resolves.toEqual({ apiKey: "", error: "本地服务未启动" });
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+  });
+
+  it("结果视图展示安全摘要和各 Provider 停止原因", () => {
+    const html = renderToStaticMarkup(createElement(LocalRunResultView, {
+      result: {
+        status: "failed",
+        summary: "Provider 调用失败",
+        steps: 3,
+        trace: [
+          { step: 1, policy: "allow", status: "failed", stopReason: "provider_authentication_failed" },
+          { step: 2, policy: "allow", status: "failed", stopReason: "provider_rate_limited" },
+          { step: 3, policy: "allow", status: "failed", stopReason: "provider_server_error" }
+        ]
+      }
+    }));
+
+    expect(html).toContain("Provider 调用失败");
+    expect(html).toContain("provider_authentication_failed");
+    expect(html).toContain("provider_rate_limited");
+    expect(html).toContain("provider_server_error");
+    expect(html).not.toContain(request.apiKey);
+    expect(html).not.toContain("远端响应正文");
   });
 });

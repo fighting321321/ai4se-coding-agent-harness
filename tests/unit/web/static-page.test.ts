@@ -23,6 +23,7 @@ describe("Web 双入口页面", () => {
     expect(html).toContain("失败反馈修正");
     expect(html).toContain("Memory 摘要");
     expect(html).toContain("pnpm demo");
+    expect(html).toContain("pnpm install --frozen-lockfile");
     expect(html.indexOf("Step 1")).toBeLessThan(html.indexOf("Step 2"));
     expect(html).not.toMatch(/<form|<input|type="password"|\/api\/runs|localhost/iu);
   });

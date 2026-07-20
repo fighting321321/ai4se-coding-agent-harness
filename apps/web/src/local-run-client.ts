@@ -29,6 +29,7 @@ export interface LocalRunResponse {
 
 const LOCAL_RUN_ERROR = "本地运行请求失败";
 const LOCAL_RESPONSE_ERROR = "本地运行响应格式无效";
+const LOCAL_SERVICE_ERROR = "本地服务未启动";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -120,7 +121,7 @@ export async function runLocalAgent(
       body: JSON.stringify(request)
     });
   } catch {
-    throw new Error(LOCAL_RUN_ERROR);
+    throw new Error(LOCAL_SERVICE_ERROR);
   }
   if (!response.ok) {
     throw new Error(LOCAL_RUN_ERROR);
@@ -147,8 +148,12 @@ export async function submitLocalRun(
     outcome = containsApiKey(result, request.apiKey)
       ? { error: LOCAL_RUN_ERROR }
       : { result };
-  } catch {
-    outcome = { error: LOCAL_RUN_ERROR };
+  } catch (error) {
+    outcome = {
+      error: error instanceof Error && error.message === LOCAL_SERVICE_ERROR
+        ? LOCAL_SERVICE_ERROR
+        : LOCAL_RUN_ERROR
+    };
   } finally {
     // 无论请求结果如何，调用方都必须用空值覆盖受控 Key。
   }

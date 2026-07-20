@@ -14,7 +14,8 @@
     "lint": "eslint .",
     "typecheck": "pnpm --filter @ai4se/api run typecheck && pnpm --filter @ai4se/web run typecheck && pnpm --filter @ai4se/harness run typecheck && tsc --noEmit -p tests/tsconfig.json",
     "build": "pnpm --filter @ai4se/harness run build && pnpm --filter @ai4se/api run build && pnpm --filter @ai4se/web run build",
-    "agent": "pnpm --filter @ai4se/harness run build && pnpm --filter @ai4se/api run build && node apps/api/dist/cli-entry.js"
+    "agent": "pnpm --filter @ai4se/harness run build && pnpm --filter @ai4se/api run build && node apps/api/dist/cli-entry.js",
+    "web:local": "pnpm --filter @ai4se/harness build && pnpm --filter @ai4se/api build && node scripts/local-web.mjs"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",

@@ -17,7 +17,12 @@ export const memorySummaries = [
   "敏感路径：凭据文件写入必须被治理层阻断。"
 ] as const;
 
-export const demoCommands = ["pnpm demo", "pnpm test", "pnpm lint"] as const;
+export const demoCommands = [
+  "pnpm install --frozen-lockfile",
+  "pnpm demo",
+  "pnpm test",
+  "pnpm lint"
+] as const;
 
 export const demoRuns = [
   {
