@@ -226,6 +226,28 @@ describe("runCli", () => {
     await expect(readFile(path, "utf8")).resolves.toBe(original);
   });
 
+  it.each([
+    ["缺失", undefined, "配置读取失败"],
+    ["无效", "{}\n", "配置无效：CONFIG_INVALID_VALUE"]
+  ] as const)("配置%s时先失败且不读取凭据", async (_name, config, expectedError) => {
+    const cwd = await temporaryWorkspace();
+    if (config !== undefined) {
+      await mkdir(join(cwd, ".ai4se"), { recursive: true });
+      await writeFile(join(cwd, ".ai4se", "config.json"), config, "utf8");
+    }
+    const readSecret = vi.fn(async () => "must-not-read");
+    const capture = captureCli(cwd);
+
+    const exitCode = await runCli(
+      ["--task", "validate configuration first"],
+      { ...capture.dependencies, readSecret }
+    );
+
+    expect(exitCode).toBe(1);
+    expect(readSecret).not.toHaveBeenCalled();
+    expect(capture.stderr).toEqual([expectedError]);
+  });
+
   it("未知 credentials 子命令在读取秘密前返回参数错误", async () => {
     const readSecret = vi.fn(async () => "must-not-read");
     const capture = captureCli(await temporaryWorkspace());

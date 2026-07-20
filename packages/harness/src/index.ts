@@ -54,6 +54,7 @@ export type { LLMInput, LLMOutput, LLMProvider } from "./llm-provider.js";
 export {
   OpenAICompatibleProvider,
   OpenAICompatibleProviderError,
+  validProviderBaseUrl,
   type OpenAICompatibleProviderErrorCode,
   type OpenAICompatibleProviderOptions
 } from "./openai-compatible-provider.js";
