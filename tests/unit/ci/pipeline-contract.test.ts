@@ -26,7 +26,7 @@ describe("GitLab pipeline", () => {
     expect(ci).toMatch(/^pages:/mu);
     expect(ci).toContain("- pnpm --filter @ai4se/web build");
     expect(ci).toContain("- cp -R apps/web/dist/. public/");
-    expect(ci).toContain("paths:\n      - public");
+    expect(ci).toMatch(/paths:\r?\n {6}- public/u);
     expect(ci).not.toMatch(/API_KEY|OPENAI_API_KEY|credentials\.json/iu);
     expect(ci).toContain('needs: ["unit-test"]');
     expect(ci).toContain("$CI_DEFAULT_BRANCH");

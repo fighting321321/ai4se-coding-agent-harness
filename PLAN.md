@@ -8,7 +8,7 @@
 
 **目标日期：** 2026-07-25
 
-**当前状态：** G1–G3 已通过，T05–T10 已合入 `dev`；T11 本地实现、全分支审查与真实学校 API smoke 已完成，等待负责人 push/MR、Pipeline 与 Pages URL
+**当前状态：** G1–G3 已通过，T05–T11 已合入 `dev`；T12 待执行 npm 分发、文档、本人反思与最终审计，Pipeline 与 Pages URL 在 T12 核验
 
 ## 1. 目标与最小边界
 
@@ -73,7 +73,7 @@ pnpm build
 | T08 | 配置、JSON Memory 与脱敏 Trace | `feat/t08-config-memory` | 已合入 `dev`（MR !9，merge `6de04f9`） | 5 |
 | T09 | 反馈重点维度与自研 Agent Loop | `feat/t09-feedback-loop` | 已合入 `dev`（MR !11，merge `3b0d3fe`） | 6 |
 | T10 | 安全凭据、真实 Provider、CLI 与三演示 | `feat/t10-cli-provider-demo` | 已合入 `dev`（MR !12，merge `64458b8`） | 7 |
-| T11 | 双模式 WebUI、本地 API 与 GitLab Pages | `feat/t11-static-web` | 本地实现、审查与真实 smoke 已完成；待负责人远端交付 | 7 |
+| T11 | 双模式 WebUI、本地 API 与 GitLab Pages | `feat/t11-static-web` | 已合入 `dev`（MR !13，merge `7c68221`）；Pipeline/Pages 待 T12 核验 | 7 |
 | T12 | npm 分发、README、反思与最终审计 | `docs/t12-final-delivery` | 未开始 | 6 |
 
 ## 5. T05：工程骨架与最小 CI（已完成）

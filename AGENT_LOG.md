@@ -486,3 +486,9 @@
 - TDD：Provider 请求契约在旧实现上为 27 项中 1 项预期 RED；最小提示修复后，Provider/AgentLoop/API 聚焦 3/3 文件、54/54 用例 GREEN。完整 `pnpm test` 为 25/25 文件、282/282 用例，lint、typecheck 与 build 均通过，默认静态构建 17 modules。
 - WebUI smoke：负责人使用 `https://njusehub.info/v1/chat/completions`、`qwen-turbo` 与简单问答观察到 `completed`，安全摘要正常，Trace 为 `finish · allow · completed · pass: finish`，停止原因为 `finish`；页面在结果后自动清空 API Key。`DeepSeek-R1` 仍可能因输出非纯 JSON 而得到 `provider_action_invalid`，不作为本次已验证兼容模型。
 - 外部边界：真实学校 API smoke 已完成；push、非 squash MR、Pipeline passed 与公开 Pages URL 仍由负责人执行和记录。
+
+### 2026-07-21 · T12 启动前 T11 合并与 Windows 基线修复
+
+- 合并状态：T11 已通过 MR !13 以 merge commit `7c68221` 合入 `dev`；公开 Pages URL 与远端 Pipeline 状态仍留给 T12 使用真实结果核验，不以本地合并记录代替。
+- 基线问题：pull 后 Windows 工作区将 `.gitlab-ci.yml` 检出为 CRLF，CI 契约测试把 YAML 片段换行写死为 LF，导致完整测试 25 个文件中 1 个失败、281/282 用例通过；YAML 内容本身未改变。
+- 修复与验证：将该断言收窄为兼容 LF/CRLF 的精确结构匹配，聚焦 CI 契约测试恢复为 1/1 文件、3/3 用例通过；修复不改变 Pages job 或产品行为。
