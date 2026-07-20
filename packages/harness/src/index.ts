@@ -51,6 +51,7 @@ export {
   type FileToolResult
 } from "./file-tools.js";
 export type { LLMInput, LLMOutput, LLMProvider } from "./llm-provider.js";
+export { runOfflineSmoke } from "./offline-smoke.js";
 export {
   OpenAICompatibleProvider,
   OpenAICompatibleProviderError,
