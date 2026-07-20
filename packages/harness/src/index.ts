@@ -22,6 +22,14 @@ export {
 } from "./command-tool.js";
 export type { CommandRule } from "./command-rule.js";
 export {
+  CredentialStore,
+  type CredentialErrorCode,
+  type CredentialResult,
+  type CredentialStoreFileSystem,
+  type CredentialStoreOptions,
+  type CredentialStatus
+} from "./credential-store.js";
+export {
   parseHarnessConfig,
   type ConfigErrorCode,
   type ConfigParseResult,
@@ -43,6 +51,12 @@ export {
   type FileToolResult
 } from "./file-tools.js";
 export type { LLMInput, LLMOutput, LLMProvider } from "./llm-provider.js";
+export {
+  OpenAICompatibleProvider,
+  OpenAICompatibleProviderError,
+  type OpenAICompatibleProviderErrorCode,
+  type OpenAICompatibleProviderOptions
+} from "./openai-compatible-provider.js";
 export {
   JsonMemory,
   type MemoryErrorCode,

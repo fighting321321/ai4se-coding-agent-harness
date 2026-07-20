@@ -10,9 +10,11 @@
   },
   "scripts": {
     "test": "vitest run --config vitest.workspace.ts",
+    "demo": "vitest run tests/integration/demos/mechanisms.test.ts",
     "lint": "eslint .",
     "typecheck": "pnpm --filter @ai4se/api run typecheck && pnpm --filter @ai4se/web run typecheck && pnpm --filter @ai4se/harness run typecheck && tsc --noEmit -p tests/tsconfig.json",
-    "build": "pnpm --filter @ai4se/api run build && pnpm --filter @ai4se/web run build"
+    "build": "pnpm --filter @ai4se/harness run build && pnpm --filter @ai4se/api run build && pnpm --filter @ai4se/web run build",
+    "agent": "pnpm --filter @ai4se/harness run build && pnpm --filter @ai4se/api run build && node apps/api/dist/cli-entry.js"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",

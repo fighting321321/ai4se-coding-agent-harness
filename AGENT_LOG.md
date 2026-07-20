@@ -430,3 +430,15 @@
 - RED 证据：先改为裸 Dispatcher 并新增批准、反馈摘要、Trace 连续运行回归，聚焦测试得到 6 个预期失败；其中未批准写入实际执行、批准回调 0 次、摘要缺失、损坏 Trace 在 Provider 后才失败、第二次运行写入失败均被真实复现。
 - GREEN 修复：AgentLoop 统一执行 Policy/Approval 后再调用 Dispatcher；失败命令优先汇总 stderr、stdout，经 Redactor 脱敏并受 160 字符上限约束；运行前读取 Trace，从最大 step 后追加，RunResult 只返回本次运行条目；损坏 Trace 在 Provider/handler 前停止。
 - 验证：聚焦测试 2/2 文件、20/20 用例通过；完整门禁 16/16 文件、124/124 用例通过，`lint`、`typecheck`、`build` 均退出码 0。未新增依赖、数据库、Provider、CLI 或 WebUI。
+
+### 2026-07-20 · T10 安全凭据、兼容 Provider、CLI 与三项离线演示
+
+- 分支与提交：在 `feat/t10-cli-provider-demo` 上完成；规划 `2eedd1b`，凭据实现 `ff73d6b`，凭据安全边界修复 `7d6d181`，Provider/CLI 与最终安全修复 `6842cd2`，三项演示 `ad530ab`。本记录和最后清空 `guiding.md` 的提交随后补齐，最终保持 7 条提交上限；未执行远端推送、MR 或 Pipeline 操作。
+- 环境与基线：固定使用 Codex bundled Node `24.14.0` 与仓库 pnpm `11.14.0`。开始前 T09 收尾基线为 16/16 文件、124/124 用例；恢复收尾前基线为 19/19 文件、177/177 用例。受限沙箱内 Vitest/Vite 会触发 `spawn EPERM`，获准在同一工作区沙箱外按原命令运行；没有把环境错误当作 RED。
+- 凭据 TDD：初始测试 14/14 因 `CredentialStore` 不存在而 RED；实现 scrypt + AES-256-GCM 后 GREEN。安全审查发现默认 KDF 成本、mutation 竞态和原子失败伪覆盖，随后新增确定性 RED，显式固定 scrypt `N=2^17,r=8,p=1,maxmem=256 MiB`，用拥有者令牌文件锁覆盖跨实例/进程 mutation，并真实验证临时文件创建后 rename 失败的清理。聚焦最终扩展到 19/19；独立复审无 Critical/Important。
+- Provider/CLI TDD：三组测试先得到 23 个预期失败，原因是 CLI/Provider 不存在及 config 拒绝 provider 字段。实现单次 Chat Completions、严格配置、隐藏 stdio 边界、凭据 init/status/update/clear、`pnpm agent --task` 与真实 Harness 组装后 GREEN。提交前审查用真实 307 重定向复现额外请求，补 `redirect: manual` 后复审 PASS。
+- 最终安全修复：全分支审查发现 `/v1` 重复拼接、空/弱秘密可保存、非回环 HTTP 会明文携带 Authorization 三项 Important。逐项先 RED：endpoint 4 个路径断言失败；凭据/CLI 14 个弱输入断言失败；config/Provider 4 个远端 HTTP 断言失败。修复后 endpoint 支持根路径、普通前缀、已有 `/v1` 和完整 endpoint；主密码 trim 后至少 12 字符、Key 非空；任意远端只允许 HTTPS，本机 `localhost`/`127.0.0.1`/`::1` 可用 HTTP。聚焦 96/96、全量 214/214，复审 PASS；临时 fixup 已 autosquash 到 Provider/CLI 提交。
+- 三项演示：`pnpm demo` 缺少脚本时先退出 1；新增 `tests/integration/demos/mechanisms.test.ts` 后 4/4 GREEN。真实 AgentLoop/Policy/Approval/Dispatcher 装配自动证明危险删除和敏感文件访问在治理层阻断且 handler 零调用；首次业务失败的脱敏摘要进入下一轮并驱动不同 Action 成功；第二次连续业务失败后 Provider 与 handler 均恰为 2 次，不发生第三次调用。独立任务审查 Spec/质量均 PASS，零 finding。
+- 最终门禁：autosquash 后主控重新运行 `pnpm test`（20/20 文件、214/214 用例）、`pnpm demo`（1/1 文件、4/4 演示）、`pnpm lint`、`pnpm typecheck`、`pnpm build` 和 `git diff --check`，全部退出码 0；Web Vite `8.1.5` 构建 14 个模块成功。测试仅使用本地回环 stub、`ScriptedMockLLM` 和 fake Key。
+- 安全与范围：凭据文件只落盘版本、salt、12-byte nonce、tag、ciphertext；主密码/API Key 不进入参数、普通配置、错误、Trace、Memory 或测试快照。未新增外部依赖、数据库、多 Provider、线上服务、T11 WebUI 或 T12 分发行为。公开导出的 CredentialStore 文件系统测试接缝仍记录为非阻断 Minor，留待后续 API 收敛。
+- 未执行项：真实学校 API smoke 只能由项目负责人在本地使用真实凭据受控执行，本任务未执行，也未伪造结果。MR、Pipeline 和合并状态留待用户后续远端流程补录。

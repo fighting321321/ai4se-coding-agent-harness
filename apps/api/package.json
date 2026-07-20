@@ -8,6 +8,7 @@
     "build": "tsc -p tsconfig.json"
   },
   "dependencies": {
+    "@ai4se/harness": "workspace:*",
     "fastify": "5.10.0"
   }
 }

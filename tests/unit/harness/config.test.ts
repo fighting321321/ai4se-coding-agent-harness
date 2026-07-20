@@ -10,7 +10,11 @@ const validConfig = {
   maxSteps: 20,
   commandTimeoutMs: 120_000,
   maxOutputBytes: 64 * 1024,
-  memoryPath: ".ai4se/memory.json"
+  memoryPath: ".ai4se/memory.json",
+  provider: {
+    baseUrl: "https://provider.example/v1",
+    model: "course-model"
+  }
 };
 
 describe("parseHarnessConfig", () => {
@@ -18,6 +22,36 @@ describe("parseHarnessConfig", () => {
     const result = parseHarnessConfig(validConfig);
 
     expect(result).toEqual({ ok: true, value: validConfig });
+  });
+
+  it.each([
+    "https://provider.example/v1",
+    "http://localhost:11434/v1",
+    "http://127.0.0.1:11434/v1",
+    "http://[::1]:11434/v1"
+  ])("接受 HTTPS 或本机回环 HTTP Provider base URL：%s", (baseUrl) => {
+    const input = {
+      ...validConfig,
+      provider: { ...validConfig.provider, baseUrl }
+    };
+
+    expect(parseHarnessConfig(input)).toEqual({ ok: true, value: input });
+  });
+
+  it.each([
+    "http://provider.example/v1",
+    "http://192.0.2.1:11434/v1"
+  ])("拒绝非本机 HTTP Provider base URL 且错误不包含 URL：%s", (baseUrl) => {
+    const result = parseHarnessConfig({
+      ...validConfig,
+      provider: { ...validConfig.provider, baseUrl }
+    });
+
+    expect(result).toMatchObject({
+      ok: false,
+      error: { code: "CONFIG_INVALID_VALUE" }
+    });
+    expect(JSON.stringify(result)).not.toContain(baseUrl);
   });
 
   it.each([
@@ -33,6 +67,38 @@ describe("parseHarnessConfig", () => {
         allowedCommands: [{ executable: "pnpm", args: ["test"], shell: false }]
       },
       code: "CONFIG_UNKNOWN_FIELD"
+    },
+    {
+      name: "Provider 中的未知字段",
+      input: {
+        ...validConfig,
+        provider: { ...validConfig.provider, organization: "example" }
+      },
+      code: "CONFIG_UNKNOWN_FIELD"
+    },
+    {
+      name: "相对 Provider base URL",
+      input: {
+        ...validConfig,
+        provider: { ...validConfig.provider, baseUrl: "/v1" }
+      },
+      code: "CONFIG_INVALID_VALUE"
+    },
+    {
+      name: "非 HTTP Provider base URL",
+      input: {
+        ...validConfig,
+        provider: { ...validConfig.provider, baseUrl: "ftp://provider.example" }
+      },
+      code: "CONFIG_INVALID_VALUE"
+    },
+    {
+      name: "空白 Provider model",
+      input: {
+        ...validConfig,
+        provider: { ...validConfig.provider, model: "   " }
+      },
+      code: "CONFIG_INVALID_VALUE"
     },
     {
       name: "越界的最大步数",
@@ -89,4 +155,20 @@ describe("parseHarnessConfig", () => {
       expect(result.error.message).not.toContain("fake-secret");
     }
   });
+
+  it.each(["apiKey", "key", "secret", "token"])(
+    "明确拒绝 Provider 内的敏感字段 %s",
+    (field) => {
+      const result = parseHarnessConfig({
+        ...validConfig,
+        provider: { ...validConfig.provider, [field]: "sensitive-value" }
+      });
+
+      expect(result).toMatchObject({
+        ok: false,
+        error: { code: "CONFIG_SECRET_FIELD" }
+      });
+      expect(JSON.stringify(result)).not.toContain("sensitive-value");
+    }
+  );
 });
