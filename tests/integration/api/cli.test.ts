@@ -5,7 +5,11 @@ import { join } from "node:path";
 
 import { describe, expect, it, vi } from "vitest";
 
-import { runCli, type CliDependencies } from "../../../apps/api/src/cli.js";
+import {
+  formatApprovalRequest,
+  runCli,
+  type CliDependencies
+} from "../../../apps/api/src/cli.js";
 import { CredentialStore } from "../../../packages/harness/src/index.js";
 
 interface CliCapture {
@@ -97,6 +101,16 @@ async function startActionStub(actions: readonly Record<string, unknown>[]) {
 }
 
 describe("runCli", () => {
+  it("审批提示显示动作和目标，但不显示写入内容", () => {
+    const prompt = formatApprovalRequest({
+      action: { type: "write_file", path: "result.txt", content: "must-stay-hidden" }
+    });
+
+    expect(prompt).toContain("write_file");
+    expect(prompt).toContain("result.txt");
+    expect(prompt).not.toContain("must-stay-hidden");
+  });
+
   it.each(["--api-key", "--password", "--master-password", "--secret", "--token"])(
     "立即拒绝敏感命令参数 %s 且不回显值",
     async (option) => {
@@ -279,6 +293,74 @@ describe("runCli", () => {
       expect(deny).toHaveBeenCalledTimes(1);
       await expect(access(join(cwd, "denied.txt"))).rejects.toMatchObject({ code: "ENOENT" });
       expect(stub.requestCount()).toBe(1);
+    } finally {
+      await stub.close();
+    }
+  });
+
+  it("Provider 返回包含当前凭据的 Action 时在审批和工具前阻断", async () => {
+    const cwd = await temporaryWorkspace();
+    const apiKey = "sk-cli-provider-key";
+    const stub = await startActionStub([
+      { type: "write_file", path: "leaked.txt", content: apiKey }
+    ]);
+    try {
+      await writeConfig(cwd, stub.baseUrl);
+      await new CredentialStore(join(cwd, ".ai4se", "credentials.json")).init(
+        "master-password",
+        apiKey
+      );
+      const approve = vi.fn(async () => true);
+      const capture = captureCli(cwd, ["master-password"], approve);
+
+      const exitCode = await runCli(["--task", "do not leak credentials"], capture.dependencies);
+
+      expect(exitCode).toBe(1);
+      expect(approve).not.toHaveBeenCalled();
+      await expect(access(join(cwd, "leaked.txt"))).rejects.toMatchObject({ code: "ENOENT" });
+      const trace = await readFile(join(cwd, ".ai4se", "trace.json"), "utf8");
+      expect(trace).not.toContain(apiKey);
+    } finally {
+      await stub.close();
+    }
+  });
+
+  it("真实 CLI 在配置的 workspace 内执行命令", async () => {
+    const cwd = await temporaryWorkspace();
+    const workspace = join(cwd, "project");
+    await mkdir(workspace, { recursive: true });
+    const marker = "cli-command-cwd.txt";
+    const args = [
+      "-e",
+      `require('node:fs').writeFileSync(${JSON.stringify(marker)}, process.cwd())`
+    ];
+    const stub = await startActionStub([
+      { type: "run_command", executable: process.execPath, args },
+      { type: "finish", summary: "done" }
+    ]);
+    try {
+      const configPath = join(cwd, ".ai4se", "config.json");
+      await mkdir(join(cwd, ".ai4se"), { recursive: true });
+      await writeFile(configPath, `${JSON.stringify({
+        workspace: "project",
+        allowedCommands: [{ executable: process.execPath, args }],
+        maxSteps: 8,
+        commandTimeoutMs: 5_000,
+        maxOutputBytes: 4_096,
+        memoryPath: ".ai4se/memory.json",
+        provider: { baseUrl: stub.baseUrl, model: "stub-model" }
+      })}\n`, "utf8");
+      await new CredentialStore(join(cwd, ".ai4se", "credentials.json")).init(
+        "master-password",
+        "sk-cli-provider-key"
+      );
+      const capture = captureCli(cwd, ["master-password"]);
+
+      const exitCode = await runCli(["--task", "run in workspace"], capture.dependencies);
+
+      expect(exitCode).toBe(0);
+      await expect(readFile(join(workspace, marker), "utf8")).resolves.toBe(workspace);
+      await expect(access(join(cwd, marker))).rejects.toMatchObject({ code: "ENOENT" });
     } finally {
       await stub.close();
     }

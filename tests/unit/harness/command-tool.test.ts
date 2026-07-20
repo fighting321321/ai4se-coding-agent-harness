@@ -1,4 +1,4 @@
-import { access, mkdtemp, unlink } from "node:fs/promises";
+import { access, mkdtemp, readFile, unlink } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -7,6 +7,24 @@ import { describe, expect, it } from "vitest";
 import { CommandTool } from "../../../packages/harness/src/index.js";
 
 describe("CommandTool", () => {
+  it("在指定 workspace 内启动允许的命令", async () => {
+    const workspace = await mkdtemp(join(tmpdir(), "ai4se-command-cwd-"));
+    const marker = "command-cwd.txt";
+    const args = [
+      "-e",
+      `require('node:fs').writeFileSync(${JSON.stringify(marker)}, process.cwd())`
+    ] as const;
+    const tool = new CommandTool({
+      allowedCommands: [{ executable: process.execPath, args }],
+      cwd: workspace
+    });
+
+    const result = await tool.execute(process.execPath, args);
+
+    expect(result).toMatchObject({ ok: true, value: { exitCode: 0 } });
+    await expect(readFile(join(workspace, marker), "utf8")).resolves.toBe(workspace);
+  });
+
   it("使用 executable 与 args 执行白名单命令", async () => {
     const args = ["-e", "process.stdout.write('ok')"] as const;
     const tool = new CommandTool({

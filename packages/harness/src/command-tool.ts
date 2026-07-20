@@ -11,6 +11,7 @@ import {
 
 export interface CommandToolOptions {
   allowedCommands: readonly CommandRule[];
+  cwd?: string;
   timeoutMs?: number;
   terminationGraceMs?: number;
   maxOutputBytes?: number;
@@ -35,12 +36,14 @@ export type CommandToolResult =
 
 export class CommandTool {
   readonly #allowedCommands: readonly CommandRule[];
+  readonly #cwd: string | undefined;
   readonly #timeoutMs: number;
   readonly #terminationGraceMs: number;
   readonly #maxOutputBytes: number;
 
   constructor(options: CommandToolOptions) {
     this.#allowedCommands = snapshotCommandRules(options.allowedCommands);
+    this.#cwd = options.cwd;
     this.#timeoutMs = options.timeoutMs ?? 60_000;
     this.#terminationGraceMs = options.terminationGraceMs ?? 250;
     this.#maxOutputBytes = options.maxOutputBytes ?? 32 * 1024;
@@ -147,6 +150,7 @@ export class CommandTool {
 
       try {
         child = spawn(executable, [...args], {
+          cwd: this.#cwd,
           detached: process.platform !== "win32",
           shell: false,
           stdio: ["ignore", "pipe", "pipe"],

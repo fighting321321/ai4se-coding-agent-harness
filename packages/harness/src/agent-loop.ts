@@ -24,6 +24,7 @@ export interface AgentLoopOptions {
   trace: JsonTrace;
   policy: PolicyEngine;
   approval?: ApprovalGate;
+  redactor?: Redactor;
   maxSteps?: number;
 }
 
@@ -45,7 +46,7 @@ export class AgentLoop {
   readonly #policy: PolicyEngine;
   readonly #approval: ApprovalGate;
   readonly #maxSteps: number;
-  readonly #redactor = new Redactor();
+  readonly #redactor: Redactor;
 
   constructor(options: AgentLoopOptions) {
     this.#provider = options.provider;
@@ -54,6 +55,7 @@ export class AgentLoop {
     this.#trace = options.trace;
     this.#policy = options.policy;
     this.#approval = options.approval ?? new ApprovalGate();
+    this.#redactor = options.redactor ?? new Redactor();
     this.#maxSteps = options.maxSteps ?? DEFAULT_MAX_STEPS;
     if (!Number.isInteger(this.#maxSteps) || this.#maxSteps < 1) {
       throw new Error("maxSteps 必须是正整数");
@@ -151,6 +153,19 @@ export class AgentLoop {
       }
 
       const action = parsed.value;
+      if (action.type !== "finish" && this.#redactor.containsSensitive(action)) {
+        const appended = await this.#append({
+          step,
+          action,
+          policy: "deny",
+          observation: "blocked: SENSITIVE_ACTION",
+          status: "blocked",
+          stopReason: "sensitive_action"
+        });
+        return appended
+          ? await this.#result("blocked", "动作包含敏感信息", iteration, traceStartStep)
+          : await this.#result("failed", "Trace 写入失败", iteration, traceStartStep);
+      }
       const decision = this.#policy.evaluate(action);
       if (decision === "deny") {
         const appended = await this.#append({

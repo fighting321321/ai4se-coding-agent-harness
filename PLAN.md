@@ -8,7 +8,7 @@
 
 **目标日期：** 2026-07-25
 
-**当前状态：** G1–G3 已通过，T05–T09 已合入 `dev`；T10 已在功能分支本地完成，待 MR/Pipeline
+**当前状态：** G1–G3 已通过，T05–T10 已合入 `dev`；T10 合并后安全收尾完成，T11 未开始
 
 ## 1. 目标与最小边界
 
@@ -72,7 +72,7 @@ pnpm build
 | T07 | 受限工具、治理与最小批准 | `feat/t07-safe-tools-policy` | 已合入 `dev`（MR !8，merge `4fb39c7`） | 7 |
 | T08 | 配置、JSON Memory 与脱敏 Trace | `feat/t08-config-memory` | 已合入 `dev`（MR !9，merge `6de04f9`） | 5 |
 | T09 | 反馈重点维度与自研 Agent Loop | `feat/t09-feedback-loop` | 已合入 `dev`（MR !11，merge `3b0d3fe`） | 6 |
-| T10 | 安全凭据、真实 Provider、CLI 与三演示 | `feat/t10-cli-provider-demo` | 本地完成（待 MR/Pipeline） | 7 |
+| T10 | 安全凭据、真实 Provider、CLI 与三演示 | `feat/t10-cli-provider-demo` | 已合入 `dev`（MR !12，merge `64458b8`） | 7 |
 | T11 | 静态 WebUI 与 GitLab Pages | `feat/t11-static-web` | 未开始 | 5 |
 | T12 | npm 分发、README、反思与最终审计 | `docs/t12-final-delivery` | 未开始 | 6 |
 
@@ -245,7 +245,7 @@ pnpm vitest run tests/unit/harness/credential-store.test.ts tests/unit/harness/o
 pnpm demo
 ```
 
-**执行证据（2026-07-20）：** 分支提交依次为 `2eedd1b`（规划）、`ff73d6b`（加密凭据）、`7d6d181`（凭据并发与 KDF 安全修复）、`6842cd2`（Provider/CLI 及最终安全修复）、`ad530ab`（三项离线演示），随后补本记录与清空规划提交，最终保持 7 条上限。CredentialStore 使用显式 scrypt \(N=2^{17},r=8,p=1\) 与 AES-256-GCM、跨进程锁和原子替换，拒绝弱主密码与空 Key；Provider 对根路径、`/v1` 和完整 endpoint 正确规范化，每次只发送一次不跟随重定向的请求，远端仅允许 HTTPS、本机回环允许 HTTP；CLI 提供隐藏录入、四项凭据命令和真实 Harness 组装。三项演示全部使用 `ScriptedMockLLM` 与 fake handler，自动证明治理零调用、失败反馈改动作及第二次业务失败停机。最终全分支审查的 3 个 Important 均以 RED→GREEN 修复并复审 PASS；重写后新鲜门禁为 20/20 测试文件、214/214 用例通过，`pnpm demo` 4/4，lint、typecheck、build、diff check 均退出码 0。未执行真实学校 API smoke，未使用或记录真实 Key；MR 与 Pipeline 尚未创建。
+**执行证据（2026-07-20）：** 分支提交依次为 `2eedd1b`（规划）、`ff73d6b`（加密凭据）、`7d6d181`（凭据并发与 KDF 安全修复）、`6842cd2`（Provider/CLI 及最终安全修复）、`ad530ab`（三项离线演示），随后补本记录与清空规划提交，最终保持 7 条上限。CredentialStore 使用显式 scrypt \(N=2^{17},r=8,p=1\) 与 AES-256-GCM、跨进程锁和原子替换，拒绝弱主密码与空 Key；Provider 对根路径、`/v1` 和完整 endpoint 正确规范化，每次只发送一次不跟随重定向的请求，远端仅允许 HTTPS、本机回环允许 HTTP；CLI 提供隐藏录入、四项凭据命令和真实 Harness 组装。三项演示全部使用 `ScriptedMockLLM` 与 fake handler，自动证明治理零调用、失败反馈改动作及第二次业务失败停机。最终全分支审查的 3 个 Important 均以 RED→GREEN 修复并复审 PASS；重写后新鲜门禁为 20/20 测试文件、214/214 用例通过，`pnpm demo` 4/4，lint、typecheck、build、diff check 均退出码 0。MR !12 已以 `64458b8` 合入 `dev`。合并后收尾又以 RED→GREEN 阻断包含当前凭据的工具 Action、让审批提示显示脱敏后的动作目标，并确保命令在配置 workspace 中执行；收尾门禁为 20/20 文件、218/218 用例及演示 4/4 通过。未执行真实学校 API smoke，未使用或记录真实 Key；Pipeline 状态留待最终审计核对。
 
 **建议提交：** 规划；凭据；Provider/CLI；三演示；评审/记录；清空 guiding。
 

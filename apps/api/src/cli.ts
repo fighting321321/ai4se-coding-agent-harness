@@ -155,6 +155,17 @@ function cachedApproval(handler: ApprovalHandler): ApprovalHandler {
   };
 }
 
+export function formatApprovalRequest(request: ApprovalRequest): string {
+  const action = request.action;
+  if (action.type === "read_file" || action.type === "write_file") {
+    return `动作 ${action.type}，目标 ${JSON.stringify(action.path)}`;
+  }
+  if (action.type === "run_command") {
+    return `动作 run_command，可执行文件 ${JSON.stringify(action.executable)}`;
+  }
+  return "动作 finish";
+}
+
 async function runTask(
   arguments_: TaskArguments,
   dependencies: CliDependencies
@@ -184,6 +195,7 @@ async function runTask(
   const files = new FileTools(workspace);
   const command = new CommandTool({
     allowedCommands: config.allowedCommands,
+    cwd: workspace,
     timeoutMs: config.commandTimeoutMs,
     maxOutputBytes: config.maxOutputBytes
   });
@@ -203,6 +215,7 @@ async function runTask(
     trace,
     policy,
     approval,
+    redactor,
     maxSteps: config.maxSteps
   }).run(arguments_.task);
 

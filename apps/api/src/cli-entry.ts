@@ -1,7 +1,7 @@
 import { emitKeypressEvents } from "node:readline";
 import { createInterface } from "node:readline/promises";
 
-import { runCli, type CliDependencies } from "./cli.js";
+import { formatApprovalRequest, runCli, type CliDependencies } from "./cli.js";
 
 async function readSecret(prompt: string): Promise<string> {
   if (!process.stdin.isTTY || !process.stdout.isTTY) {
@@ -52,10 +52,12 @@ function processDependencies(): CliDependencies {
   return {
     cwd: process.cwd(),
     readSecret,
-    askApproval: async () => {
+    askApproval: async (request) => {
       const prompt = createInterface({ input: process.stdin, output: process.stdout });
       try {
-        return (await prompt.question("是否批准该动作？[y/N] ")).trim().toLowerCase() === "y";
+        return (
+          await prompt.question(`${formatApprovalRequest(request)}。是否批准？[y/N] `)
+        ).trim().toLowerCase() === "y";
       } finally {
         prompt.close();
       }
