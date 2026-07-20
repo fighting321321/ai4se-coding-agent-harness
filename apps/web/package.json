@@ -4,6 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "dev:local": "vite --mode local-run --strictPort",
+    "test": "vitest run ../../tests/unit/web/static-page.test.ts ../../tests/unit/web/local-run-client.test.ts",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "build": "vite build"
   },

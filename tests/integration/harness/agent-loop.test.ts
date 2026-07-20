@@ -284,6 +284,32 @@ describe("AgentLoop", () => {
     expect(harness.handlerCalls).toEqual({ readFile: 0, writeFile: 0, runCommand: 0 });
   });
 
+  it("保留已知 Provider 错误代码但不泄露异常正文", async () => {
+    const harness = await createHarness([]);
+    const provider = {
+      complete: vi.fn(async () => {
+        throw Object.assign(new Error("secret remote body"), {
+          code: "PROVIDER_RATE_LIMITED"
+        });
+      })
+    };
+    const loop = new AgentLoop({
+      provider,
+      memory: harness.memory,
+      dispatcher: new Dispatcher(),
+      trace: harness.trace,
+      policy: new PolicyEngine({ allowedCommands: [] })
+    });
+
+    const result = await loop.run("rate limited");
+
+    expect(result.trace.at(-1)).toMatchObject({
+      status: "failed",
+      stopReason: "provider_rate_limited"
+    });
+    expect(JSON.stringify(result)).not.toContain("secret remote body");
+  });
+
   it("同一 AgentLoop 可以连续运行并追加唯一 Trace step", async () => {
     const harness = await createHarness([
       { raw: { type: "finish", summary: "first" } },

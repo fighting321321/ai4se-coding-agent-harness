@@ -30,6 +30,25 @@ export interface AgentLoopOptions {
 
 const DEFAULT_MAX_STEPS = 8;
 
+const PROVIDER_STOP_REASONS = new Map<string, string>([
+  ["PROVIDER_AUTHENTICATION_FAILED", "provider_authentication_failed"],
+  ["PROVIDER_RATE_LIMITED", "provider_rate_limited"],
+  ["PROVIDER_SERVER_ERROR", "provider_server_error"],
+  ["PROVIDER_HTTP_ERROR", "provider_http_error"],
+  ["PROVIDER_NETWORK_ERROR", "provider_network_error"],
+  ["PROVIDER_RESPONSE_INVALID", "provider_response_invalid"],
+  ["PROVIDER_ACTION_INVALID", "provider_action_invalid"]
+]);
+
+function providerStopReason(error: unknown): string {
+  if (typeof error !== "object" || error === null || !("code" in error)) {
+    return "provider_error";
+  }
+  return typeof error.code === "string"
+    ? PROVIDER_STOP_REASONS.get(error.code) ?? "provider_error"
+    : "provider_error";
+}
+
 function taskKeywords(task: string): readonly string[] {
   return (task.match(/[\p{L}\p{N}_-]+/gu) ?? []).slice(0, 20);
 }
@@ -125,13 +144,13 @@ export class AgentLoop {
           context: memory.value.map((item) => item.content),
           observations
         });
-      } catch {
+      } catch (error) {
         const appended = await this.#append({
           step,
           policy: "allow",
           observation: "environment_error: Provider failed",
           status: "failed",
-          stopReason: "provider_error"
+          stopReason: providerStopReason(error)
         });
         return appended
           ? await this.#result("failed", "Provider 调用失败", iteration, traceStartStep)

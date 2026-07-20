@@ -450,3 +450,39 @@
 - 根因与 RED：CLI 只把当前凭据交给 Memory/Trace 的 Redactor，Provider 返回的敏感工具 Action 仍能进入批准和 handler；CommandTool 没有 cwd，导致真实命令留在 CLI 启动目录；审批入口忽略 ApprovalRequest。新增真实 CLI/CommandTool 回归后得到 4 个预期失败，并用既有 AgentLoop 用例确认敏感 finish 摘要应脱敏完成而不是误阻断。
 - 修复：AgentLoop 接受调用方 Redactor，在 Policy、批准和工具前阻断含敏感信息的非 finish Action；CommandTool 支持 cwd，CLI 显式传入配置 workspace；审批提示只显示动作类型和目标，不显示写入正文或命令参数。
 - 验证：T10/T09 联合聚焦测试 3/3 文件、56/56 用例通过；完整测试 20/20 文件、218/218 用例，`pnpm demo` 4/4，lint、typecheck、build 和 diff check 均通过。未访问公网或使用真实 Key。
+
+### 2026-07-20 · T11 Task 1 共享 runner 与回环 API
+
+- RED/GREEN：锁定 Node 在获准的非沙箱环境运行 Harness/API/CLI 聚焦测试；初始因本地服务模块缺失及 Provider 限流停机分类不正确而 RED。实现共享 `runHarnessTask`、Fastify 工厂/进程入口、CLI 复用及闭合 Provider stopReason 后，3/3 文件、45/45 用例 GREEN，API typecheck/build 与 lint 退出 0。
+- 审查修复：配置缺失/无效仍读取主密码、畸形 JSON 与超限 body 均误报 500，共产生 4 项预期 RED；增加共享配置预检及 Fastify 客户端错误白名单后，2/2 文件、34/34 用例 GREEN。配置执行时仍会重验，未知异常仍固定映射 500，错误体不含正文、Key 或异常原因。
+- 评审与边界：Task 1 在 CLI 顺序和 Fastify 客户端错误修复后复审无遗留 finding；未使用真实 Key，未访问学校 API。
+
+### 2026-07-20 · T11 Task 2 静态/本地双入口 WebUI
+
+- RED/GREEN：`App`、`LocalApp` 和客户端尚不存在时两个测试套件按预期导入失败；实现静态页面、本地受控表单、单次 JSON POST 和 `local-run` 入口后 GREEN。local 构建曾错误采用静态入口，入口顺序测试先因缺 `order: "pre"` 失败，修复后静态 build 为 17 modules、本地 build 为 19 modules。
+- 安全审查：以 8 项 RED 复现结果回显当前 Key 与无效 Trace 被接受，随后递归拒绝含 Key 的结果，并精确验证 step、闭合枚举、可选字符串和四类 Action；对象化枚举再以 RED 复现原生转换异常，改为仅接受字符串后固定映射格式错误。两个 Web 测试最终 21/21 用例 GREEN。
+- 完整证据：SSR 类型门禁先暴露 NodeNext 扩展名和 JSX 配置错误；未放宽 strict 或排除测试，仅修正测试类型入口后完整 typecheck 通过。静态 artifact 扫描 `/api/runs|127\\.0\\.0\\.1|localhost|type="password"|sk-` 无匹配，lint、两种 build 与 diff check 通过；Task 2 经响应防泄漏、schema 和枚举复审后无遗留 finding。
+
+### 2026-07-20 · T11 Task 3 本地启动、Pages 与交付记录
+
+- TDD：先扩展 CI/launcher 契约；RED 为 `pages` job 和 `scripts/local-web.mjs` 缺失导致 3 项中 2 项失败。新增 launcher、根 `web:local` 和 Pages job 后，聚焦契约 3/3 GREEN；随后 lint 发现 `.mjs` 缺失 Node 全局声明，显式导入 `node:process`/`node:console` 后复跑通过。
+- 本地 smoke：锁定 Node 24.14.0 与 pnpm 11.14.0 下启动 `pnpm web:local`，确认 API 回环 `127.0.0.1:4174` 与 Vite `127.0.0.1:5173`；Ctrl+C 后端口无监听残留。未填写真实 Key，未调用学校 API。
+- Pages 边界：保留精确 `unit-test`，`pages` 仅依赖它并限默认分支；构建默认静态 Web，仅复制 `apps/web/dist/.` 至 `public` artifact。合约扫描确认不含 API Key、凭据文件或 `.ai4se` artifact。
+- 信号审查 Important：审查指出已注册的 SIGINT/SIGTERM handler 可能让父进程以 0 退出。先新增两个 launcher 行为测试，因可注入 runner 缺失而 RED；实现后直接断言 SIGINT→130、SIGTERM→143、两个仍运行子进程均收到清理信号，且其后续 `exit`/`error` 不能覆盖父进程状态。聚焦 CI/launcher 为 2/2 文件、5/5 用例 GREEN。
+- 新鲜完整门禁：修复后的 `pnpm test` 24/24 文件、258/258 用例；`pnpm demo` 4/4；`pnpm lint`、`pnpm typecheck`、`pnpm build` 和 `git diff --check` 均退出 0。此前 Task 2 测试配置阻断的 typecheck 已由上游提交 `a943446` 修复并复审，本任务未改其源码。
+- 交付边界：未执行 push/MR/Pipeline/Pages URL 或真实学校 API smoke；上述外部证据留待项目负责人补录。
+
+### 2026-07-20 · T11 全分支最终审查修复
+
+- RED/GREEN：端口、Web 安全呈现、launcher child error/exit 与静态安装命令测试先在 4 个文件中产生 23 项预期失败；最小实现后同组 47/47 GREEN。加上本地 API 与 CI 合约的聚焦复跑为 6/6 文件、62/62 用例通过。
+- 端口与启动器：API、Vite proxy 和 launcher 使用相同严格规则，只接受十进制 1..65535；launcher 把规范化端口环境传给两个子进程，且只输出“正在启动本地 API”，ready 由 API/Vite 自身监听日志证明。child `error`、正常零退出和非零退出都会置父进程为失败并只终止仍运行的同伴；stopping 后事件不覆盖状态或重复清理。
+- Web 与静态页：fetch 连接失败固定映射“本地服务未启动”，收到非 2xx 仍不解析远端正文并返回通用固定错误；SSR 结果视图显示已通过 schema 与递归 Key 检查的 summary 和各条 stopReason。静态命令区增加当前仓库可执行的 `pnpm install --frozen-lockfile`，未伪造 T12 tarball 命令。
+- 第一次新鲜完整门禁：`pnpm test` 为 25/25 文件、282/282 用例，`pnpm demo` 为 4/4，lint 与 typecheck 退出 0；静态 build 为 17 modules，默认 artifact 扫描无 `/api/runs`、回环地址、password input 或测试 Key，`local-run` build 为 19 modules。未使用真实 Key、未访问学校 API，也未执行 push/MR/Pipeline/Pages URL 验证。
+
+### 2026-07-21 · T11 真实 Provider smoke 与 Action 提示修复
+
+- 真实诊断：负责人创建限额临时 Key 并仅保存至 Git 忽略的 `.ai4se/temp-api-key.txt`；模型列表请求确认 `qwen-turbo` 与 `DeepSeek-R1` 等模型可用。诊断脚本从该文件读取 Key，只输出用当前 Key 精确替换后的响应；测试结束后逐个删除 Key 文件与诊断脚本，并要求负责人在平台撤销临时 Key。
+- 根因证据：旧 system message 未声明 Action schema，`qwen-turbo` 返回 HTTP 200 与 `{"action":"respond","content":"..."}`，Provider 能解析 JSON，但 Harness 以 `parse_error` 拒绝未知 Action。仅将 system message 改为四种精确 Action schema 并要求普通问答使用 `finish` 后，同一真实 API 返回 `{"type":"finish","summary":"..."}`。
+- TDD：Provider 请求契约在旧实现上为 27 项中 1 项预期 RED；最小提示修复后，Provider/AgentLoop/API 聚焦 3/3 文件、54/54 用例 GREEN。完整 `pnpm test` 为 25/25 文件、282/282 用例，lint、typecheck 与 build 均通过，默认静态构建 17 modules。
+- WebUI smoke：负责人使用 `https://njusehub.info/v1/chat/completions`、`qwen-turbo` 与简单问答观察到 `completed`，安全摘要正常，Trace 为 `finish · allow · completed · pass: finish`，停止原因为 `finish`；页面在结果后自动清空 API Key。`DeepSeek-R1` 仍可能因输出非纯 JSON 而得到 `provider_action_invalid`，不作为本次已验证兼容模型。
+- 外部边界：真实学校 API smoke 已完成；push、非 squash MR、Pipeline passed 与公开 Pages URL 仍由负责人执行和记录。

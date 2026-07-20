@@ -2,13 +2,13 @@
 
 > **For agentic workers:** 按 T06–T12 串行执行；每个 Task 使用独立 branch/worktree、一次新鲜 subagent、TDD、Spec 检查、质量检查和 MR Pipeline。步骤用 `guiding.md` 细化，不扩展本计划范围。
 
-**版本：** 2.1.0
+**版本：** 2.2.0
 
-**SPEC 基线：** `SPEC.md` 2.0.0
+**SPEC 基线：** `SPEC.md` 2.1.0
 
 **目标日期：** 2026-07-25
 
-**当前状态：** G1–G3 已通过，T05–T10 已合入 `dev`；T10 合并后安全收尾完成，T11 未开始
+**当前状态：** G1–G3 已通过，T05–T10 已合入 `dev`；T11 本地实现、全分支审查与真实学校 API smoke 已完成，等待负责人 push/MR、Pipeline 与 Pages URL
 
 ## 1. 目标与最小边界
 
@@ -20,7 +20,7 @@
 
 ```text
 apps/api → packages/harness
-apps/web（独立静态演示）
+apps/web（Pages 静态演示；本地显式模式 → apps/api）
 tests（跨模块测试与演示）
 ```
 
@@ -40,7 +40,7 @@ interface AgentLoop {
 }
 ```
 
-命令不得使用 Shell 字符串；Web 不依赖本地 API；真实 Key 只在本地 CLI 的安全凭据模块中使用。
+命令不得使用 Shell 字符串；Pages Web 不依赖 API；本地 Web 只把单次 Key 发送给回环 Fastify，Key 不落盘、不进日志/Trace/Memory/URL/浏览器存储，日常安全凭据仍由 CLI 加密模块管理。
 
 ## 3. 统一轻量执行规则
 
@@ -73,7 +73,7 @@ pnpm build
 | T08 | 配置、JSON Memory 与脱敏 Trace | `feat/t08-config-memory` | 已合入 `dev`（MR !9，merge `6de04f9`） | 5 |
 | T09 | 反馈重点维度与自研 Agent Loop | `feat/t09-feedback-loop` | 已合入 `dev`（MR !11，merge `3b0d3fe`） | 6 |
 | T10 | 安全凭据、真实 Provider、CLI 与三演示 | `feat/t10-cli-provider-demo` | 已合入 `dev`（MR !12，merge `64458b8`） | 7 |
-| T11 | 静态 WebUI 与 GitLab Pages | `feat/t11-static-web` | 未开始 | 5 |
+| T11 | 双模式 WebUI、本地 API 与 GitLab Pages | `feat/t11-static-web` | 本地实现、审查与真实 smoke 已完成；待负责人远端交付 | 7 |
 | T12 | npm 分发、README、反思与最终审计 | `docs/t12-final-delivery` | 未开始 | 6 |
 
 ## 5. T05：工程骨架与最小 CI（已完成）
@@ -249,7 +249,7 @@ pnpm demo
 
 **建议提交：** 规划；凭据；Provider/CLI；三演示；评审/记录；清空 guiding。
 
-## 11. T11：静态 WebUI 与 GitLab Pages
+## 11. T11：双模式 WebUI、本地 API 与 GitLab Pages
 
 **依赖：** T10 的脱敏 mock Trace 格式。
 
@@ -257,12 +257,14 @@ pnpm demo
 
 - Modify `apps/web/src/main.tsx`, `apps/web/vite.config.ts`, `apps/web/package.json`
 - Create `apps/web/src/demo-data.ts`, `apps/web/src/App.tsx`, `apps/web/src/styles.css`
-- Create Web unit tests
+- Create `apps/web/src/local-run-client.ts`, `apps/api/src/run-task.ts`, `apps/api/src/local-web-server.ts`, `apps/api/src/server-entry.ts`, `scripts/local-web.mjs`
+- Create Web/API unit and integration tests
+- Refactor `apps/api/src/cli.ts` to reuse the task runner
 - Modify `.gitlab-ci.yml` 增加 `pages` job
 
-**行为：** 展示价值、架构、固定运行轨迹、治理拦截、失败修正、Memory 摘要和命令；不连接 API、不读取 Key。页面提供清晰状态、键盘可操作基础交互和真实 Pages URL。
+**行为：** Pages 模式展示价值、架构、固定运行轨迹、治理拦截、失败修正、Memory 摘要和命令，不连接 API、不读取 Key。本地显式模式显示一次性 Provider/任务表单，经只监听 `127.0.0.1` 且校验 Origin 的 Fastify 服务运行完整 Harness；Key 不落盘、不回显，`ask` 动作默认拒绝。页面提供清晰状态、键盘可操作交互和真实 Pages URL。
 
-**TDD：** 核心标题、轨迹顺序、危险动作状态和零 Key 文本先 RED 后 GREEN。
+**TDD：** 本地 run route 验证/零泄露/默认拒绝批准、静态与本地构建边界、表单状态清理、核心标题、轨迹顺序、危险动作状态和 Pages artifact 边界均先 RED 后 GREEN。
 
 **验证：**
 
@@ -271,7 +273,17 @@ pnpm --filter @ai4se/web test
 pnpm --filter @ai4se/web build
 ```
 
-**建议提交：** 规划；UI RED；静态 UI；Pages/评审记录；清空 guiding。
+**建议提交：** 原静态规划；双模式设计；规格/实施计划；本地 API；双模式 UI；Pages/评审记录；清空 guiding。
+
+**T11 Task 1 执行证据（2026-07-20）：** 先以锁定 Node 运行 Harness/API/CLI 聚焦测试，因 `local-web-server.js` 不存在且 Provider 限流仍返回通用停机原因得到预期 RED；共享 `runHarnessTask`、回环 Fastify、CLI 复用和 Provider 安全停机分类实现后，3/3 文件、45/45 用例 GREEN，API typecheck/build 与 lint 退出 0。审查又以 4 项 RED 复现“配置错误前读取主密码”和 Fastify 畸形 JSON/body 超限误报 500；修复后 2/2 文件、34/34 用例 GREEN。错误响应只含固定码与中文消息，未回显请求正文、Key 或底层异常。
+
+**T11 Task 2 执行证据（2026-07-20）：** 静态 `App`、本地 `LocalApp` 与客户端缺失时，两个 Web 套件按预期导入失败；实现双入口、固定 mock 页面、受控表单与单次 POST 后 GREEN，并以额外入口顺序 RED 纠正 Vite `transformIndexHtml` 为 `order: "pre"`。审查阶段先用 8 项 RED 复现响应回显 Key 与 Trace schema 过宽，再补递归 Key 拒绝和精确 Action/Trace 校验；对象化枚举回归也先 RED 后改为字符串闭合枚举。最终两个 Web 文件 21/21 用例、完整 typecheck、静态 build（17 modules）、无匹配 artifact 扫描、`local-run` build（19 modules）、lint 与 diff check 均通过。
+
+**T11 Task 3 执行证据（2026-07-20）：** 新增根 `pnpm web:local` 与 `scripts/local-web.mjs`，按 `shell: false` 启动编译 API 和 Web `dev:local`（内部 Vite mode 为 `local-run`）；交互 smoke 确认 `127.0.0.1:4174` 与 `127.0.0.1:5173` 后以 Ctrl+C 关闭，复查无端口监听。CI 保留精确 `unit-test`，新增仅默认分支运行、`needs: ["unit-test"]` 的 `pages`，只发布 `apps/web/dist/.` 到 `public`。初始 RED 为 CI 合约 2 项预期失败（缺少 `pages`、launcher），GREEN 为 3/3 通过。复审发现父进程信号退出码 Important 后，新增 launcher 行为 RED（runner 模块缺失），实现 SIGINT→130、SIGTERM→143、双子进程清理及停止期间忽略 child exit/error 覆盖；聚焦 CI/launcher 为 2/2 文件、5/5 用例 GREEN。使用锁定 Node 24.14.0/pnpm 11.14.0 新鲜运行 `pnpm test`（24/24、258/258）、`pnpm demo`（4/4）、`pnpm lint`、`pnpm typecheck`、`pnpm build`、`git diff --check` 均通过；无真实 Key、学校 API smoke、MR、Pipeline 或 Pages URL 证据。
+
+**T11 全分支最终审查修复（2026-07-20）：** 端口组先新增 API listen/Vite proxy/launcher 非默认端口与严格非法值测试；Web 组先新增“本地服务未启动”和安全 summary/stopReason 结果视图；launcher/静态页组先新增 child error/零退出/非零退出及真实安装命令。合并运行时 4 个文件共观察到 23 项预期 RED，最小修复后 47/47 GREEN；扩展聚焦 API、端口、Web、launcher、静态页和 CI 为 6/6 文件、62/62 用例。实现统一接受十进制 1..65535 并把规范端口传入两子进程；启动器只声明“正在启动”，由服务自身日志提供 ready 证据；Web 仅对 fetch 连接失败显示“本地服务未启动”，非 2xx 不解析正文且仍使用固定通用错误，安全结果视图显示 summary 与每条 stopReason。静态页增加当前仓库真实命令 `pnpm install --frozen-lockfile`。第一次新鲜完整门禁为 25/25 文件、282/282 用例，demo 4/4，lint、typecheck 均退出 0；静态 build 17 modules、artifact 安全扫描无匹配，`local-run` build 19 modules。外部真实 API smoke、push/MR、Pipeline 与 Pages URL 仍未执行。
+
+**T11 真实 Provider smoke 与提示修复（2026-07-21）：** 首次本地页面调用学校 OpenAI-compatible API 时，`qwen-turbo` 在旧提示下返回 `{"action":"respond","content":"..."}`，触发确定性 `parse_error`；临时限额 Key 的模型列表与 Chat Completions 均返回 HTTP 200，证明 Key、endpoint 与模型可用。仅补全四种 Action 的精确 JSON schema，并明确普通问答必须使用 `finish` 后，同一模型直接诊断及 WebUI smoke 均返回 `{"type":"finish","summary":"..."}`。回归测试先观察到 27 项中 1 项预期 RED，随后 Provider/AgentLoop/API 聚焦 3/3 文件、54/54 GREEN；完整门禁为 25/25 文件、282/282 用例，lint、typecheck、build 均通过。负责人在本地页面观察到 `completed`、安全摘要及 `finish · allow · completed` Trace，Key 输入框自动清空；临时 Key 未进入聊天、源码、配置、日志、Trace、Memory、测试输出或 Git，诊断文件已删除并要求负责人在平台撤销。push/MR、Pipeline 与 Pages URL 仍未执行。
 
 ## 12. T12：分发、文档与最终交付
 

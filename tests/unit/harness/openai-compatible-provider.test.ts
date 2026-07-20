@@ -149,23 +149,30 @@ describe("OpenAICompatibleProvider", () => {
       expect(request?.url).toBe("/compatible/v1/chat/completions");
       expect(request?.headers.authorization).toBe("Bearer sk-local-provider-test");
       expect(request?.headers["content-type"]).toMatch(/^application\/json/iu);
-      expect(JSON.parse(request?.body ?? "")).toEqual({
-        model: "local-model",
-        messages: [
-          {
-            role: "system",
-            content: "你是本地编码智能体。只返回一个 JSON Action 对象。"
-          },
-          {
-            role: "user",
-            content: JSON.stringify({
-              task: "repair tests",
-              context: ["keep changes focused"],
-              observations: ["fail: first attempt"]
-            })
-          }
-        ]
+      const requestBody = JSON.parse(request?.body ?? "") as {
+        readonly model: string;
+        readonly messages: readonly { readonly role: string; readonly content: string }[];
+      };
+      expect(requestBody.model).toBe("local-model");
+      expect(requestBody.messages[1]).toEqual({
+        role: "user",
+        content: JSON.stringify({
+          task: "repair tests",
+          context: ["keep changes focused"],
+          observations: ["fail: first attempt"]
+        })
       });
+      const systemPrompt = requestBody.messages[0]?.content;
+      expect(systemPrompt).toContain('{"type":"read_file","path":"相对路径"}');
+      expect(systemPrompt).toContain(
+        '{"type":"write_file","path":"相对路径","content":"文件内容"}'
+      );
+      expect(systemPrompt).toContain(
+        '{"type":"run_command","executable":"命令","args":["参数"]}'
+      );
+      expect(systemPrompt).toContain('{"type":"finish","summary":"最终回答"}');
+      expect(systemPrompt).toContain("普通问答或不需要工具时，必须使用 finish Action");
+      expect(systemPrompt).toContain("不要使用 action、respond 或 content 字段");
     } finally {
       await stub.close();
     }

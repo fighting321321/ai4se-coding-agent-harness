@@ -1,24 +1,13 @@
-import { readFile } from "node:fs/promises";
 import { isAbsolute, join, resolve } from "node:path";
 
 import {
-  AgentLoop,
-  ApprovalGate,
-  CommandTool,
   CredentialStore,
-  Dispatcher,
-  FileTools,
-  JsonMemory,
-  JsonTrace,
-  OpenAICompatibleProvider,
-  PolicyEngine,
-  Redactor,
-  parseHarnessConfig,
   type ApprovalHandler,
   type ApprovalRequest,
-  type CredentialResult,
-  type HarnessConfig
+  type CredentialResult
 } from "@ai4se/harness";
+
+import { preflightHarnessTaskConfig, runHarnessTask } from "./run-task.js";
 
 export interface CliDependencies {
   readonly cwd: string;
@@ -126,25 +115,6 @@ function parseTaskArguments(
   return { task, configPath };
 }
 
-async function loadConfig(
-  path: string,
-  dependencies: CliDependencies
-): Promise<HarnessConfig | undefined> {
-  let input: unknown;
-  try {
-    input = JSON.parse(await readFile(path, "utf8")) as unknown;
-  } catch {
-    dependencies.writeError("配置读取失败");
-    return undefined;
-  }
-  const parsed = parseHarnessConfig(input);
-  if (!parsed.ok) {
-    dependencies.writeError(`配置无效：${parsed.error.code}`);
-    return undefined;
-  }
-  return parsed.value;
-}
-
 function cachedApproval(handler: ApprovalHandler): ApprovalHandler {
   let answer: boolean | undefined;
   return async (request: ApprovalRequest) => {
@@ -170,8 +140,13 @@ async function runTask(
   arguments_: TaskArguments,
   dependencies: CliDependencies
 ): Promise<number> {
-  const config = await loadConfig(arguments_.configPath, dependencies);
-  if (config === undefined) {
+  const configuration = await preflightHarnessTaskConfig(arguments_.configPath);
+  if (!configuration.ok) {
+    dependencies.writeError(
+      configuration.error.code === "RUN_CONFIG_READ_FAILED"
+        ? "配置读取失败"
+        : `配置无效：${configuration.error.message}`
+    );
     return 1;
   }
   const store = new CredentialStore(join(dependencies.cwd, ".ai4se", "credentials.json"));
@@ -182,48 +157,29 @@ async function runTask(
     return 1;
   }
 
-  const workspace = resolve(dependencies.cwd, config.workspace);
-  const redactor = new Redactor([credential.value]);
-  const memory = new JsonMemory(resolve(workspace, config.memoryPath), redactor);
-  const trace = new JsonTrace(join(workspace, ".ai4se", "trace.json"), redactor);
-  const policy = new PolicyEngine({ allowedCommands: config.allowedCommands });
-  const approval = new ApprovalGate(
-    dependencies.askApproval === undefined
+  const result = await runHarnessTask({
+    cwd: dependencies.cwd,
+    configPath: arguments_.configPath,
+    task: arguments_.task,
+    provider: { apiKey: credential.value },
+    approval: dependencies.askApproval === undefined
       ? undefined
       : cachedApproval(dependencies.askApproval)
-  );
-  const files = new FileTools(workspace);
-  const command = new CommandTool({
-    allowedCommands: config.allowedCommands,
-    cwd: workspace,
-    timeoutMs: config.commandTimeoutMs,
-    maxOutputBytes: config.maxOutputBytes
   });
-  const dispatcher = new Dispatcher();
-  dispatcher.register("read_file", (action) => files.readText(action.path));
-  dispatcher.register("write_file", (action) => files.writeText(action.path, action.content));
-  dispatcher.register("run_command", (action) => command.execute(action.executable, action.args));
-  dispatcher.register("finish", (action) => action.summary);
-  const provider = new OpenAICompatibleProvider({
-    ...config.provider,
-    apiKey: credential.value
-  });
-  const result = await new AgentLoop({
-    provider,
-    memory,
-    dispatcher,
-    trace,
-    policy,
-    approval,
-    redactor,
-    maxSteps: config.maxSteps
-  }).run(arguments_.task);
+  if (!result.ok) {
+    dependencies.writeError(
+      result.error.code === "RUN_CONFIG_READ_FAILED"
+        ? "配置读取失败"
+        : `配置无效：${result.error.message}`
+    );
+    return 1;
+  }
 
-  if (result.status === "completed") {
+  if (result.value.status === "completed") {
     dependencies.writeOut("任务状态：completed");
     return 0;
   }
-  dependencies.writeError(`任务执行未完成：${result.status}`);
+  dependencies.writeError(`任务执行未完成：${result.value.status}`);
   return 1;
 }
 

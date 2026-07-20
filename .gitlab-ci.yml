@@ -1,5 +1,6 @@
 stages:
   - test
+  - deploy
 
 unit-test:
   stage: test
@@ -15,3 +16,23 @@ unit-test:
     - pnpm lint
     - pnpm typecheck
     - pnpm build
+
+pages:
+  stage: deploy
+  image: node:24.14.0-bookworm-slim
+  needs: ["unit-test"]
+  variables:
+    CI: "true"
+  before_script:
+    - corepack enable
+    - corepack prepare pnpm@11.14.0 --activate
+  script:
+    - pnpm install --frozen-lockfile
+    - pnpm --filter @ai4se/web build
+    - mkdir public
+    - cp -R apps/web/dist/. public/
+  artifacts:
+    paths:
+      - public
+  rules:
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'

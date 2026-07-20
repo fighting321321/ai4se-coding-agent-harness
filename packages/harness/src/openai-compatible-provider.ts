@@ -96,6 +96,17 @@ function errorForStatus(status: number): OpenAICompatibleProviderError {
   return providerError("PROVIDER_HTTP_ERROR", "Provider HTTP 请求失败");
 }
 
+const ACTION_SYSTEM_PROMPT = [
+  "你是本地编码智能体。只返回一个 JSON 对象，不要返回 Markdown 或解释。",
+  "合法 Action 仅有以下四种：",
+  '{"type":"read_file","path":"相对路径"}',
+  '{"type":"write_file","path":"相对路径","content":"文件内容"}',
+  '{"type":"run_command","executable":"命令","args":["参数"]}',
+  '{"type":"finish","summary":"最终回答"}',
+  "普通问答或不需要工具时，必须使用 finish Action。",
+  "不要使用 action、respond 或 content 字段代替 type 和 summary。"
+].join("\n");
+
 export class OpenAICompatibleProvider implements LLMProvider {
   readonly #endpoint: string;
   readonly #model: string;
@@ -125,7 +136,7 @@ export class OpenAICompatibleProvider implements LLMProvider {
           messages: [
             {
               role: "system",
-              content: "你是本地编码智能体。只返回一个 JSON Action 对象。"
+              content: ACTION_SYSTEM_PROMPT
             },
             {
               role: "user",
