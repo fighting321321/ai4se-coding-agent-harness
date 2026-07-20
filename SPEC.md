@@ -4,11 +4,11 @@
 
 | 字段 | 值 |
 | --- | --- |
-| 文档版本 | 2.0.0 |
-| 批准日期 | 2026-07-18 |
+| 文档版本 | 2.1.0 |
+| 批准日期 | 2026-07-20 |
 | 项目负责人 | 徐黄浩 |
 | 权威需求来源 | 本文件；`guide/AI4SE_Final_Project_通用要求.md` 与 `guide/AI4SE_Final_Project_A_Coding_Agent_Harness.md` 是不可删减的上位要求 |
-| 当前 Gate | G1、G2、G3 已通过；T05 已完成 |
+| 当前 Gate | G1、G2、G3 已通过；T05–T10 已完成，T11 双模式 WebUI 设计已批准 |
 | 实现范围 | T05–T12，一周内完成最低可用课程作业 |
 
 本版本取代 SPEC 1.0.0 的实现承诺。旧版本保留为 Git 历史和过程证据，不再要求实现数据库、多用户平台、复杂决策版本、SSE、Docker 或线上后端。任何删减都不得违反上述两份课程原始要求。
@@ -35,7 +35,7 @@
 3. 作为安全负责人，我希望越界路径、危险命令和未批准副作用在执行前被代码拦截，以便工具调用次数保持为零。
 4. 作为开发者，我希望失败退出码和摘要回灌给 Agent，使 mock LLM 能选择不同的下一动作并成功结束。
 5. 作为重复使用者，我希望项目约定和最近结果写入本地记忆，并只把相关条目加入上下文。
-6. 作为真实模型使用者，我希望安全录入、查看状态、更新和清除学校 OpenAI-compatible API Key，而不在源码、Git、日志或 WebUI 中暴露明文。
+6. 作为真实模型使用者，我希望安全录入、查看状态、更新和清除学校 OpenAI-compatible API Key；本地 WebUI 可为单次运行临时接收 Key，但明文不得进入源码、Git、日志、Trace、Memory、URL 或浏览器持久化存储。
 7. 作为评审者，我希望一条命令运行全部离线测试和三项机制演示，并能访问公开静态 WebUI 理解运行轨迹。
 8. 作为新用户，我希望从 npm tarball 在全新目录安装并按照 README 完成配置与运行。
 
@@ -63,7 +63,7 @@
 - Docker、Kubernetes、云数据库、线上后端和运维体系。
 - 多 Provider、凭据轮换、性能压测、故障矩阵和浏览器 e2e。
 
-静态 WebUI 只展示固定的 mock 运行轨迹，不接收 Key、不执行真实 Agent；真实学校 API 仅在本地 CLI 中使用。
+GitLab Pages 静态 WebUI 只展示固定的 mock 运行轨迹，不接收 Key、不执行真实 Agent。本地显式启动的 WebUI 可把单次填写的 Provider 配置和 Key 发送给仅监听 `127.0.0.1` 的 Fastify 服务，调用完整 Harness；该入口不部署线上后端，也不替代 CLI 加密凭据流程。
 
 ## 4. 领域与机制设计
 
@@ -168,9 +168,11 @@ JSON 配置通过运行时 schema 校验，至少包含工作区路径、允许�
 
 演示不联网、不使用真实 Key，失败时进程退出非零。
 
-### 5.7 静态 WebUI
+### 5.7 双模式 WebUI
 
-GitLab Pages 展示项目价值、最小架构、固定 mock Trace、治理拦截、失败修正、Memory 摘要、安装和演示命令。页面不依赖 API 服务，不读取 Key，不声称能在线执行真实 Agent。
+GitLab Pages 展示项目价值、最小架构、固定 mock Trace、治理拦截、失败修正、Memory 摘要、安装和演示命令。Pages 构建不依赖 API 服务，不读取 Key，不包含真实运行表单，也不声称能在线执行真实 Agent。
+
+本地构建模式显示任务、OpenAI-compatible endpoint、模型名和 password 类型 Key 输入，经相对 `/api/runs` 请求交给回环 Fastify 服务。Key 只在一次运行的浏览器与 Node 进程内存中短暂存在；成功或失败后清空前端状态，后端不落盘、不回显、不记录。服务读取本地 `.ai4se/config.json` 的工作区与工具限制，请求不能覆盖命令白名单、超时、输出或步数边界；`ask` 动作默认拒绝并提示改用 CLI 获取人工批准。
 
 ### 5.8 分发与文档
 
@@ -182,15 +184,15 @@ GitLab Pages 展示项目价值、最小架构、固定 mock Trace、治理拦�
 ## 6. 架构与数据流
 
 ```text
-apps/api (本地 CLI / Fastify 健康入口)
+apps/api (本地 CLI / 仅回环 Fastify 真实运行入口)
         ↓
 packages/harness (Action、Provider、工具、治理、记忆、反馈、循环)
 
-apps/web (独立静态 mock 演示，发布到 GitLab Pages)
+apps/web (Pages 静态 mock；本地显式模式连接 apps/api)
 tests (跨模块单测、集成测试和机制演示)
 ```
 
-`apps/api → packages/harness`。`apps/web` 不依赖本地 API，只消费固定且脱敏的演示数据。Harness 不依赖 React、Fastify 或现成 Agent 框架。
+`apps/api → packages/harness`。Pages 模式的 `apps/web` 只消费固定且脱敏的演示数据；本地显式模式通过 `/api/runs → apps/api` 调用 Harness。Harness 不依赖 React、Fastify 或现成 Agent 框架。
 
 本地真实运行数据流：CLI 读取配置与加密凭据 → Harness 选择 Memory → Provider 单次补全 → 解析 Action → Policy → Tool → Feedback → Trace → 下一轮或停机。
 
@@ -239,7 +241,7 @@ Memory 和 Trace 使用本地 JSON；加密凭据单独存储，三者不得混�
 - TypeScript strict：共享类型并减少 Action/状态错误。
 - Node.js 24、pnpm 11：与现有骨架和 CI 一致。
 - Vitest：mock 机制的快速离线测试。
-- Fastify：只保留本地 API/健康入口，不承载线上服务。
+- Fastify：提供仅监听 `127.0.0.1` 且校验本地 Origin 的运行入口，不承载线上服务。
 - React + Vite：构建静态 WebUI；选择 Open Design 的简洁中性设计原则与前端设计 skill，重点检查信息层级、状态颜色、键盘可用性和响应式布局，不为课程作业引入额外设计系统运行时。
 - Node `crypto`：scrypt + AES-256-GCM 加密凭据，避免额外原生钥匙串依赖。
 - npm tarball：满足包管理器分发要求，降低 Docker 和部署成本。
@@ -274,7 +276,7 @@ Memory 和 Trace 使用本地 JSON；加密凭据单独存储，三者不得混�
 ## 12. 风险与决策
 
 - 学校 API 的实际模型名、配额和兼容差异在 T10 由负责人本地验证；失败不允许伪造成功。
-- GitLab Pages 只能展示静态 mock 数据，这是明确限制，不等同在线 Agent 服务。
+- GitLab Pages 只能展示静态 mock 数据，这是明确限制，不等同在线 Agent 服务；真实 Web 模式必须由用户在本机显式启动，且 Key 仍会短暂存在于浏览器和 Node 进程内存。
 - 加密文件安全依赖主密码强度；README 必须说明遗忘主密码无法恢复、进程内存仍可能暴露明文。
 - npm tarball 首版只承诺 Node 24 和文档列出的主要平台。
 - 项目负责人已接受功能广度和企业级扩展性下降，以换取在课程截止前形成完整、可运行、可解释的交付物。

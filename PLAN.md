@@ -2,13 +2,13 @@
 
 > **For agentic workers:** 按 T06–T12 串行执行；每个 Task 使用独立 branch/worktree、一次新鲜 subagent、TDD、Spec 检查、质量检查和 MR Pipeline。步骤用 `guiding.md` 细化，不扩展本计划范围。
 
-**版本：** 2.1.0
+**版本：** 2.2.0
 
-**SPEC 基线：** `SPEC.md` 2.0.0
+**SPEC 基线：** `SPEC.md` 2.1.0
 
 **目标日期：** 2026-07-25
 
-**当前状态：** G1–G3 已通过，T05–T10 已合入 `dev`；T10 合并后安全收尾完成，T11 未开始
+**当前状态：** G1–G3 已通过，T05–T10 已合入 `dev`；T11 双模式 WebUI 设计已批准并进入实施规划
 
 ## 1. 目标与最小边界
 
@@ -20,7 +20,7 @@
 
 ```text
 apps/api → packages/harness
-apps/web（独立静态演示）
+apps/web（Pages 静态演示；本地显式模式 → apps/api）
 tests（跨模块测试与演示）
 ```
 
@@ -40,7 +40,7 @@ interface AgentLoop {
 }
 ```
 
-命令不得使用 Shell 字符串；Web 不依赖本地 API；真实 Key 只在本地 CLI 的安全凭据模块中使用。
+命令不得使用 Shell 字符串；Pages Web 不依赖 API；本地 Web 只把单次 Key 发送给回环 Fastify，Key 不落盘、不进日志/Trace/Memory/URL/浏览器存储，日常安全凭据仍由 CLI 加密模块管理。
 
 ## 3. 统一轻量执行规则
 
@@ -73,7 +73,7 @@ pnpm build
 | T08 | 配置、JSON Memory 与脱敏 Trace | `feat/t08-config-memory` | 已合入 `dev`（MR !9，merge `6de04f9`） | 5 |
 | T09 | 反馈重点维度与自研 Agent Loop | `feat/t09-feedback-loop` | 已合入 `dev`（MR !11，merge `3b0d3fe`） | 6 |
 | T10 | 安全凭据、真实 Provider、CLI 与三演示 | `feat/t10-cli-provider-demo` | 已合入 `dev`（MR !12，merge `64458b8`） | 7 |
-| T11 | 静态 WebUI 与 GitLab Pages | `feat/t11-static-web` | 未开始 | 5 |
+| T11 | 双模式 WebUI、本地 API 与 GitLab Pages | `feat/t11-static-web` | 设计已批准，规划中 | 7 |
 | T12 | npm 分发、README、反思与最终审计 | `docs/t12-final-delivery` | 未开始 | 6 |
 
 ## 5. T05：工程骨架与最小 CI（已完成）
@@ -249,7 +249,7 @@ pnpm demo
 
 **建议提交：** 规划；凭据；Provider/CLI；三演示；评审/记录；清空 guiding。
 
-## 11. T11：静态 WebUI 与 GitLab Pages
+## 11. T11：双模式 WebUI、本地 API 与 GitLab Pages
 
 **依赖：** T10 的脱敏 mock Trace 格式。
 
@@ -257,12 +257,14 @@ pnpm demo
 
 - Modify `apps/web/src/main.tsx`, `apps/web/vite.config.ts`, `apps/web/package.json`
 - Create `apps/web/src/demo-data.ts`, `apps/web/src/App.tsx`, `apps/web/src/styles.css`
-- Create Web unit tests
+- Create `apps/web/src/local-run-client.ts`, `apps/api/src/run-task.ts`, `apps/api/src/local-web-server.ts`, `apps/api/src/server-entry.ts`, `scripts/local-web.mjs`
+- Create Web/API unit and integration tests
+- Refactor `apps/api/src/cli.ts` to reuse the task runner
 - Modify `.gitlab-ci.yml` 增加 `pages` job
 
-**行为：** 展示价值、架构、固定运行轨迹、治理拦截、失败修正、Memory 摘要和命令；不连接 API、不读取 Key。页面提供清晰状态、键盘可操作基础交互和真实 Pages URL。
+**行为：** Pages 模式展示价值、架构、固定运行轨迹、治理拦截、失败修正、Memory 摘要和命令，不连接 API、不读取 Key。本地显式模式显示一次性 Provider/任务表单，经只监听 `127.0.0.1` 且校验 Origin 的 Fastify 服务运行完整 Harness；Key 不落盘、不回显，`ask` 动作默认拒绝。页面提供清晰状态、键盘可操作交互和真实 Pages URL。
 
-**TDD：** 核心标题、轨迹顺序、危险动作状态和零 Key 文本先 RED 后 GREEN。
+**TDD：** 本地 run route 验证/零泄露/默认拒绝批准、静态与本地构建边界、表单状态清理、核心标题、轨迹顺序、危险动作状态和 Pages artifact 边界均先 RED 后 GREEN。
 
 **验证：**
 
@@ -271,7 +273,7 @@ pnpm --filter @ai4se/web test
 pnpm --filter @ai4se/web build
 ```
 
-**建议提交：** 规划；UI RED；静态 UI；Pages/评审记录；清空 guiding。
+**建议提交：** 原静态规划；双模式设计；规格/实施计划；本地 API；双模式 UI；Pages/评审记录；清空 guiding。
 
 ## 12. T12：分发、文档与最终交付
 
