@@ -8,7 +8,7 @@
 
 **目标日期：** 2026-07-25
 
-**当前状态：** G1–G3 已通过，T05–T10 已合入 `dev`；T11 本地实现、全分支审查与真实学校 API smoke 已完成，等待负责人 push/MR、Pipeline 与 Pages URL
+**当前状态：** G1–G3 已通过，T05–T11 已合入 `dev`；T12 待执行 npm 分发、文档、本人反思与最终审计，Pipeline 与 Pages URL 在 T12 核验
 
 ## 1. 目标与最小边界
 
@@ -73,7 +73,7 @@ pnpm build
 | T08 | 配置、JSON Memory 与脱敏 Trace | `feat/t08-config-memory` | 已合入 `dev`（MR !9，merge `6de04f9`） | 5 |
 | T09 | 反馈重点维度与自研 Agent Loop | `feat/t09-feedback-loop` | 已合入 `dev`（MR !11，merge `3b0d3fe`） | 6 |
 | T10 | 安全凭据、真实 Provider、CLI 与三演示 | `feat/t10-cli-provider-demo` | 已合入 `dev`（MR !12，merge `64458b8`） | 7 |
-| T11 | 双模式 WebUI、本地 API 与 GitLab Pages | `feat/t11-static-web` | 本地实现、审查与真实 smoke 已完成；待负责人远端交付 | 7 |
+| T11 | 双模式 WebUI、本地 API 与 GitLab Pages | `feat/t11-static-web` | 已合入 `dev`（MR !13，merge `7c68221`）；Pipeline/Pages 待 T12 核验 | 7 |
 | T12 | npm 分发、README、反思与最终审计 | `docs/t12-final-delivery` | 未开始 | 6 |
 
 ## 5. T05：工程骨架与最小 CI（已完成）
@@ -320,6 +320,10 @@ pnpm pack
 还需确认：npm tarball smoke、GitLab Pages 可访问、最终 `dev → main` MR、`main` 最新 Pipeline passed。
 
 **建议提交：** 规划；打包/smoke；README/许可证；负责人反思；最终审计；清空 guiding。
+
+**最终审计执行证据（2026-07-21）：** 新增 `scripts/final-audit.mjs`、根 `final:audit` 和审计测试；CI `unit-test` 设置 `GIT_DEPTH: "0"`，在 install/test/lint/typecheck/build 后依次运行 demo、Harness build/pack 和 final audit，pack 输出到已忽略的 `.ai4se/harness-pack`，`pages` 仍只发布 `apps/web/dist/.`。初始有效 RED 为新增 10 项失败、既有 283 项通过，原因仅为审计脚本与 CI 命令缺失；最小 GREEN 为 2/2 文件、13/13。审查阶段再逐项 RED→GREEN：四类含 NUL 历史 blob 4/14→14/14、index stage 覆盖 1/15→15/15、恶意诊断路径泄漏→16/16、Pages 新增危险文件 6 项失败→子集 14/14、8 MiB+1 被接受→稳定大小上限 1/1。内存审查再以 48 个唯一 1 MiB 历史 blob 获得有效 RED（旧实现触发 `AUDIT_TEST_BUFFER_BUDGET`），改为 64 OID/16 MiB 有界批次、即时分类并只保留 `oid -> category[]` 后，在 16 MiB V8 heap 与单 Map 20 MiB Buffer 预算下 1/1 GREEN；真实 mode `160000` gitlink 先令旧实现退出 2，跳过 gitlink 且继续扫描 mode `120000` symlink 后 1/1 GREEN。最终历史扫描使用 NUL 安全对象遍历和逐提交有界处理，工作树与 index 均扫描，诊断位置先脱敏后转义，Pages 采用最小 allowlist。真实仓库审计退出 0；聚焦 2/2 文件、28/28，完整测试 27/27 文件、309/309（31.57 秒），演示 4/4，lint、typecheck、build 均退出 0。CI 等价 pack 生成唯一 20,504-byte tarball 后已按明确单文件清理，空子目录非递归删除，`.ai4se` 保留。README、LICENSES、负责人 REFLECTION 和离线包 smoke 由此前提交保留，本任务不修改产品功能、README、REFLECTION 或 guiding。此前负责人 Provider smoke 的非敏感结果为 `https://njusehub.info/v1/chat/completions`、`qwen-turbo`、HTTP 200、`completed`、1 step、`finish`、无 Key 回显。GitLab MR、最新 Pipeline passed 与公开 Pages URL 仍为“待负责人远端操作/核验”，未执行任何远端写操作。
+
+**最终整分支审查修复（2026-07-21）：** 三项 Important 均按 TDD 闭环。slim 镜像 Git 契约先 RED，再仅在 `unit-test` 的 `before_script` 分行执行 `apt-get update`、无推荐依赖安装 Git、清理 apt lists 与 `git --version`；Pages 不额外安装。untracked canary 先返回 0，修复后当前文件范围为 `--cached --others --exclude-standard -z`；物理 symlink 读取 link text 而不跟随目标，当前 Windows 创建 symlink 因 EPERM 条件跳过。192 个小型唯一历史 blob 先触发 Map 条目预算，分类缓存改为固定 64 条 LRU；移除无界 `reportedPaths`，findings 固定上限 256，257 个命中稳定以 `FINDING_LIMIT` 和状态 2 fail-closed，且同类别/路径保留首次扫描提交。聚焦为 32 passed/1 skipped；完整测试 27/27 文件、313 passed/1 skipped（314 total，37.83 秒），lint、typecheck、build、demo、final audit 与 diff check 均退出 0。未修改 README、REFLECTION 或 guiding，未做远端写操作。
 
 ## 13. Guide 硬性要求覆盖
 

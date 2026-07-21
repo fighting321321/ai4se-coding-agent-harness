@@ -1,17 +1,29 @@
 {
   "name": "@ai4se/harness",
-  "version": "0.0.0",
-  "private": true,
+  "version": "0.1.0",
+  "description": "可确定性验证的教学型 Coding Agent Harness 内核",
+  "license": "UNLICENSED",
   "type": "module",
+  "engines": {
+    "node": ">=24.0.0 <25.0.0"
+  },
+  "files": [
+    "dist",
+    "bin",
+    "README.md"
+  ],
   "scripts": {
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "build": "tsc -p tsconfig.json"
   },
+  "types": "./dist/index.d.ts",
   "exports": {
     ".": {
-      "types": "./src/index.ts",
-      "development": "./src/index.ts",
-      "default": "./dist/index.js"
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
     }
+  },
+  "bin": {
+    "ai4se-harness": "./bin/ai4se-harness.mjs"
   }
 }

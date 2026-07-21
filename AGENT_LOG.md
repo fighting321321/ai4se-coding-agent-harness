@@ -486,3 +486,31 @@
 - TDD：Provider 请求契约在旧实现上为 27 项中 1 项预期 RED；最小提示修复后，Provider/AgentLoop/API 聚焦 3/3 文件、54/54 用例 GREEN。完整 `pnpm test` 为 25/25 文件、282/282 用例，lint、typecheck 与 build 均通过，默认静态构建 17 modules。
 - WebUI smoke：负责人使用 `https://njusehub.info/v1/chat/completions`、`qwen-turbo` 与简单问答观察到 `completed`，安全摘要正常，Trace 为 `finish · allow · completed · pass: finish`，停止原因为 `finish`；页面在结果后自动清空 API Key。`DeepSeek-R1` 仍可能因输出非纯 JSON 而得到 `provider_action_invalid`，不作为本次已验证兼容模型。
 - 外部边界：真实学校 API smoke 已完成；push、非 squash MR、Pipeline passed 与公开 Pages URL 仍由负责人执行和记录。
+
+### 2026-07-21 · T12 启动前 T11 合并与 Windows 基线修复
+
+- 合并状态：T11 已通过 MR !13 以 merge commit `7c68221` 合入 `dev`；公开 Pages URL 与远端 Pipeline 状态仍留给 T12 使用真实结果核验，不以本地合并记录代替。
+- 基线问题：pull 后 Windows 工作区将 `.gitlab-ci.yml` 检出为 CRLF，CI 契约测试把 YAML 片段换行写死为 LF，导致完整测试 25 个文件中 1 个失败、281/282 用例通过；YAML 内容本身未改变。
+- 修复与验证：将该断言收窄为兼容 LF/CRLF 的精确结构匹配，聚焦 CI 契约测试恢复为 1/1 文件、3/3 用例通过；修复不改变 Pages job 或产品行为。
+
+### 2026-07-21 · T12 最终自动化审计与交付证据
+
+- 环境：固定使用 Codex bundled Node `24.14.0` 启动 pnpm `11.14.0`；受限沙箱中的 Vitest/Vite 或 Git 子进程 `spawn EPERM` 均按 brief 在非沙箱环境原命令复跑，没有充当 RED 或产品失败证据。
+- RED：先新增 CI 契约和最终审计测试；有效聚焦运行共 27 个文件、293 项，新增 10 项失败、既有 283 项通过。审计 9 项因 `scripts/final-audit.mjs` 不存在而失败，CI 1 项因 `unit-test` 缺少 `pnpm demo` 及后续命令而失败。
+- GREEN：实现无依赖 Node 审计、根 `final:audit` 与 CI 顺序后，CI/审计聚焦为 2/2 文件、13/13 用例通过。真实仓库预跑暴露低置信度测试占位符误报，先以新增用例得到 11 项中 1 项 RED，再收窄高置信度 OpenAI 规则，审计测试 11/11 GREEN。
+- 审查 RED/GREEN：`GIT_DEPTH` 先 1/3 RED 后 CI 3/3 GREEN；OpenAI/GitLab/AWS/PEM 四类含 NUL 历史 blob 先 4/14 RED，替换 `git grep -I` 为 `ls-tree -z` + `cat-file` 后 14/14 GREEN；stage 后工作树安全覆盖先 1/15 RED，index blob 扫描后 15/15 GREEN；raw tree 恶意路径真实回显 token、换行与 ANSI，位置脱敏/转义后 16/16 GREEN；Pages 新增危险文件 6 项 RED，最小 allowlist 后子集 14/14 GREEN；8 MiB+1 对象先被静默接受，明确上限后 1/1 GREEN。
+- 有界内存与 gitlink RED/GREEN：用 `git fast-import` 创建 48 个唯一 1 MiB 历史 blob，并在 16 MiB V8 heap 下用 preload 守卫限制单个 Map 累计 Buffer 不超过 20 MiB；旧实现确定性触发 `AUDIT_TEST_BUFFER_BUDGET` 并退出 2，重构后同一用例 1/1 GREEN（约 3.2 秒）。真实 index 写入 mode `160000` gitlink 与 mode `120000` symlink canary 后，旧实现把 commit OID 当 blob 而退出 2；过滤 gitlink、保留 symlink 正文扫描后 1/1 GREEN，canary 仍以状态 1 和脱敏诊断检出。
+- 审计行为：扫描 `git ls-files` 工作树、index blob 和 `git rev-list --all` 全部可达树/blob；四类规则共用同一来源，含 NUL 内容不跳过。历史按 commit 与最多 64 个 OID 的逻辑批次处理，正文批次以 16 MiB 为预算并在读取后立即分类，只长期保留 `oid -> category[]`；index 同样跳过 mode `160000` gitlink 并按有界批次扫描其他 blob。输出仅含稳定类别、经全规则脱敏并控制字符单行转义的相对路径/提交标识及处置提示。单对象超过 8 MiB 在读取正文前以稳定 `AUDIT_ERROR/BLOB_SIZE_LIMIT/位置` 失败。
+- CI/Pages：精确 job 名保持 `unit-test`，镜像 Node `24.14.0`、pnpm `11.14.0`，设置 `GIT_DEPTH: "0"`；install/test/lint/typecheck/build 后运行 demo、Harness build/pack 与 final audit，tarball 输出到已忽略的 `.ai4se/harness-pack`。`pages` 仍 `needs: ["unit-test"]`、仅默认分支运行且只复制 `apps/web/dist/.` 到 `public/`；artifact 只允许实际 Vite 的 `index.html` 与扁平 `assets`，拒绝 `.env*`、credentials 扩展、backend/functions/server/API 入口及其他文件。
+- 本地门禁：`pnpm install --frozen-lockfile` 显示 4 个 workspace 已是最新；最终聚焦为 2/2 文件、28/28 用例，`pnpm test` 为 27/27 文件、309/309 用例（31.57 秒）；`pnpm lint`、`pnpm typecheck`、`pnpm build` 均退出 0，Vite 构建 17 modules；`pnpm demo` 为 1/1 文件、4/4 用例。CI 等价 pack 生成唯一 `ai4se-harness-0.1.0.tgz`（20,504 bytes），随后按明确单文件删除并非递归删除空 `harness-pack` 子目录，保留 `.ai4se`；真实 `pnpm final:audit` 已扫描工作树、index、完整历史对象和现有 Pages artifact 并退出 0。
+- 分发与文档：完整测试包含从 tarball 离线安装、ESM 导入及 CLI smoke；README、LICENSES 和负责人本人 REFLECTION 已在此前 T12 提交交付，本提交保持 README/REFLECTION 不变。
+- Provider 证据：仅记录此前负责人本地实测的非敏感摘要——endpoint `https://njusehub.info/v1/chat/completions`、model `qwen-turbo`、HTTP 200、`completed`、1 step、`finish`、无 Key 回显；本任务没有联网或接触真实 Key。
+- 自审：测试 canary 只在运行时由片段拼接；脚本不把秘密放入参数、错误输出或快照；未新增依赖或修改锁文件；未修改产品功能、README、REFLECTION 或 guiding。
+- 远端缺口：未执行 push、MR、merge 或任何远端写操作。GitLab MR、最新 Pipeline passed 和公开 Pages URL 均待负责人远端操作/核验，本地契约与旧记录不替代实时状态。
+
+### 2026-07-21 · T12 最终整分支审查修复
+
+- Important 1（CI Git）：`node:24.14.0-bookworm-slim` 未声明 Git 安装。先让 pipeline contract 因四条命令缺失 RED；再仅在 `unit-test.before_script` 依次加入 `apt-get update`、`apt-get install -y --no-install-recommends git`、`rm -rf /var/lib/apt/lists/*`、`git --version`，Pages job 保持不安装 Git。
+- Important 2（工作树覆盖）：动态 untracked canary 在旧实现下状态 0。当前文件枚举改为 `git ls-files --cached --others --exclude-standard -z`；普通文件使用 `lstat` 后读取，symlink/reparse link 只用 `readlinkSync` 扫描 link text，绝不跟随目标。物理 symlink 用例在当前 Windows 因 `symlinkSync` EPERM 条件跳过，未以读取 target 冒充。
+- Important 3（真正内存上界）：192 个小型唯一历史 blob 使旧 `oid -> category[]` Map 触发 `AUDIT_TEST_MAP_ENTRY_BUDGET`；改为固定容量 64 的 LRU 后 GREEN。删除无界 `reportedPaths`，让 findings 以类别/路径键直接去重并固定为 256 条；257 个 untracked canary 从旧实现漏扫状态 0，修复后稳定状态 2、`AUDIT_ERROR | FINDING_LIMIT`，不回显秘密。另以 RED→GREEN 保证同类别/路径只保留 `rev-list` 首次扫描到的提交诊断。
+- 门禁：聚焦 audit+pipeline 为 2/2 文件、32 passed/1 skipped（33 total）；完整 `pnpm test` 为 27/27 文件、313 passed/1 skipped（314 total，37.83 秒）；`pnpm lint`、`pnpm typecheck`、`pnpm build`、`pnpm demo`、`pnpm final:audit` 均退出 0，Vite 构建 17 modules。未修改 README、REFLECTION、guiding 或锁文件，未新增依赖，未读取真实 Key，未执行远端操作。
