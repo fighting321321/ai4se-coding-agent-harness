@@ -514,3 +514,9 @@
 - Important 2（工作树覆盖）：动态 untracked canary 在旧实现下状态 0。当前文件枚举改为 `git ls-files --cached --others --exclude-standard -z`；普通文件使用 `lstat` 后读取，symlink/reparse link 只用 `readlinkSync` 扫描 link text，绝不跟随目标。物理 symlink 用例在当前 Windows 因 `symlinkSync` EPERM 条件跳过，未以读取 target 冒充。
 - Important 3（真正内存上界）：192 个小型唯一历史 blob 使旧 `oid -> category[]` Map 触发 `AUDIT_TEST_MAP_ENTRY_BUDGET`；改为固定容量 64 的 LRU 后 GREEN。删除无界 `reportedPaths`，让 findings 以类别/路径键直接去重并固定为 256 条；257 个 untracked canary 从旧实现漏扫状态 0，修复后稳定状态 2、`AUDIT_ERROR | FINDING_LIMIT`，不回显秘密。另以 RED→GREEN 保证同类别/路径只保留 `rev-list` 首次扫描到的提交诊断。
 - 门禁：聚焦 audit+pipeline 为 2/2 文件、32 passed/1 skipped（33 total）；完整 `pnpm test` 为 27/27 文件、313 passed/1 skipped（314 total，37.83 秒）；`pnpm lint`、`pnpm typecheck`、`pnpm build`、`pnpm demo`、`pnpm final:audit` 均退出 0，Vite 构建 17 modules。未修改 README、REFLECTION、guiding 或锁文件，未新增依赖，未读取真实 Key，未执行远端操作。
+
+### 2026-07-21 · dev 统一项目环境入口
+
+- 根因：系统默认 `D:\nodejs\pnpm.ps1` 固定调用 Node 20，与项目要求的 Node 24/pnpm 11 不兼容；直接启动 Vitest 虽可使用 Node 24，却绕过 pnpm 注入的 `npm_execpath`，使 tarball smoke 误报“未提供 pnpm 启动路径”。此前反复调整命令属于执行环境不一致，不是产品代码反复失效。
+- 决策：所有 Txx 已结束，后续收尾直接在 `dev` 提交。新增单一 PowerShell 入口，固定验证 Node 24.14.0/pnpm 11.14.0、设置 PATH 与 npm 启动元数据，并统一承载 install/test/lint/typecheck/build/demo/audit/all；未来智能体不得再手工拼接环境命令。
+- RED/GREEN 与门禁：环境契约先因统一脚本缺失得到 1/1 预期失败；初版脚本又暴露 Windows PowerShell 5.1 对无 BOM 中文源码的解析问题，改为纯 ASCII 脚本后 `versions` 精确输出 Node 24.14.0 与 pnpm 11.14.0。统一 `test` 最终为 28/28 文件、315/315 用例；统一 `all` 下同一完整测试、lint、typecheck、Harness/API/Web build（Vite 17 modules）、demo 4/4 和 final audit 全部退出 0。仓库根 `AGENTS.md` 固化此入口及后续直接在 `dev` 收尾的规则，最后复跑完整测试仍为 315/315。

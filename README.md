@@ -40,27 +40,24 @@ Harness 的六个维度及其对应实现是：
 
 ## 前提与源码安装
 
-首版只支持 Node.js `>=24.0.0 <25.0.0` 和 pnpm `11.14.0`。CI 使用 Linux Node 24；本地主要验收平台为 Windows 11。**每次安装、测试、构建、打包或运行前都应确认正在使用这组项目锁定运行时**，再在仓库根目录安装锁定依赖：
+首版只支持 Node.js `>=24.0.0 <25.0.0` 和 pnpm `11.14.0`。CI 使用 Linux Node 24；本地主要验收平台为 Windows 11。仓库提供统一的 PowerShell 环境入口，它会定位并校验 Node `24.14.0` 与 pnpm `11.14.0`，避免误用系统 Node 20：
 
 ```powershell
-node --version
-pnpm --version
-pnpm install --frozen-lockfile
+powershell -NoProfile -File .\scripts\project-env.ps1 versions
+powershell -NoProfile -File .\scripts\project-env.ps1 install
 ```
 
-`pnpm install --frozen-lockfile` 不会重算锁文件；版本不符合时应先切换到 Node 24 和 pnpm 11.14.0，而不是绕过引擎约束。
+`install` 内部执行 `pnpm install --frozen-lockfile`，不会重算锁文件。默认会从当前 Codex runtime、`AI4SE_NODE` 与 `AI4SE_PNPM_CLI` 中选择精确版本；找不到时会明确失败，而不是回退到不兼容的 Node 20。
 
 ## 检查、构建与离线机制演示
 
 在仓库根目录运行：
 
 ```powershell
-pnpm test
-pnpm lint
-pnpm typecheck
-pnpm build
-pnpm demo
+powershell -NoProfile -File .\scripts\project-env.ps1 all
 ```
+
+也可以把 `all` 替换为 `test`、`lint`、`typecheck`、`build`、`demo` 或 `audit`，只运行单项门禁。
 
 `pnpm demo` 是完全离线的三个自动断言：
 
