@@ -11,7 +11,6 @@ unit-test:
   before_script:
     - apt-get update
     - apt-get install -y --no-install-recommends git
-    - rm -rf /var/lib/apt/lists/*
     - git --version
     - corepack enable
     - corepack prepare pnpm@11.14.0 --activate
@@ -26,6 +25,11 @@ unit-test:
     - mkdir -p .ai4se/harness-pack
     - pnpm --filter @ai4se/harness pack --pack-destination .ai4se/harness-pack
     - pnpm final:audit
+  artifacts:
+    name: "ai4se-harness-$CI_COMMIT_REF_SLUG"
+    paths:
+      - .ai4se/harness-pack/*.tgz
+    expire_in: 1 year
 
 pages:
   stage: deploy

@@ -14,7 +14,6 @@ describe("GitLab pipeline", () => {
     const gitSetupCommands = [
       "apt-get update",
       "apt-get install -y --no-install-recommends git",
-      "rm -rf /var/lib/apt/lists/*",
       "git --version"
     ];
     for (const command of gitSetupCommands) {
@@ -44,6 +43,10 @@ describe("GitLab pipeline", () => {
       "pnpm --filter @ai4se/harness pack --pack-destination .ai4se/harness-pack"
     );
     expect(unitTest).not.toContain("../harness-pack");
+    expect(unitTest).not.toContain("rm -rf");
+    expect(unitTest).toContain('name: "ai4se-harness-$CI_COMMIT_REF_SLUG"');
+    expect(unitTest).toMatch(/artifacts:\r?\n {4}name:[\s\S]*?paths:\r?\n {6}- \.ai4se\/harness-pack\/\*\.tgz/u);
+    expect(unitTest).toContain("expire_in: 1 year");
     const commandOffsets = commands.map((command) => unitTest!.indexOf(command));
     expect(commandOffsets).toEqual([...commandOffsets].sort((left, right) => left - right));
     expect(yaml).not.toContain("docker:dind");

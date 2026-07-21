@@ -2,13 +2,13 @@
 
 > **For agentic workers:** 按 T06–T12 串行执行；每个 Task 使用独立 branch/worktree、一次新鲜 subagent、TDD、Spec 检查、质量检查和 MR Pipeline。步骤用 `guiding.md` 细化，不扩展本计划范围。
 
-**版本：** 2.2.0
+**版本：** 2.3.0
 
-**SPEC 基线：** `SPEC.md` 2.1.0
+**SPEC 基线：** `SPEC.md` 2.1.1
 
 **目标日期：** 2026-07-25
 
-**当前状态：** G1–G3 已通过，T05–T11 已合入 `dev`；T12 待执行 npm 分发、文档、本人反思与最终审计，Pipeline 与 Pages URL 在 T12 核验
+**当前状态：** G1–G3 已通过，T05–T12 已合入 `dev`；本地交付门禁已通过，等待最新 Pipeline、公开 Pages/Release URL 与最终 `dev → main`
 
 ## 1. 目标与最小边界
 
@@ -73,8 +73,8 @@ pnpm build
 | T08 | 配置、JSON Memory 与脱敏 Trace | `feat/t08-config-memory` | 已合入 `dev`（MR !9，merge `6de04f9`） | 5 |
 | T09 | 反馈重点维度与自研 Agent Loop | `feat/t09-feedback-loop` | 已合入 `dev`（MR !11，merge `3b0d3fe`） | 6 |
 | T10 | 安全凭据、真实 Provider、CLI 与三演示 | `feat/t10-cli-provider-demo` | 已合入 `dev`（MR !12，merge `64458b8`） | 7 |
-| T11 | 双模式 WebUI、本地 API 与 GitLab Pages | `feat/t11-static-web` | 已合入 `dev`（MR !13，merge `7c68221`）；Pipeline/Pages 待 T12 核验 | 7 |
-| T12 | npm 分发、README、反思与最终审计 | `docs/t12-final-delivery` | 未开始 | 6 |
+| T11 | 双模式 WebUI、本地 API 与 GitLab Pages | `feat/t11-static-web` | 已合入 `dev`（MR !13，merge `7c68221`）；公开 Pages URL 待最终核验 | 7 |
+| T12 | npm 分发、README、反思与最终审计 | `docs/t12-final-delivery` | 已合入 `dev`（MR !14，merge `6f8b5d6`） | 7 |
 
 ## 5. T05：工程骨架与最小 CI（已完成）
 
@@ -317,7 +317,7 @@ pnpm demo
 pnpm pack
 ```
 
-还需确认：npm tarball smoke、GitLab Pages 可访问、最终 `dev → main` MR、`main` 最新 Pipeline passed。
+本地 npm tarball 全新目录 smoke 已通过；还需确认 GitLab Release/Pages 可公开访问、最终 `dev → main` MR 与 `main` 最新 Pipeline passed。
 
 **建议提交：** 规划；打包/smoke；README/许可证；负责人反思；最终审计；清空 guiding。
 
