@@ -5,32 +5,69 @@ import { describe, expect, it } from "vitest";
 describe("GitLab pipeline", () => {
   it("使用 Node 24 运行全部根门禁且不依赖 Docker-in-Docker", () => {
     const yaml = readFileSync(".gitlab-ci.yml", "utf8");
+    const unitTest = yaml.match(/^unit-test:\r?\n(?<body>[\s\S]*?)(?=^[^ \r\n][^:\r\n]*:\r?$)/mu)
+      ?.groups?.body;
 
-    expect(yaml).toContain("unit-test:");
-    expect(yaml).toContain("node:24.14.0-bookworm-slim");
-    expect(yaml).toContain("pnpm install --frozen-lockfile");
-    expect(yaml).toContain("pnpm test");
-    expect(yaml).toContain("pnpm lint");
-    expect(yaml).toContain("pnpm typecheck");
-    expect(yaml).toContain("pnpm build");
+    expect(unitTest).toBeDefined();
+    expect(unitTest).toContain("node:24.14.0-bookworm-slim");
+    expect(unitTest).toMatch(/variables:\r?\n {4}CI: "true"\r?\n {4}GIT_DEPTH: "0"/u);
+    const gitSetupCommands = [
+      "apt-get update",
+      "apt-get install -y --no-install-recommends git",
+      "rm -rf /var/lib/apt/lists/*",
+      "git --version"
+    ];
+    for (const command of gitSetupCommands) {
+      expect(unitTest).toContain(`- ${command}`);
+    }
+    const gitSetupOffsets = gitSetupCommands.map((command) => unitTest!.indexOf(command));
+    expect(gitSetupOffsets).toEqual(
+      [...gitSetupOffsets].sort((left, right) => left - right)
+    );
+    expect(gitSetupOffsets.at(-1)).toBeLessThan(unitTest!.indexOf("corepack enable"));
+    const commands = [
+      "pnpm install --frozen-lockfile",
+      "pnpm test",
+      "pnpm lint",
+      "pnpm typecheck",
+      "pnpm build",
+      "pnpm demo",
+      "pnpm --filter @ai4se/harness build",
+      "pnpm --filter @ai4se/harness pack",
+      "pnpm final:audit"
+    ];
+    for (const command of commands) {
+      expect(unitTest).toContain(command);
+    }
+    expect(unitTest).toContain("mkdir -p .ai4se/harness-pack");
+    expect(unitTest).toContain(
+      "pnpm --filter @ai4se/harness pack --pack-destination .ai4se/harness-pack"
+    );
+    expect(unitTest).not.toContain("../harness-pack");
+    const commandOffsets = commands.map((command) => unitTest!.indexOf(command));
+    expect(commandOffsets).toEqual([...commandOffsets].sort((left, right) => left - right));
     expect(yaml).not.toContain("docker:dind");
   });
 
   it("发布静态 Web 到默认分支的 Pages，且不携带凭据或 API 产物", () => {
     const ci = readFileSync(".gitlab-ci.yml", "utf8");
+    const pages = ci.match(/^pages:\r?\n(?<body>[\s\S]*)$/mu)?.groups?.body;
     const rootPackage = JSON.parse(readFileSync("package.json", "utf8")) as {
       scripts: Record<string, string | undefined>;
     };
 
     expect(ci).toMatch(/^unit-test:/mu);
-    expect(ci).toMatch(/^pages:/mu);
-    expect(ci).toContain("- pnpm --filter @ai4se/web build");
-    expect(ci).toContain("- cp -R apps/web/dist/. public/");
-    expect(ci).toMatch(/paths:\r?\n {6}- public/u);
-    expect(ci).not.toMatch(/API_KEY|OPENAI_API_KEY|credentials\.json/iu);
-    expect(ci).toContain('needs: ["unit-test"]');
-    expect(ci).toContain("$CI_DEFAULT_BRANCH");
-    expect(ci).not.toMatch(/\.ai4se/iu);
+    expect(pages).toBeDefined();
+    expect(pages).toContain("- pnpm --filter @ai4se/web build");
+    expect(pages).toContain("- cp -R apps/web/dist/. public/");
+    expect(pages).toMatch(/paths:\r?\n {6}- public/u);
+    expect(pages).not.toMatch(/API_KEY|OPENAI_API_KEY|credentials\.json/iu);
+    expect(pages).toContain('needs: ["unit-test"]');
+    expect(pages).toContain("$CI_DEFAULT_BRANCH");
+    expect(pages).not.toMatch(/\.ai4se/iu);
+    expect(pages).not.toMatch(/artifacts:[\s\S]*?(?:\.tgz|tarball|harness-pack)/iu);
+    expect(pages).not.toContain("apt-get install");
+    expect(pages).not.toContain("git --version");
     expect(rootPackage.scripts["web:local"]).toBeDefined();
   });
 

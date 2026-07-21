@@ -7,7 +7,12 @@ unit-test:
   image: node:24.14.0-bookworm-slim
   variables:
     CI: "true"
+    GIT_DEPTH: "0"
   before_script:
+    - apt-get update
+    - apt-get install -y --no-install-recommends git
+    - rm -rf /var/lib/apt/lists/*
+    - git --version
     - corepack enable
     - corepack prepare pnpm@11.14.0 --activate
   script:
@@ -16,6 +21,11 @@ unit-test:
     - pnpm lint
     - pnpm typecheck
     - pnpm build
+    - pnpm demo
+    - pnpm --filter @ai4se/harness build
+    - mkdir -p .ai4se/harness-pack
+    - pnpm --filter @ai4se/harness pack --pack-destination .ai4se/harness-pack
+    - pnpm final:audit
 
 pages:
   stage: deploy
