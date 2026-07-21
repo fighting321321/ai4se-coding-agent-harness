@@ -17,12 +17,12 @@ unit-test:
     - corepack prepare pnpm@11.14.0 --activate
   script:
     - pnpm install --frozen-lockfile
+    - pnpm --filter @ai4se/harness build
     - pnpm test
     - pnpm lint
     - pnpm typecheck
     - pnpm build
     - pnpm demo
-    - pnpm --filter @ai4se/harness build
     - mkdir -p .ai4se/harness-pack
     - pnpm --filter @ai4se/harness pack --pack-destination .ai4se/harness-pack
     - pnpm final:audit

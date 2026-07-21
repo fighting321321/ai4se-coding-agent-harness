@@ -27,12 +27,12 @@ describe("GitLab pipeline", () => {
     expect(gitSetupOffsets.at(-1)).toBeLessThan(unitTest!.indexOf("corepack enable"));
     const commands = [
       "pnpm install --frozen-lockfile",
+      "pnpm --filter @ai4se/harness build",
       "pnpm test",
       "pnpm lint",
       "pnpm typecheck",
       "pnpm build",
       "pnpm demo",
-      "pnpm --filter @ai4se/harness build",
       "pnpm --filter @ai4se/harness pack",
       "pnpm final:audit"
     ];
