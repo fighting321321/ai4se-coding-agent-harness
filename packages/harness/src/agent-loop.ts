@@ -284,7 +284,7 @@ export class AgentLoop {
       if (limitReached) {
         return await this.#result("max_steps", "达到最大步数", iteration, traceStartStep);
       }
-      observations = feedback.category === "fail" ? [feedback.observation] : [];
+      observations = [feedback.observation];
     }
 
     return await this.#result(

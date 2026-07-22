@@ -537,3 +537,10 @@
 - 实现决策：删除无效 `pages` 作业，保留精确 `unit-test`、完整门禁和保存一年的 Harness tarball；WebUI 保留本地模式与静态 mock 源码。托管入口固定为 GitLab `v1.0.0` Release，附件为 `ai4se-harness-0.1.0.tgz`。
 - TDD：文档收尾前先增加 Release 契约，观察到 316 项中仅新增文档测试失败；CI 收缩也先由新契约准确捕获顶层 `pages`，再删除部署作业并修复“最后一个 YAML 作业位于 EOF”的测试解析边界。
 - 安全：未读取、记录或提交真实 API Key、密码或 token；最终仍通过受控文件、Git 历史和构建 artifact 审计。
+
+### 2026-07-22 · dev 真人 CLI 反馈闭环修复
+
+- 真实复现：负责人使用本地加密凭据、`https://njusehub.info/v1` 与 `qwen-turbo` 运行“读取 README 后总结”任务；Provider 与 `read_file` 均成功，但旧循环连续 8 次读取同一文件并以 `max_steps` 停止。脱敏 Trace 证明成功工具结果只被压成 `pass: tool completed`，且下一轮 Provider 的 observations 被清空。
+- TDD：反馈单测先因成功文本未进入 Observation 得到 1 项预期 RED；最小实现将成功文本经现有 Redactor 和 160 字符上限写入反馈后 GREEN。随后 AgentLoop 集成测试先因下一轮 observations 为空得到 1 项预期 RED；改为传递所有可继续执行的反馈后 GREEN，并同步更新机制演示对成功命令反馈的断言。
+- 真人复验：相同真实 CLI 任务的最新 Trace 为 Step 14 `read_file · allow · running`，Observation 含脱敏且截断的 README 正文；Step 15 为 `finish · allow · completed`。未读取、记录或提交主密码与 API Key。
+- 门禁：完整测试、lint、typecheck、Harness/API/Web build、4/4 机制演示和最终审计均退出 0；静态 Web 构建仍为 17 modules，安全审计未发现受控文件、完整 Git 历史或 Web artifact 凭据命中。

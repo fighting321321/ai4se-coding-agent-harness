@@ -76,6 +76,25 @@ async function createHarness(
 }
 
 describe("AgentLoop", () => {
+  it("成功读取结果会回灌给下一轮 Provider 并允许 finish", async () => {
+    const harness = await createHarness([
+      { raw: { type: "read_file", path: "README.md" } },
+      { raw: { type: "finish", summary: "已根据 README 完成总结" } }
+    ]);
+
+    const result = await harness.loop.run("先读取 README 再总结");
+
+    expect(result).toMatchObject({
+      status: "completed",
+      summary: "已根据 README 完成总结",
+      steps: 2
+    });
+    expect(harness.provider.calls[1]?.observations).toEqual([
+      "pass: tool completed: read:README.md"
+    ]);
+    expect(result.trace[0]?.observation).toBe("pass: tool completed: read:README.md");
+  });
+
   it("首次业务失败后将脱敏反馈带入下一次调用，改用新动作并 finish", async () => {
     let commandCalls = 0;
     const harness = await createHarness(

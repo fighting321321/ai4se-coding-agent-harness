@@ -120,5 +120,12 @@ export function classifyFeedback(result: DispatchResult, redactor: Redactor): Fe
     };
   }
 
+  if (typeof value === "string" && value.length > 0) {
+    return {
+      category: "pass",
+      observation: observation(redactor, `pass: tool completed: ${value}`)
+    };
+  }
+
   return { category: "pass", observation: observation(redactor, "pass: tool completed") };
 }

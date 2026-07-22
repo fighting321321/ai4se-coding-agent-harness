@@ -19,15 +19,16 @@ describe("classifyFeedback", () => {
     });
   });
 
-  it("把成功的非命令工具归类为通用 pass", () => {
+  it("把成功的文本工具结果脱敏后写入 pass observation", () => {
+    const secret = "sk-fake-read-key";
     const result: DispatchResult = {
       ok: true,
-      value: { ok: true, value: "README.md" }
+      value: { ok: true, value: `Coding Agent Harness ${secret}` }
     };
 
-    expect(classifyFeedback(result, new Redactor())).toEqual({
+    expect(classifyFeedback(result, new Redactor([secret]))).toEqual({
       category: "pass",
-      observation: "pass: tool completed"
+      observation: "pass: tool completed: Coding Agent Harness [REDACTED]"
     });
   });
 
