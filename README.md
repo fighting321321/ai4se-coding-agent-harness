@@ -1,6 +1,6 @@
 # Coding Agent Harness
 
-> **开发状态（dev 重新评估）：** `v1.1.0` 是安全工具循环与分发基线，不是《Agent 的一生》所描述的最终 Harness。它不能让后一项终端任务读取前一项任务的对话内容，`JsonMemory` 也尚未接入主循环的写入与固化。完整差距、三种路线和成本估计见 [`FULL_HARNESS_REASSESSMENT.md`](FULL_HARNESS_REASSESSMENT.md)。在新设计获人工批准前，不应把当前版本作为完整 Harness 最终提交。
+> **开发状态（dev 重新评估）：** `v1.1.0` 是安全工具循环与分发基线，不是《Agent 的一生》所描述的最终 Harness。它不能让后一项终端任务读取前一项任务的对话内容，`JsonMemory` 也尚未接入主循环的写入与固化。项目负责人已批准路线 B（教学级完整 Harness）及面向用户的 CLI 方向，但决定延期实施；完整差距、CLI 决策、提交上限和成本估计见 [`FULL_HARNESS_REASSESSMENT.md`](FULL_HARNESS_REASSESSMENT.md)。当前版本仍不应作为完整 Harness 最终提交。
 
 一个面向课程学习的、可确定性验证的 Coding Agent Harness。它把可替换的 LLM 补全放进由 TypeScript 代码实现的工具边界、策略、记忆、反馈和 Trace 中，并提供可连续输入任务的终端 Agent；它不是线上多用户平台。
 
