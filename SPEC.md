@@ -1,5 +1,7 @@
 # Coding Agent Harness 课程最小交付规约
 
+> **2026-07-22 重新评估：** 本规约描述并实现了 `v1.1.0` 的课程最小基线，但该基线不能让后续终端任务读取上一项任务的对话，Memory 也没有接入主循环的写入与会话末固化。项目负责人要求目标升级为《Agent 的一生》所描述的最终 Harness，因此完成 Gate 已重新打开。正式重写本 SPEC 前，以 [`FULL_HARNESS_REASSESSMENT.md`](FULL_HARNESS_REASSESSMENT.md) 作为差距与决策依据；当前文档中的“已完成”和“六维实现”不得解释为完整 Harness 已完成。
+
 ## 0. 文档控制
 
 | 字段 | 值 |
@@ -8,7 +10,7 @@
 | 批准日期 | 2026-07-22 |
 | 项目负责人 | 徐黄浩 |
 | 权威需求来源 | 本文件；`guide/AI4SE_Final_Project_通用要求.md` 与 `guide/AI4SE_Final_Project_A_Coding_Agent_Harness.md` 是不可删减的上位要求 |
-| 当前 Gate | G1、G2、G3 与 T01–T12 均已完成；`main` 的最终 Pages 试验 Pipeline `#313989` 已通过，但学校 GitLab 未生成公开 Pages 地址；最终交付改用 `v1.0.0` GitLab Release |
+| 当前 Gate | `v1.1.0` 基线已交付并通过门禁；完整 Harness Gate 因上下文、记忆及扩展机制缺失而重新打开，等待人工选择重估路线 |
 | 实现范围 | T05–T12，一周内完成最低可用课程作业 |
 
 本版本取代 SPEC 1.0.0 的实现承诺。旧版本保留为 Git 历史和过程证据，不再要求实现数据库、多用户平台、复杂决策版本、SSE、Docker 或线上后端。任何删减都不得违反上述两份课程原始要求。

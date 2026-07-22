@@ -1,5 +1,7 @@
 # Coding Agent Harness 课程最小实现计划
 
+> **状态修正（2026-07-22）：** T01–T12 和 `v1.1.0` 只完成课程最小基线，不代表《Agent 的一生》中的完整 Harness 已完成。真人测试确认不同终端任务不共享对话历史，主循环也没有 Memory 写入与 consolidate。后续实现已暂停，先由项目负责人审阅 [`FULL_HARNESS_REASSESSMENT.md`](FULL_HARNESS_REASSESSMENT.md) 并在 A（只补硬缺口）、B（教学级完整 Harness，推荐）、C（生产级 OpenCode 克隆）中决策。未批准前不得继续编码或发布新版本。
+
 > **For agentic workers:** 按 T06–T12 串行执行；每个 Task 使用独立 branch/worktree、一次新鲜 subagent、TDD、Spec 检查、质量检查和 MR Pipeline。步骤用 `guiding.md` 细化，不扩展本计划范围。
 
 **版本：** 2.4.0
@@ -8,7 +10,7 @@
 
 **目标日期：** 2026-07-25
 
-**当前状态：** G1–G3 与 T01–T12 均已完成；`main` Pipeline `#313989` 已通过。学校 GitLab 未生成公开 Pages 地址，最终交付按助教补充说明改为 `v1.0.0` GitLab Release，当前执行最后的文档、标签和附件收尾。
+**当前状态：** G1–G3 与 T01–T12 的最小基线已完成，`v1.1.0` 已发布；完整 Harness Gate 已重新打开，当前只进行范围重估，不进入实现。
 
 ## 1. 目标与最小边界
 

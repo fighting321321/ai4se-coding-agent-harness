@@ -1,5 +1,7 @@
 # Coding Agent Harness
 
+> **开发状态（dev 重新评估）：** `v1.1.0` 是安全工具循环与分发基线，不是《Agent 的一生》所描述的最终 Harness。它不能让后一项终端任务读取前一项任务的对话内容，`JsonMemory` 也尚未接入主循环的写入与固化。完整差距、三种路线和成本估计见 [`FULL_HARNESS_REASSESSMENT.md`](FULL_HARNESS_REASSESSMENT.md)。在新设计获人工批准前，不应把当前版本作为完整 Harness 最终提交。
+
 一个面向课程学习的、可确定性验证的 Coding Agent Harness。它把可替换的 LLM 补全放进由 TypeScript 代码实现的工具边界、策略、记忆、反馈和 Trace 中，并提供可连续输入任务的终端 Agent；它不是线上多用户平台。
 
 ## 30 秒了解项目
@@ -23,7 +25,7 @@ apps/web
   本地模式：一次运行请求
 ```
 
-真实本地运行的数据流为：CLI 从本地配置读取限制并从加密凭据存储读取 Key，或本地 Web 为一次运行临时提交 Key；Harness 检索相关 Memory，调用一次 OpenAI-compatible Provider，严格解析 Action，再经策略、审批与工具执行；反馈摘要、脱敏 Trace 和停机原因决定下一轮或结束。
+真实本地运行的数据流为：CLI 从本地配置读取限制并从加密凭据存储读取 Key，或本地 Web 为一次运行临时提交 Key；Harness 尝试从现有 Memory 文件检索相关条目，调用一次 OpenAI-compatible Provider，严格解析 Action，再经策略、审批与工具执行；反馈摘要、脱敏 Trace 和停机原因决定下一轮或结束。当前主循环不会自动写入或固化 Memory，终端中的不同任务也不共享对话历史。
 
 Harness 的六个维度及其对应实现是：
 
@@ -31,7 +33,7 @@ Harness 的六个维度及其对应实现是：
 | --- | --- |
 | 决策封装 | `AgentLoop` 组织任务、相关记忆和 Observation，并调用单次 Provider 补全。 |
 | 工具 | 受限文件读写与命令执行；命令使用可执行文件和参数数组，不拼接 Shell 字符串。 |
-| 记忆 | 本地 JSON Memory 只按关键词注入相关约定或最近结果。 |
+| 记忆 | 已有本地 JSON 存储与关键词检索类，但尚未接入主循环写入、固化和跨任务上下文；完整实现仍待开发。 |
 | 治理 | `PolicyEngine` 对动作给出 `allow`、`ask` 或 `deny`，审批在副作用前发生。 |
 | 反馈 | 验证结果分类为可供下一轮使用的简短 Observation。 |
 | 配置 | JSON 配置校验工作区、白名单、步数、超时、输出上限、Memory 和 Provider；其中不允许 API Key。 |
