@@ -45,6 +45,10 @@ pages:
     - pnpm --filter @ai4se/web build
     - mkdir public
     - cp -R apps/web/dist/. public/
+  pages: true
+  environment:
+    name: production
+    url: $CI_PAGES_URL
   artifacts:
     paths:
       - public
