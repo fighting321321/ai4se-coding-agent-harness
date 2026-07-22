@@ -79,7 +79,21 @@ export {
   type PolicyEngineOptions
 } from "./policy.js";
 export { Redactor } from "./redactor.js";
+export {
+  preflightHarnessTaskConfig,
+  readHarnessTaskConfig,
+  runHarnessTask,
+  type RunHarnessTaskOptions,
+  type RunTaskConfigPreflightResult,
+  type RunTaskErrorCode,
+  type RunTaskResult
+} from "./run-task.js";
 export { ScriptedMockExhaustedError, ScriptedMockLLM } from "./scripted-mock-llm.js";
+export {
+  runInteractiveSession,
+  type InteractiveSessionDependencies,
+  type InteractiveSessionOptions
+} from "./interactive-session.js";
 export {
   JsonTrace,
   type TraceEntry,
