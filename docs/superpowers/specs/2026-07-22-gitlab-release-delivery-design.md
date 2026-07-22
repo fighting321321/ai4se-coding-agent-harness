@@ -16,7 +16,7 @@
 ## 实现范围
 
 1. 删除无效的 Pages 部署作业和相应部署契约，保留现有 Web 构建与本地启动能力。
-2. 更新 README，将交付方式改为 GitLab Release，并明确 Node.js 24 环境要求。
+2. 更新 README、SPEC、PLAN、过程记录、反思和包说明，将当前交付方式统一为 GitLab Release，并明确 Node.js 24 环境要求；历史文档只增加“已被取代”说明，不改写当时事实。
 3. 使用现有 `pnpm pack` 和分发 smoke 测试生成、验证 CLI tarball，不增加新的打包系统。
 4. 合并到 `main` 后创建 `v1.0.0` 标签和 GitLab Release，将经过 CI 验证的 tarball 上传为 Release 附件。
 
@@ -44,4 +44,4 @@ dev 修改与验证
 - `main` 最新流水线通过；
 - GitLab `v1.0.0` Release 链接可访问；
 - tarball 可下载并通过离线安装 smoke；
-- README 中没有 Pages 占位链接，且交付步骤可由助教直接执行。
+- 所有当前状态文档均无 Pages 占位链接或过期“待核验”状态，历史文档明确指向 Release 最终方案，且交付步骤可由助教直接执行。
