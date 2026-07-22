@@ -182,11 +182,12 @@ describe("最终交付审计", () => {
     );
   });
 
-  it("安全的临时 Git 仓库退出 0 并如实报告 Pages artifact 不存在", () => {
+  it("安全的临时 Git 仓库退出 0 并如实报告静态 Web artifact 不存在", () => {
     const root = createRepository();
     const result = runAudit(root);
 
     expect(result.status, result.stderr).toBe(0);
+    expect(result.stdout).toContain("静态 Web artifact");
     expect(result.stdout).toContain("apps/web/dist");
     expect(result.stdout).toContain("不存在，未扫描");
   });
@@ -439,7 +440,7 @@ describe("最终交付审计", () => {
     expect(historyFindings[0]).not.toContain(olderCommit);
   });
 
-  it("安全静态 Pages artifact 通过", () => {
+  it("安全静态 Web artifact 通过", () => {
     const root = createRepository();
     const dist = join(root, "apps", "web", "dist");
     mkdirSync(join(dist, "assets"), { recursive: true });
@@ -449,7 +450,7 @@ describe("最终交付审计", () => {
     const result = runAudit(root);
 
     expect(result.status, result.stderr).toBe(0);
-    expect(result.stdout).toContain("Pages artifact: apps/web/dist 已扫描");
+    expect(result.stdout).toContain("静态 Web artifact: apps/web/dist 已扫描");
   });
 
   it.each([
@@ -477,7 +478,7 @@ describe("最终交付审计", () => {
       ["assets", "aws.txt"],
       awsCanary()
     ]
-  ])("Pages artifact 命中 %s 时失败且不回显正文", (category, path, content) => {
+  ])("静态 Web artifact 命中 %s 时失败且不回显正文", (category, path, content) => {
     const root = createRepository();
     const dist = join(root, "apps", "web", "dist");
     const target = join(dist, ...path);
