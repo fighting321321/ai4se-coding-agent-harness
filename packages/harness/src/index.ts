@@ -22,6 +22,11 @@ export {
 } from "./command-tool.js";
 export type { CommandRule } from "./command-rule.js";
 export {
+  formatApprovalRequest,
+  runCli,
+  type CliDependencies
+} from "./cli.js";
+export {
   CredentialStore,
   type CredentialErrorCode,
   type CredentialResult,

@@ -2,12 +2,71 @@
 
 import console from "node:console";
 import process from "node:process";
+import { emitKeypressEvents } from "node:readline";
+import { createInterface } from "node:readline/promises";
 
-import { runOfflineSmoke } from "../dist/offline-smoke.js";
+import { formatApprovalRequest, runCli } from "../dist/index.js";
 
-try {
-  console.log(await runOfflineSmoke());
-} catch {
-  console.error("AI4SE Harness 离线 smoke：failed");
-  process.exitCode = 1;
+async function readSecret(prompt) {
+  if (!process.stdin.isTTY || !process.stdout.isTTY) {
+    throw new Error("隐藏输入需要 TTY");
+  }
+  const input = process.stdin;
+  const previousRawMode = input.isRaw;
+  process.stdout.write(`${prompt}：`);
+  emitKeypressEvents(input);
+  input.setRawMode(true);
+  input.resume();
+
+  return await new Promise((resolve, reject) => {
+    let value = "";
+    const cleanup = () => {
+      input.off("keypress", onKeypress);
+      input.setRawMode(previousRawMode);
+      input.pause();
+      process.stdout.write("\n");
+    };
+    const onKeypress = (character, key) => {
+      if (key.ctrl === true && key.name === "c") {
+        cleanup();
+        reject(new Error("输入已取消"));
+        return;
+      }
+      if (key.name === "return" || key.name === "enter") {
+        cleanup();
+        resolve(value);
+        return;
+      }
+      if (key.name === "backspace") {
+        value = value.slice(0, -1);
+        return;
+      }
+      if (character !== undefined && !/\p{C}/u.test(character)) {
+        value += character;
+      }
+    };
+    input.on("keypress", onKeypress);
+  });
 }
+
+async function question(message) {
+  const prompt = createInterface({ input: process.stdin, output: process.stdout });
+  try {
+    return await prompt.question(message);
+  } finally {
+    prompt.close();
+  }
+}
+
+process.exitCode = await runCli(process.argv.slice(2), {
+  cwd: process.cwd(),
+  readSecret,
+  readLine: question,
+  askApproval: async (request) =>
+    (await question(`${formatApprovalRequest(request)}。是否批准？[y/N] `))
+      .trim()
+      .toLowerCase() === "y",
+  clearScreen: () => console.clear(),
+  writeOut: (message) => console.log(message),
+  writeError: (message) => console.error(message)
+});
