@@ -1,5 +1,7 @@
 # T11 Dual-Mode WebUI Implementation Plan
 
+> **Historical status (2026-07-22):** This completed plan records the original T11 implementation. The NJU GitLab instance did not expose a usable public Pages URL, so hosted delivery is superseded by `2026-07-22-gitlab-release-delivery.md` (CLI + GitLab Release). Local WebUI and static mock sources remain supported.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** 交付不含凭据入口的 GitLab Pages 静态演示，以及用户在本机显式启动、可手动填写 OpenAI-compatible API 配置并运行完整 Harness 的 WebUI。

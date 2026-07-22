@@ -2,17 +2,17 @@
 
 > **For agentic workers:** 按 T06–T12 串行执行；每个 Task 使用独立 branch/worktree、一次新鲜 subagent、TDD、Spec 检查、质量检查和 MR Pipeline。步骤用 `guiding.md` 细化，不扩展本计划范围。
 
-**版本：** 2.3.0
+**版本：** 2.4.0
 
-**SPEC 基线：** `SPEC.md` 2.1.1
+**SPEC 基线：** `SPEC.md` 2.2.0
 
 **目标日期：** 2026-07-25
 
-**当前状态：** G1–G3 已通过，T05–T12 已合入 `dev`；本地交付门禁已通过，等待最新 Pipeline、公开 Pages/Release URL 与最终 `dev → main`
+**当前状态：** G1–G3 与 T01–T12 均已完成；`main` Pipeline `#313989` 已通过。学校 GitLab 未生成公开 Pages 地址，最终交付按助教补充说明改为 `v1.0.0` GitLab Release，当前执行最后的文档、标签和附件收尾。
 
 ## 1. 目标与最小边界
 
-在 T05 的可运行骨架上，用 T06–T12 交付满足原始课程要求的最小 Coding Agent Harness：自研循环、六维最低实现、反馈重点维度、mock 测试、三项演示、安全凭据、真实学校 API 本地入口、GitLab Pages、npm tarball、README、过程证据和本人反思。
+在 T05 的可运行骨架上，用 T06–T12 交付满足原始课程要求的最小 Coding Agent Harness：自研循环、六维最低实现、反馈重点维度、mock 测试、三项演示、安全凭据、真实学校 API 本地入口、本地 WebUI、GitLab Release npm tarball、README、过程证据和本人反思。
 
 不实现数据库、多用户、SSE、Rebaseline、复杂审批、Docker 或线上后端。
 
@@ -20,7 +20,7 @@
 
 ```text
 apps/api → packages/harness
-apps/web（Pages 静态演示；本地显式模式 → apps/api）
+apps/web（静态 mock；本地显式模式 → apps/api）
 tests（跨模块测试与演示）
 ```
 
@@ -40,7 +40,7 @@ interface AgentLoop {
 }
 ```
 
-命令不得使用 Shell 字符串；Pages Web 不依赖 API；本地 Web 只把单次 Key 发送给回环 Fastify，Key 不落盘、不进日志/Trace/Memory/URL/浏览器存储，日常安全凭据仍由 CLI 加密模块管理。
+命令不得使用 Shell 字符串；静态 Web 不依赖 API；本地 Web 只把单次 Key 发送给回环 Fastify，Key 不落盘、不进日志/Trace/Memory/URL/浏览器存储，日常安全凭据仍由 CLI 加密模块管理。
 
 ## 3. 统一轻量执行规则
 
@@ -73,7 +73,7 @@ pnpm build
 | T08 | 配置、JSON Memory 与脱敏 Trace | `feat/t08-config-memory` | 已合入 `dev`（MR !9，merge `6de04f9`） | 5 |
 | T09 | 反馈重点维度与自研 Agent Loop | `feat/t09-feedback-loop` | 已合入 `dev`（MR !11，merge `3b0d3fe`） | 6 |
 | T10 | 安全凭据、真实 Provider、CLI 与三演示 | `feat/t10-cli-provider-demo` | 已合入 `dev`（MR !12，merge `64458b8`） | 7 |
-| T11 | 双模式 WebUI、本地 API 与 GitLab Pages | `feat/t11-static-web` | 已合入 `dev`（MR !13，merge `7c68221`）；公开 Pages URL 待最终核验 | 7 |
+| T11 | 双模式 WebUI、本地 API 与静态 mock | `feat/t11-static-web` | 已合入 `dev`（MR !13，merge `7c68221`）；学校 Pages 不可用，托管交付由 Release 取代 | 7 |
 | T12 | npm 分发、README、反思与最终审计 | `docs/t12-final-delivery` | 已合入 `dev`（MR !14，merge `6f8b5d6`） | 7 |
 
 ## 5. T05：工程骨架与最小 CI（已完成）
@@ -84,7 +84,7 @@ pnpm build
 
 **合并：** MR !6 → `dev`，merge commit `f014b42`。
 
-**待最终审计：** 在 T12 记录 MR !6 的最终 Pipeline URL/status；无法获取时如实标记证据缺口，不伪造。
+**最终审计：** 最终 `main` Pipeline `#313989` 已通过；早期 MR 的逐条状态保留在 GitLab 历史中，不再作为交付阻断项。
 
 ## 6. T06：最小决策与分发内核
 
@@ -249,7 +249,7 @@ pnpm demo
 
 **建议提交：** 规划；凭据；Provider/CLI；三演示；评审/记录；清空 guiding。
 
-## 11. T11：双模式 WebUI、本地 API 与 GitLab Pages
+## 11. T11：双模式 WebUI、本地 API 与静态构建（已完成）
 
 **依赖：** T10 的脱敏 mock Trace 格式。
 
@@ -262,7 +262,7 @@ pnpm demo
 - Refactor `apps/api/src/cli.ts` to reuse the task runner
 - Modify `.gitlab-ci.yml` 增加 `pages` job
 
-**行为：** Pages 模式展示价值、架构、固定运行轨迹、治理拦截、失败修正、Memory 摘要和命令，不连接 API、不读取 Key。本地显式模式显示一次性 Provider/任务表单，经只监听 `127.0.0.1` 且校验 Origin 的 Fastify 服务运行完整 Harness；Key 不落盘、不回显，`ask` 动作默认拒绝。页面提供清晰状态、键盘可操作交互和真实 Pages URL。
+**行为：** 静态模式展示价值、架构、固定运行轨迹、治理拦截、失败修正、Memory 摘要和命令，不连接 API、不读取 Key。本地显式模式显示一次性 Provider/任务表单，经只监听 `127.0.0.1` 且校验 Origin 的 Fastify 服务运行完整 Harness；Key 不落盘、不回显，`ask` 动作默认拒绝。学校 GitLab 未提供公开 Pages 地址，因此静态构建保留为本地演示源码，不作为最终托管入口。
 
 **TDD：** 本地 run route 验证/零泄露/默认拒绝批准、静态与本地构建边界、表单状态清理、核心标题、轨迹顺序、危险动作状态和 Pages artifact 边界均先 RED 后 GREEN。
 
@@ -285,9 +285,9 @@ pnpm --filter @ai4se/web build
 
 **T11 真实 Provider smoke 与提示修复（2026-07-21）：** 首次本地页面调用学校 OpenAI-compatible API 时，`qwen-turbo` 在旧提示下返回 `{"action":"respond","content":"..."}`，触发确定性 `parse_error`；临时限额 Key 的模型列表与 Chat Completions 均返回 HTTP 200，证明 Key、endpoint 与模型可用。仅补全四种 Action 的精确 JSON schema，并明确普通问答必须使用 `finish` 后，同一模型直接诊断及 WebUI smoke 均返回 `{"type":"finish","summary":"..."}`。回归测试先观察到 27 项中 1 项预期 RED，随后 Provider/AgentLoop/API 聚焦 3/3 文件、54/54 GREEN；完整门禁为 25/25 文件、282/282 用例，lint、typecheck、build 均通过。负责人在本地页面观察到 `completed`、安全摘要及 `finish · allow · completed` Trace，Key 输入框自动清空；临时 Key 未进入聊天、源码、配置、日志、Trace、Memory、测试输出或 Git，诊断文件已删除并要求负责人在平台撤销。push/MR、Pipeline 与 Pages URL 仍未执行。
 
-## 12. T12：分发、文档与最终交付
+## 12. T12：分发、文档与最终交付（已完成，Release 收尾中）
 
-**依赖：** T11 合入，Pages 可访问。
+**依赖：** T11 已合入；托管交付从不可用 Pages 调整为助教允许的 GitLab Release。
 
 **Files：**
 
@@ -301,7 +301,7 @@ pnpm --filter @ai4se/web build
 
 - `pnpm pack` 生成 tarball并在全新临时目录安装、运行离线 smoke。
 - CI 运行 test/lint/typecheck/build/demo/secret scan/package build，`unit-test` 保持精确名称。
-- README 包含课程要求的全部章节、Pages URL 和凭据安全流程。
+- README 包含课程要求的全部章节、GitLab Release URL、本地 WebUI 和凭据安全流程。
 - 项目负责人本人完成 1500–2500 字 REFLECTION；AI 润色必须标注。
 - 扫描当前文件和 Git 历史中的真实凭据；发现疑似真实 Key 时停止并人工处理。
 
@@ -317,7 +317,7 @@ pnpm demo
 pnpm pack
 ```
 
-本地 npm tarball 全新目录 smoke 已通过；还需确认 GitLab Release/Pages 可公开访问、最终 `dev → main` MR 与 `main` 最新 Pipeline passed。
+本地 npm tarball 全新目录 smoke 已通过；`main` Pipeline `#313989` 已通过。最终只需合并本次 Release 文档收尾、创建 `v1.0.0` 标签并上传经过 CI 验证的 tarball。
 
 **建议提交：** 规划；打包/smoke；README/许可证；负责人反思；最终审计；清空 guiding。
 
@@ -329,7 +329,7 @@ pnpm pack
 
 | Guide 要求 | 覆盖位置 |
 | --- | --- |
-| SPEC 至少 5 用户故事、架构、数据、安全、验收、风险 | SPEC 2.0.0 |
+| SPEC 至少 5 用户故事、架构、数据、安全、验收、风险 | SPEC 2.2.0 |
 | 自研循环与六维最低实现 | T06–T09 |
 | 一个重点维度深入 | T09 反馈闭环 |
 | mock LLM 确定性测试 | T06–T10 |
@@ -340,7 +340,7 @@ pnpm pack
 | `unit-test` CI 且最后 passed | T05/T12 |
 | 包管理器分发 | T12 npm tarball |
 | README 必需章节 | T12 |
-| 在线 WebUI URL | T11 GitLab Pages |
+| 托管部署入口 | 助教补充说明允许 CLI 项目使用 Release；最终为 GitLab `v1.0.0` Release |
 | REFLECTION 本人撰写 | T12 |
 | 完整过程记录和多个提交/MR | 全程 AGENT_LOG/PLAN |
 
@@ -352,3 +352,11 @@ pnpm pack
 - 不使用现成 Agent Runner。
 - 不在测试、CI 或仓库中使用真实 Key。
 - 不为形式重复无新增信息的验证，但课程要求的 TDD、一次双检查、MR 和 Pipeline 不能省略。
+
+## 15. 最终托管交付决议（2026-07-22）
+
+- `main` Pipeline `#313980` 和补充新版 Pages 声明后的 `#313989` 均通过，证明测试与静态 Web 构建正常。
+- 学校 GitLab 没有生成 Pages 管理入口、`CI_PAGES_URL` 或可访问公开域名；该能力缺口不能由项目代码修复。
+- 根据助教“CLI 项目可提供托管平台 Release 链接”的补充说明，最终交付入口固定为 `https://git.nju.edu.cn/HuanghaoXu/ai4se-coding-agent-harness/-/releases/v1.0.0`。
+- Release 附件固定为 CI 已验证的 `ai4se-harness-0.1.0.tgz`；WebUI 只保留本地运行和静态 mock 源码。
+- 本节是最终状态；T11/T12 执行证据中保留的“Pages 待核验”属于当时的历史事实，不再是当前待办。

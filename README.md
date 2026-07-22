@@ -19,7 +19,7 @@ apps/api ─────────────> packages/harness
       ^
       | /api/runs（仅本机回环）
 apps/web
-  Pages：静态 mock
+  静态 mock：脱敏架构演示
   本地模式：一次运行请求
 ```
 
@@ -37,6 +37,14 @@ Harness 的六个维度及其对应实现是：
 | 配置 | JSON 配置校验工作区、白名单、步数、超时、输出上限、Memory 和 Provider；其中不允许 API Key。 |
 
 项目的主要贡献是反馈闭环：第一次业务失败的脱敏 Observation 会回灌给下一次决策；最多允许一次自动修正，第二次连续业务失败立即停止。因此「失败类型、失败证据、修正次数和停机条件」都由代码强制，而不是由提示词约定。
+
+## 作业交付清单
+
+- 设计与计划：[`SPEC.md`](SPEC.md)、[`PLAN.md`](PLAN.md)、[`SPEC_PROCESS.md`](SPEC_PROCESS.md)。
+- 过程与反思：[`AGENT_LOG.md`](AGENT_LOG.md)、[`COLD_START_VALIDATION.md`](COLD_START_VALIDATION.md)、[`REFLECTION.md`](REFLECTION.md)。
+- 实现与测试：`packages/harness` 自研内核、`apps/api` CLI/本地 API、`apps/web` 本地 WebUI，以及 mock LLM 单元测试和三项机制演示。
+- 持续集成：`.gitlab-ci.yml` 中精确名为 `unit-test` 的作业，执行测试、lint、类型检查、构建、演示、打包和凭据审计。
+- 托管分发：[GitLab v1.0.0 Release](https://git.nju.edu.cn/HuanghaoXu/ai4se-coding-agent-harness/-/releases/v1.0.0) 与 `ai4se-harness-0.1.0.tgz`。
 
 ## 前提与源码安装
 
@@ -120,11 +128,18 @@ pnpm web:local
 
 本地表单一次提交任务、Provider Base URL、模型和 Key 到相对 `/api/runs`。Key 使用 password 输入框，只用于这一次请求：前端无论成功或失败都会清空它，后端不落盘、不回显、不记录，也不重试。页面不会使用浏览器持久化存储。该模式默认没有人工审批，因此 `ask` 写入动作会被阻断；需要持久化加密凭据或逐项审批时，请改用 CLI。
 
-## GitLab Pages：只读静态 mock
+## 托管交付：GitLab Release
 
-GitLab Pages 构建仅发布 `apps/web` 的静态页面，用固定、脱敏的 mock 轨迹解释架构、治理阻断、失败修正和 Memory 摘要。它不接收 Key、不包含真实运行表单、不连接本地 API，也不运行真实 Agent。
+课程检查入口：[v1.0.0 Release](https://git.nju.edu.cn/HuanghaoXu/ai4se-coding-agent-harness/-/releases/v1.0.0)。学校 GitLab 当前没有为本项目提供可用的公开 Pages 地址，因此依据助教补充说明，本项目采用“CLI + 托管平台 Release”方式交付，不迁移到 GitHub。
 
-真实 Pages URL：**待最终审计核验**。在核验完成前，请不要把任何猜测的项目地址当作可用服务链接。
+从 Release 下载 `ai4se-harness-0.1.0.tgz` 后，在 Node.js 24 与 pnpm 11.14.0 环境中安装并验证：
+
+```powershell
+pnpm add --global .\ai4se-harness-0.1.0.tgz
+ai4se-harness smoke
+```
+
+成功时输出 `AI4SE Harness 离线 smoke：completed`。WebUI 仍可通过仓库统一入口在本地运行；`apps/web` 的静态页面只用于脱敏架构演示，不接收 API Key，也不连接线上后端。
 
 ## npm tarball 分发 smoke
 
@@ -163,7 +178,7 @@ pnpm exec ai4se-harness
 
 ```text
 apps/api/            本地 CLI、配置预检、仅回环 Fastify API
-apps/web/            Pages 静态 mock 与显式本地 Web 模式
+apps/web/            静态 mock 与显式本地 Web 模式
 packages/harness/    Harness 内核及可安装的 ESM tarball 包
 tests/               单元、集成、机制演示与分发 smoke
 scripts/             本地 Web 启动器
@@ -174,8 +189,8 @@ scripts/             本地 Web 启动器
 - API Key 不应进入配置、命令行参数、源码、Git、日志、Trace、Memory、URL 或浏览器持久化存储。
 - 路径逃逸、敏感路径、Shell 启动器、删除类命令和白名单外命令由策略拒绝；写入需要当前 CLI 会话批准。
 - 本地 API 限制为回环监听并校验本地 Web Origin；它不是线上后端。
-- Pages 与本地 Web 是不同模式：Pages 只有静态 mock，本地 Web 才能连接本机 API。
-- tarball 仅承诺 Node 24 与本 README 明确的平台范围；它不是公共 registry 的发布声明。
+- 静态 mock 与本地 Web 是不同入口：静态内容不连接 API，本地 Web 才能连接本机回环服务。
+- tarball 仅承诺 Node 24 与本 README 明确的平台范围；它通过 GitLab Release 分发，不是公共 npm registry 发布声明。
 
 ## 已知限制
 

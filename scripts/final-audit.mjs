@@ -399,14 +399,14 @@ function walkArtifact(directory, artifactRoot) {
   }
 }
 
-function scanPagesArtifact() {
+function scanStaticWebArtifact() {
   const artifactRoot = join(root, "apps", "web", "dist");
   if (!existsSync(artifactRoot)) {
-    process.stdout.write("Pages artifact: apps/web/dist 不存在，未扫描\n");
+    process.stdout.write("静态 Web artifact: apps/web/dist 不存在，未扫描\n");
     return;
   }
   walkArtifact(artifactRoot, artifactRoot);
-  process.stdout.write("Pages artifact: apps/web/dist 已扫描\n");
+  process.stdout.write("静态 Web artifact: apps/web/dist 已扫描\n");
 }
 
 try {
@@ -417,7 +417,7 @@ try {
   scanCurrentFiles();
   scanIndex();
   scanHistory();
-  scanPagesArtifact();
+  scanStaticWebArtifact();
 } catch (error) {
   const message = error instanceof Error ? error.message : "未知错误";
   process.stderr.write(`AUDIT_ERROR | ${sanitizeDiagnostic(message)}\n`);
@@ -430,5 +430,5 @@ if (process.exitCode !== 2 && findings.size > 0) {
   }
   process.exitCode = 1;
 } else if (process.exitCode === undefined) {
-  process.stdout.write("最终审计通过：当前受控文件、完整 Git 历史与可用 Pages artifact 未发现命中。\n");
+  process.stdout.write("最终审计通过：当前受控文件、完整 Git 历史与可用静态 Web artifact 未发现命中。\n");
 }

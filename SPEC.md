@@ -4,11 +4,11 @@
 
 | 字段 | 值 |
 | --- | --- |
-| 文档版本 | 2.1.1 |
-| 批准日期 | 2026-07-20 |
+| 文档版本 | 2.2.0 |
+| 批准日期 | 2026-07-22 |
 | 项目负责人 | 徐黄浩 |
 | 权威需求来源 | 本文件；`guide/AI4SE_Final_Project_通用要求.md` 与 `guide/AI4SE_Final_Project_A_Coding_Agent_Harness.md` 是不可删减的上位要求 |
-| 当前 Gate | G1、G2、G3 已通过；T05–T12 已合入 `dev`；本地门禁已通过，最新 Pipeline、公开 Pages/Release URL 与最终 `dev → main` 待核验 |
+| 当前 Gate | G1、G2、G3 与 T01–T12 均已完成；`main` 的最终 Pages 试验 Pipeline `#313989` 已通过，但学校 GitLab 未生成公开 Pages 地址；最终交付改用 `v1.0.0` GitLab Release |
 | 实现范围 | T05–T12，一周内完成最低可用课程作业 |
 
 本版本取代 SPEC 1.0.0 的实现承诺。旧版本保留为 Git 历史和过程证据，不再要求实现数据库、多用户平台、复杂决策版本、SSE、Docker 或线上后端。任何删减都不得违反上述两份课程原始要求。
@@ -36,8 +36,8 @@
 4. 作为开发者，我希望失败退出码和摘要回灌给 Agent，使 mock LLM 能选择不同的下一动作并成功结束。
 5. 作为重复使用者，我希望项目约定和最近结果写入本地记忆，并只把相关条目加入上下文。
 6. 作为真实模型使用者，我希望安全录入、查看状态、更新和清除学校 OpenAI-compatible API Key；本地 WebUI 可为单次运行临时接收 Key，但明文不得进入源码、Git、日志、Trace、Memory、URL 或浏览器持久化存储。
-7. 作为评审者，我希望一条命令运行全部离线测试和三项机制演示，并能访问公开静态 WebUI 理解运行轨迹。
-8. 作为新用户，我希望从 npm tarball 在全新目录安装并按照 README 完成配置与运行。
+7. 作为评审者，我希望一条命令运行全部离线测试和三项机制演示，并能从 README 理解静态 mock 运行轨迹。
+8. 作为新用户，我希望从 GitLab `v1.0.0` Release 下载 npm tarball，在全新目录安装并按照 README 完成配置与运行。
 
 这些故事可独立验收，均有明确用户、价值和可观察结果。
 
@@ -51,7 +51,7 @@
 - 受限文件读写、受限命令、策略拦截和最小人工批准状态。
 - JSON 记忆、结构化 Trace、日志脱敏和明确停机原因。
 - 重点维度：反馈闭环；实现失败分类、反馈回灌、一次动作修正和连续失败停机。
-- 三项离线机制演示、GitLab CI、GitLab Pages 静态 WebUI、npm tarball 分发。
+- 三项离线机制演示、GitLab CI、本地 WebUI/静态 mock、GitLab Release npm tarball 分发。
 - 安全凭据录入、状态、更新、清除，以及 README、过程文档和学生本人反思。
 
 ### 3.2 明确不做
@@ -63,7 +63,7 @@
 - Docker、Kubernetes、云数据库、线上后端和运维体系。
 - 多 Provider、凭据轮换、性能压测、故障矩阵和浏览器 e2e。
 
-GitLab Pages 静态 WebUI 只展示固定的 mock 运行轨迹，不接收 Key、不执行真实 Agent。本地显式启动的 WebUI 可把单次填写的 Provider 配置和 Key 发送给仅监听 `127.0.0.1` 的 Fastify 服务，调用完整 Harness；该入口不部署线上后端，也不替代 CLI 加密凭据流程。
+静态 WebUI 只展示固定的 mock 运行轨迹，不接收 Key、不执行真实 Agent，也不作为公网服务。本地显式启动的 WebUI 可把单次填写的 Provider 配置和 Key 发送给仅监听 `127.0.0.1` 的 Fastify 服务，调用完整 Harness；该入口不部署线上后端，也不替代 CLI 加密凭据流程。
 
 ## 4. 领域与机制设计
 
@@ -168,9 +168,9 @@ JSON 配置通过运行时 schema 校验，至少包含工作区路径、允许�
 
 演示不联网、不使用真实 Key，失败时进程退出非零。
 
-### 5.7 双模式 WebUI
+### 5.7 本地 WebUI 与静态 mock
 
-GitLab Pages 展示项目价值、最小架构、固定 mock Trace、治理拦截、失败修正、Memory 摘要、安装和演示命令。Pages 构建不依赖 API 服务，不读取 Key，不包含真实运行表单，也不声称能在线执行真实 Agent。
+静态构建展示项目价值、最小架构、固定 mock Trace、治理拦截、失败修正、Memory 摘要、安装和演示命令。该构建不依赖 API 服务，不读取 Key，不包含真实运行表单，也不声称能在线执行真实 Agent。学校 GitLab Pages 未提供可用公网地址，静态构建仅作为源码和本地构建产物保留。
 
 本地构建模式显示任务、OpenAI-compatible endpoint、模型名和 password 类型 Key 输入，经相对 `/api/runs` 请求交给回环 Fastify 服务。Key 只在一次运行的浏览器与 Node 进程内存中短暂存在；成功或失败后清空前端状态，后端不落盘、不回显、不记录。服务读取本地 `.ai4se/config.json` 的工作区与工具限制，请求不能覆盖命令白名单、超时、输出或步数边界；`ask` 动作默认拒绝并提示改用 CLI 获取人工批准。
 
@@ -178,7 +178,7 @@ GitLab Pages 展示项目价值、最小架构、固定 mock Trace、治理拦�
 
 - `pnpm pack` 生成 Harness/CLI npm tarball。
 - 在全新临时目录安装 tarball并运行离线 smoke。
-- README 必须包含项目简介、架构/主要贡献、安装、运行、测试、三项演示、WebUI URL、凭据录入/状态/更新/清除、目录、安全边界、分发和已知限制、第三方许可证。
+- README 必须包含项目简介、架构/主要贡献、安装、运行、测试、三项演示、本地 WebUI、GitLab Release URL、凭据录入/状态/更新/清除、目录、安全边界、分发和已知限制、第三方许可证。
 - `REFLECTION.md` 1500–2500 字，由项目负责人本人撰写；AI 仅可润色并标注。
 
 ## 6. 架构与数据流
@@ -188,11 +188,11 @@ apps/api (本地 CLI / 仅回环 Fastify 真实运行入口)
         ↓
 packages/harness (Action、Provider、工具、治理、记忆、反馈、循环)
 
-apps/web (Pages 静态 mock；本地显式模式连接 apps/api)
+apps/web (静态 mock；本地显式模式连接 apps/api)
 tests (跨模块单测、集成测试和机制演示)
 ```
 
-`apps/api → packages/harness`。Pages 模式的 `apps/web` 只消费固定且脱敏的演示数据；本地显式模式通过 `/api/runs → apps/api` 调用 Harness。Harness 不依赖 React、Fastify 或现成 Agent 框架。
+`apps/api → packages/harness`。静态模式的 `apps/web` 只消费固定且脱敏的演示数据；本地显式模式通过 `/api/runs → apps/api` 调用 Harness。Harness 不依赖 React、Fastify 或现成 Agent 框架。
 
 本地真实运行数据流：CLI 读取配置与加密凭据 → Harness 选择 Memory → Provider 单次补全 → 解析 Action → Policy → Tool → Feedback → Trace → 下一轮或停机。
 
@@ -245,7 +245,7 @@ Memory 和 Trace 使用本地 JSON；加密凭据单独存储，三者不得混�
 - React + Vite：构建静态 WebUI；选择 Open Design 的简洁中性设计原则与前端设计 skill，重点检查信息层级、状态颜色、键盘可用性和响应式布局，不为课程作业引入额外设计系统运行时。
 - Node `crypto`：scrypt + AES-256-GCM 加密凭据，避免额外原生钥匙串依赖。
 - npm tarball：满足包管理器分发要求，降低 Docker 和部署成本。
-- GitLab CI/Pages：匹配 NJU GitLab 仓库、`unit-test` job 和公开 WebUI 要求。
+- GitLab CI/Release：匹配 NJU GitLab 仓库、精确 `unit-test` job 和助教允许的 CLI 托管交付方式；Pages 试验因实例未提供公开地址而停止。
 
 ## 10. 验收与课程要求映射
 
@@ -260,7 +260,7 @@ Memory 和 Trace 使用本地 JSON；加密凭据单独存储，三者不得混�
 | 3 个以上模块 | API、Web、Harness、tests | T05 |
 | CI | `.gitlab-ci.yml` 精确 `unit-test`，最后 Pipeline passed | T05/T12 |
 | 分发 | npm tarball 全新目录安装 smoke | T12 |
-| 在线 WebUI | GitLab Pages 静态演示 URL | T11 |
+| 托管部署 | 助教补充说明允许 CLI 项目提供托管平台 Release；使用 GitLab `v1.0.0` Release | T12/最终收尾 |
 | 过程证据 | SPEC/PLAN/SPEC_PROCESS/AGENT_LOG、分支/MR/评审记录 | 全程 |
 | README | 必需章节完整 | T12 |
 | 反思 | 本人撰写 1500–2500 字 | T12 |
@@ -276,7 +276,7 @@ Memory 和 Trace 使用本地 JSON；加密凭据单独存储，三者不得混�
 ## 12. 风险与决策
 
 - 学校 API 的实际模型名、配额和兼容差异在 T10 由负责人本地验证；失败不允许伪造成功。
-- GitLab Pages 只能展示静态 mock 数据，这是明确限制，不等同在线 Agent 服务；真实 Web 模式必须由用户在本机显式启动，且 Key 仍会短暂存在于浏览器和 Node 进程内存。
+- 学校 GitLab 的 Pages 作业能够构建静态产物，但实例没有生成可访问地址；依据助教部署补充说明，最终采用 CLI + GitLab Release。真实 Web 模式必须由用户在本机显式启动，且 Key 仍会短暂存在于浏览器和 Node 进程内存。
 - 加密文件安全依赖主密码强度；README 必须说明遗忘主密码无法恢复、进程内存仍可能暴露明文。
 - npm tarball 首版只承诺 Node 24 和文档列出的主要平台。
 - 项目负责人已接受功能广度和企业级扩展性下降，以换取在课程截止前形成完整、可运行、可解释的交付物。

@@ -1,6 +1,5 @@
 stages:
   - test
-  - deploy
 
 unit-test:
   stage: test
@@ -30,27 +29,3 @@ unit-test:
     paths:
       - .ai4se/harness-pack/*.tgz
     expire_in: 1 year
-
-pages:
-  stage: deploy
-  image: node:24.14.0-bookworm-slim
-  needs: ["unit-test"]
-  variables:
-    CI: "true"
-  before_script:
-    - corepack enable
-    - corepack prepare pnpm@11.14.0 --activate
-  script:
-    - pnpm install --frozen-lockfile
-    - pnpm --filter @ai4se/web build
-    - mkdir public
-    - cp -R apps/web/dist/. public/
-  pages: true
-  environment:
-    name: production
-    url: $CI_PAGES_URL
-  artifacts:
-    paths:
-      - public
-  rules:
-    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
