@@ -71,7 +71,6 @@ export async function runInteractiveSession(
 
   const workspace = resolve(options.cwd, configured.value.workspace);
   const credentials = new CredentialStore(join(options.cwd, ".ai4se", "credentials.json"));
-  let apiKey = "";
   try {
     const masterPassword = await dependencies.readSecret("主密码：");
     const credential = await credentials.read(masterPassword);
@@ -79,7 +78,7 @@ export async function runInteractiveSession(
       dependencies.writeError(`凭据读取失败：${credential.error.code}`);
       return 1;
     }
-    apiKey = credential.value;
+    const apiKey = credential.value;
 
     dependencies.writeOut("AI4SE Coding Agent");
     dependencies.writeOut(`工作区：${workspace}`);
@@ -139,7 +138,5 @@ export async function runInteractiveSession(
   } catch {
     dependencies.writeError("会话启动失败");
     return 1;
-  } finally {
-    apiKey = "";
   }
 }
