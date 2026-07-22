@@ -5,7 +5,9 @@ import { describe, expect, it } from "vitest";
 describe("GitLab pipeline", () => {
   it("使用 Node 24 运行全部根门禁且不依赖 Docker-in-Docker", () => {
     const yaml = readFileSync(".gitlab-ci.yml", "utf8");
-    const unitTest = yaml.match(/^unit-test:\r?\n(?<body>[\s\S]*?)(?=^[^ \r\n][^:\r\n]*:\r?$)/mu)
+    const unitTest = yaml.match(
+      /^unit-test:\r?\n(?<body>[\s\S]*?)(?=^[^ \r\n][^:\r\n]*:\r?$|(?![\s\S]))/mu
+    )
       ?.groups?.body;
 
     expect(unitTest).toBeDefined();
@@ -52,28 +54,15 @@ describe("GitLab pipeline", () => {
     expect(yaml).not.toContain("docker:dind");
   });
 
-  it("发布静态 Web 到默认分支的 Pages，且不携带凭据或 API 产物", () => {
+  it("仅保留可下载的 CLI 交付产物，不声明不可用的 Pages 部署", () => {
     const ci = readFileSync(".gitlab-ci.yml", "utf8");
-    const pages = ci.match(/^pages:\r?\n(?<body>[\s\S]*)$/mu)?.groups?.body;
-    const rootPackage = JSON.parse(readFileSync("package.json", "utf8")) as {
-      scripts: Record<string, string | undefined>;
-    };
 
     expect(ci).toMatch(/^unit-test:/mu);
-    expect(pages).toBeDefined();
-    expect(pages).toContain("- pnpm --filter @ai4se/web build");
-    expect(pages).toContain("- cp -R apps/web/dist/. public/");
-    expect(pages).toMatch(/^ {2}pages: true$/mu);
-    expect(pages).toContain("url: $CI_PAGES_URL");
-    expect(pages).toMatch(/paths:\r?\n {6}- public/u);
-    expect(pages).not.toMatch(/API_KEY|OPENAI_API_KEY|credentials\.json/iu);
-    expect(pages).toContain('needs: ["unit-test"]');
-    expect(pages).toContain("$CI_DEFAULT_BRANCH");
-    expect(pages).not.toMatch(/\.ai4se/iu);
-    expect(pages).not.toMatch(/artifacts:[\s\S]*?(?:\.tgz|tarball|harness-pack)/iu);
-    expect(pages).not.toContain("apt-get install");
-    expect(pages).not.toContain("git --version");
-    expect(rootPackage.scripts["web:local"]).toBeDefined();
+    expect(ci).not.toMatch(/^pages:/mu);
+    expect(ci).not.toContain("$CI_PAGES_URL");
+    expect(ci).toContain("pnpm --filter @ai4se/harness pack");
+    expect(ci).toContain(".ai4se/harness-pack/*.tgz");
+    expect(ci).toContain("expire_in: 1 year");
   });
 
   it("本地启动器仅通过回环地址编排 API 与 Web", () => {
