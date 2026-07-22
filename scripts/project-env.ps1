@@ -1,5 +1,5 @@
 param(
-  [ValidateSet("versions", "install", "test", "lint", "typecheck", "build", "demo", "audit", "all")]
+  [ValidateSet("versions", "install", "test", "lint", "typecheck", "build", "demo", "audit", "pack", "all")]
   [string]$Task = "all"
 )
 
@@ -94,6 +94,18 @@ if ($Task -eq "install") {
 
 if ($Task -eq "audit") {
   Invoke-ProjectPnpm @("final:audit")
+  exit 0
+}
+
+if ($Task -eq "pack") {
+  Invoke-ProjectPnpm @("--filter", "@ai4se/harness", "run", "build")
+  Invoke-ProjectPnpm @(
+    "--filter",
+    "@ai4se/harness",
+    "pack",
+    "--pack-destination",
+    ".ai4se/submission-output"
+  )
   exit 0
 }
 
