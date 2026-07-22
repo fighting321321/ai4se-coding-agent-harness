@@ -1,5 +1,7 @@
 # T11 双模式 WebUI 设计
 
+> **历史方案说明（2026-07-22）：** 本文保留 T11 当时的 Pages 设计与实现依据。学校 GitLab 最终未提供可用的公开 Pages 地址，托管交付已由 `2026-07-22-gitlab-release-delivery-design.md` 的 CLI + GitLab Release 方案取代；本地 WebUI 与静态 mock 源码继续保留。
+
 ## 目标
 
 T11 同时交付两个明确隔离的使用模式：

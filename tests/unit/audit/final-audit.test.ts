@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, symlinkSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -163,6 +163,25 @@ const historicalCanaries = [
 ] as const;
 
 describe("最终交付审计", () => {
+  it("将 v1.0.0 Release 作为托管交付入口", () => {
+    const readme = readFileSync(join(repositoryRoot, "README.md"), "utf8");
+    const spec = readFileSync(join(repositoryRoot, "SPEC.md"), "utf8");
+    const plan = readFileSync(join(repositoryRoot, "PLAN.md"), "utf8");
+
+    expect(readme).toContain("/-/releases/v1.0.0");
+    expect(readme).toContain("ai4se-harness-0.1.0.tgz");
+    expect(readme).toContain("ai4se-harness smoke");
+    expect(readme).not.toContain("真实 Pages URL：**待最终审计核验**");
+    expect(spec).toContain("GitLab Release");
+    expect(plan).toContain("v1.0.0");
+    expect(spec).not.toContain(
+      "最新 Pipeline、公开 Pages/Release URL 与最终 `dev → main` 待核验"
+    );
+    expect(plan).not.toContain(
+      "等待最新 Pipeline、公开 Pages/Release URL 与最终 `dev → main`"
+    );
+  });
+
   it("安全的临时 Git 仓库退出 0 并如实报告 Pages artifact 不存在", () => {
     const root = createRepository();
     const result = runAudit(root);

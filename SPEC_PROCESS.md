@@ -564,3 +564,11 @@
 - Provider smoke（此前负责人本地实测的非敏感摘要）：endpoint 为 `https://njusehub.info/v1/chat/completions`，model 为 `qwen-turbo`，HTTP 200，结果为 `completed`、1 step、`finish`，且无 Key 回显；本次最终审计不再次访问网络，也不接触真实凭据。
 - 反思：安全门禁既不能放过历史泄漏，也不能把明确测试占位符当真实凭据而永久阻断交付；因此用运行时高置信度 canary 同时锁定检出能力与误报边界，并把 Pages 文件路径检查和内容检查分开。
 - 远端证据缺口：本任务未执行 push、MR、merge 或其他远端写操作；GitLab MR、最新 Pipeline passed 状态和公开 Pages URL 均为“待负责人远端操作/核验”，不能用本地 CI 契约或旧记录替代。
+
+### 2026-07-22 · 最终部署口径修订：Pages 转 GitLab Release
+
+- 外部证据：`dev` 提交 `b9b2f35` 的 Pipeline `#313775` 通过，合入 `main` 后 Pipeline `#313980` 的 `unit-test` 与旧式 `pages` 作业均通过；补充新版 `pages: true` 后，`main` 提交 `5c8d85a3` 的 Pipeline `#313989` 与作业 `#598557/#598558` 再次通过。
+- 问题定位：两轮作业都只生成普通静态 artifact，项目没有 Pages 管理入口，`CI_PAGES_URL` 没有形成可点击环境地址，标准 Pages 域名与项目 Pages 管理地址均不可访问。由此确认失败边界在学校 GitLab 实例的公开 Pages 能力，而不是 Web 构建或测试。
+- 人工决策：项目负责人在“继续尝试 Pages、自动 Release、CLI + 手工 GitLab Release、迁移 GitHub”之间明确选择方案 A：保留本地 WebUI，停止无效 Pages 部署，以 `v1.0.0` GitLab Release 和 `ai4se-harness-0.1.0.tgz` 交付。
+- 需求依据：助教后续补充说明允许只提供 CLI 的 Agent Harness 使用托管平台 Release 链接；该具体部署口径取代通用要求中必须提供 WebUI URL 的原表述，其余 Guide 硬性要求保持不变。
+- 范围控制：不新增数据库、线上后端、GitHub 迁移或自动发布系统；只收缩 CI、统一交付文档、验证 tarball 并创建 Release。

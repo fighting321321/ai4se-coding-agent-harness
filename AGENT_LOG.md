@@ -527,3 +527,13 @@
 - CI RED：先要求 `unit-test` 不含递归批量删除，并保存 `.ai4se/harness-pack/*.tgz`；旧流水线在完整 315 项测试中仅该契约失败，准确命中 `rm -rf /var/lib/apt/lists/*`。
 - 最小修复：移除禁用删除命令；保留 Git 安装与版本检查；为 Harness tarball 增加按 ref 命名、保存一年的 job artifact，供后续 GitLab Release 链接使用。Pages job 不接触 tarball，仍只发布静态 Web。
 - GREEN 与门禁：统一 `test` 为 28/28 文件、315/315 用例；随后统一 `all` 下相同完整测试、lint、typecheck、Harness/API/Web build（Vite 17 modules）、demo 4/4 和 final audit 全部退出 0。工作树、Git 历史与现有 Pages artifact 扫描未发现凭据命中。
+
+### 2026-07-22 · FINAL-DELIVERY · Pages 证据核验与 Release 收尾
+
+- 触发技能：`systematic-debugging`、`brainstorming`、`writing-plans`、`executing-plans`、`test-driven-development`、`verification-before-completion`。
+- 远端证据：`main` Pipeline `#313980` 与补充新版语法后的 `#313989` 均通过；后者提交为 `5c8d85a3`，`unit-test #598557` 和 `pages #598558` 成功，但没有生成 Pages 管理入口、`CI_PAGES_URL` 或可访问公开地址。
+- 根因结论：Web 构建正常，学校 GitLab 实例未向本项目提供可用公开 Pages 服务。旧流水线只产生普通静态 artifact，继续修改前端或猜测域名不能解决实例能力缺口。
+- 人工干预：项目负责人提供助教部署补充说明、授权 GitLab 项目操作，并明确选择方案 A（CLI + GitLab Release），要求所有文档统一为可直接提交的最终产物。
+- 实现决策：删除无效 `pages` 作业，保留精确 `unit-test`、完整门禁和保存一年的 Harness tarball；WebUI 保留本地模式与静态 mock 源码。托管入口固定为 GitLab `v1.0.0` Release，附件为 `ai4se-harness-0.1.0.tgz`。
+- TDD：文档收尾前先增加 Release 契约，观察到 316 项中仅新增文档测试失败；CI 收缩也先由新契约准确捕获顶层 `pages`，再删除部署作业并修复“最后一个 YAML 作业位于 EOF”的测试解析边界。
+- 安全：未读取、记录或提交真实 API Key、密码或 token；最终仍通过受控文件、Git 历史和构建 artifact 审计。
