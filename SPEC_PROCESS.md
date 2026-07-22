@@ -533,3 +533,34 @@
 - 人工决策：项目负责人明确要求停止没有意义的重复复检、接受剩余冷启动误读风险并完成 G3。此决定采用既有停止结论允许的“负责人书面接受风险”路径。
 - 决策理由：真实 PLAN 缺陷已修订；SPEC 需求与架构未变化；T04 未越界创建正式实现；失败与误读证据完整可追溯，继续重复调用外部模型的边际收益不足。
 - Gate：G3 通过。T05 只能在本分支合入 `dev` 后从最新 `dev` 创建独立分支/worktree；OPEN-03 仍须由 T05 实现者提出版本并经项目负责人批准，获批前不得安装依赖或创建工程骨架。
+
+### 2026-07-18 · 课程最小范围统一修订
+
+- 触发原因：项目负责人明确指出原完整方案耗时与 token 成本过高，本项目只是暑期课程作业，要求改成“差不多能用”的简易模式，但必须满足 `guide/` 中原始作业要求。
+- 候选 A（采纳）：重写 SPEC 为课程最小权威规约，保留所有课程硬项并删除企业级扩展；同步 PLAN、过程记录和任务接口。
+- 候选 B（拒绝）：保留旧 SPEC、只增加废弃声明。该方案改动最少，但后续智能体仍会同时读到两套冲突范围。
+- 候选 C（拒绝）：继续实现 SPEC 1.0.0 全量方案。该方案工程深度最高，但不符合时间和 token 约束。
+- 上位要求核对：逐条读取 `guide/AI4SE_Final_Project_通用要求.md` 与 `guide/AI4SE_Final_Project_A_Coding_Agent_Harness.md`；保留六维 Harness、自研循环、mock 测试、重点维度、三项演示、安全凭据、分发、公开 WebUI、CI、TDD/评审/分支 MR、README、过程记录和本人反思。
+- SPEC 修订：版本升为 2.0.0，旧 1.0.0 只作为 Git 历史；删除数据库、多用户、SSE、Rebaseline、Docker、线上后端和企业级凭据设施等非课程硬项。
+- 安全修订：环境变量不再是唯一凭据方案；最小交付使用隐藏主密码 + scrypt + AES-256-GCM 加密文件，支持录入、状态、更新和清除。
+- 接口修订：`run_command` 从 Shell 风险较高的单一字符串改为 `executable + args`；命令由 allowlist 和 Policy 确定性治理。
+- 架构修订：依赖方向改为 `apps/api → packages/harness`；GitLab Pages Web 独立展示脱敏 mock 数据，不依赖未部署的后端。
+- 计划修订：PLAN 升为 2.1.0，T05 标记已完成，T06–T12 以最多 6 提交完成全部课程必交项；恢复原始 guide 要求的独立 branch/worktree、TDD、一次双检查、MR/Pipeline 和过程证据，但不做重复复检。
+- 负责人批准：项目负责人明确选择方案 A，并追加“必须满足原始 guide/ 里面的作业要求”。该回复作为本次范围变更批准依据。
+- Gate：G1–G3 保持通过；本次是经负责人批准的范围基线替换，不回滚已完成 T05，不开始 T06 实现。
+
+### 2026-07-21 · T12 最终自动化审计与交付证据
+
+- 方案选择：采用一个无新增依赖的 Node 24 审计入口，分别检查当前 Git 工作树、index blob、`git rev-list --all` 可达历史对象和现有 Pages artifact；Git 与文件操作均使用参数数组，不执行 Shell 字符串，也不自动改写历史。
+- 初始 RED：固定 Node `24.14.0` 与 pnpm `11.14.0` 在非沙箱环境运行新增 CI/审计聚焦测试，27 个测试文件共 293 项中新增 10 项失败、既有 283 项通过；9 项明确因 `scripts/final-audit.mjs` 缺失，1 项明确因 `unit-test` 缺少 `pnpm demo` 等新命令。Node 版本与沙箱 `spawn EPERM` 未计作 RED。
+- 最小 GREEN：新增根 `final:audit`、跨平台审计脚本及 `unit-test` 的 demo、Harness build/pack 和 final audit 步骤；Pages 仍只复制 `apps/web/dist/.`。首次聚焦复跑为 2/2 文件、13/13 用例通过。
+- 高置信度修订：真实仓库预跑发现既有测试占位符会被宽泛 OpenAI 形态误报；先增加一项低置信度占位符回归并观察到 11 项中 1 项 RED，再将规则收窄到项目/服务账号形态或旧式长随机形态，复跑审计测试 11/11 GREEN。四类规则共用单一来源；历史使用 `ls-tree -r -z --full-tree` 与 `cat-file --batch` 读取对象，不再由 `git grep -I` 跳过含 NUL blob。
+- 审查修复：CI 浅克隆契约先因缺 `GIT_DEPTH: "0"` RED 后 GREEN；四类含 NUL 历史 blob 先 4/14 RED 后 14/14 GREEN；stage 后工作树覆盖安全内容的 index 用例先 1/15 RED 后 15/15 GREEN；raw tree 恶意路径先真实复现 token、换行与 ANSI 泄漏，再对位置先做全规则脱敏、后做控制字符单行转义，审计测试 16/16 GREEN。
+- 安全覆盖：Pages 以实际 Vite 输出建立 `index.html` 与扁平 `assets` 最小 allowlist，新增 6 项危险文件 RED 后拒绝 `.env*`、credentials 扩展、backend/functions/server/API 入口及其他文件；正常 Pages 子集 14/14 GREEN。单对象 8 MiB+1 先被静默接受，增加工作树/index/history/Pages 共用 8 MiB 上限后稳定返回含类别和脱敏位置的 `AUDIT_ERROR`。测试 canary 均在运行时由片段拼接，仓库中没有完整秘密字面量。
+- 有界内存与特殊 index 修订：48 个唯一 1 MiB 历史 blob 在旧实现下触发测试守卫 `AUDIT_TEST_BUFFER_BUDGET`；改为每次至多查询/处理 64 个 OID、按 16 MiB 正文预算调用 `cat-file --batch`、读取后立即分类，并只长期保留 `oid -> category[]` 后，在 16 MiB V8 heap 与单 Map 20 MiB Buffer 预算下 1/1 GREEN（约 3.2 秒）。真实 index 中 mode `160000` gitlink 先因 commit OID 被当作 blob 而退出 2；显式跳过 gitlink、仍扫描 mode `120000` symlink blob 后 1/1 GREEN，危险 symlink 仍以预期状态 1 被检出。
+- 最终整分支审查：确认 slim 镜像没有 Git 契约、未忽略 untracked 文件会漏扫、分类缓存/历史路径集合会随唯一对象无界增长三项 Important。先分别得到 CI 命令缺失、untracked canary 状态 0、192 个小型唯一 blob 触发 `AUDIT_TEST_MAP_ENTRY_BUDGET`、257 个 untracked canary 状态 0 的有效 RED；随后仅在 `unit-test` 分行安装并检查 Git，当前文件改用 `git ls-files --cached --others --exclude-standard -z`，symlink/reparse link 使用 `readlinkSync` 扫描 link text 且不跟随目标，分类缓存改为固定 64 条 LRU，移除无界 `reportedPaths` 并以 findings 自身去重，命中超过 256 时稳定 `AUDIT_ERROR | FINDING_LIMIT` fail-closed。额外回归先复现同一路径诊断被旧提交覆盖，再恢复保留首次扫描提交。当前 Windows 因 `symlinkSync` 返回 EPERM 条件跳过物理 symlink 用例，没有用读取目标文件替代。
+- 本地交付证据：真实仓库非沙箱 `pnpm final:audit` 已扫描当前 tracked/untracked 工作树、index、完整 Git 历史对象与 `apps/web/dist` 并退出 0；聚焦测试为 2/2 文件、32 passed/1 skipped，完整测试为 27/27 文件、313 passed/1 skipped（314 total，37.83 秒），演示为 1/1 文件、4/4 用例，lint、typecheck、build 均退出 0，静态 Web build 为 17 modules。CI 等价 pack 在已忽略的 `.ai4se/harness-pack` 生成唯一 20,504-byte tarball，随后按明确单文件删除并非递归删除空子目录，保留 `.ai4se`。
+- 分发与文档状态：离线 tarball 安装、ESM 导入和 CLI smoke 由完整测试中的分发用例通过；README、许可证与项目负责人本人完成的 REFLECTION 已由此前 T12 提交交付，本次不改写 README 或 REFLECTION。
+- Provider smoke（此前负责人本地实测的非敏感摘要）：endpoint 为 `https://njusehub.info/v1/chat/completions`，model 为 `qwen-turbo`，HTTP 200，结果为 `completed`、1 step、`finish`，且无 Key 回显；本次最终审计不再次访问网络，也不接触真实凭据。
+- 反思：安全门禁既不能放过历史泄漏，也不能把明确测试占位符当真实凭据而永久阻断交付；因此用运行时高置信度 canary 同时锁定检出能力与误报边界，并把 Pages 文件路径检查和内容检查分开。
+- 远端证据缺口：本任务未执行 push、MR、merge 或其他远端写操作；GitLab MR、最新 Pipeline passed 状态和公开 Pages URL 均为“待负责人远端操作/核验”，不能用本地 CI 契约或旧记录替代。

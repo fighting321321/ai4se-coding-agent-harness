@@ -309,3 +309,221 @@
 - 经验：外部模型复验是发现歧义的证据来源，不应成为无限重试门槛；当修订、失败证据、范围边界均可追溯时，负责人可以显式接受剩余风险，但必须保留未通过事实。
 - Gate：G2、G3 已通过。T04 分支仍只含文档；T05 必须在 T04 合入 `dev` 后从最新 `dev` 创建独立分支/worktree。OPEN-03 未批准前，不得安装依赖或创建工程骨架。
 - 下一步：提交本次审计；随后以独立提交只清空 `guiding.md`，再将本分支合入 `dev`，禁止 squash。
+
+### 2026-07-18 · T05 工程骨架、验证与范围审计
+
+- 分支与提交：`chore/t05-project-foundation` 从含 `0b03b78` 的最新 `dev` 创建；完整 T05 基线提交链固定为 `f5cdbca..decc79a`（5 条）：`f5cdbca`（规划）、`fbd796d`（工程骨架）、`3d70dd4`（最小健康测试）、`53ef325`（验证记录）和 `decc79a`（清空规划）。其中主实现提交为 `fbd796d` 与 `3d70dd4`。MR 尚未创建，Pipeline 尚未触发。
+- OPEN-03 决策：项目负责人已批准 Node 24 LTS、pnpm `11.14.0`、TypeScript `6.0.3`、Fastify `5.10.0`、React/react-dom `19.2.7`、Vite `8.1.5`、Vitest `4.1.10`、ESLint `10.7.0`、`@eslint/js` `10.0.1`、`typescript-eslint` `8.64.0`。TypeScript 固定为 `6.0.3` 的根因是 `typescript-eslint@8.64.0` 的 peer 范围为 `>=4.8.4 <6.1.0`，故不采用不兼容的 `7.0.2`。
+- Task 2 证据：以 Codex Node `24.14.0` 与 pnpm `11.14.0` 完成冻结安装；锁文件 SHA-256 安装前后相同；`test`、`lint`、`typecheck`、`build` 均通过。独立 Spec 合规与代码质量评审均通过，无 Critical 或 Important 问题。
+- Task 3 RED/GREEN：先只创建测试，目标模块缺失导致 `Cannot find module '../../../apps/api/src/health'`；随后加入纯 `healthStatus()` 后，目标测试及四个根命令通过。独立评审结论为无问题，且未引入 Fastify 路由、服务启动或 T06+ 行为。
+- 环境差异：系统默认 Node `20.19.4` 无法运行 pnpm `11.14.0`（缺少 `node:sqlite`）；最终验证显式使用 Codex Node `24.14.0` 与 pnpm `11.14.0`。受限沙箱中 Vite 配置加载会因子进程限制报 `spawn EPERM`，同一环境的控制器非沙箱代跑与本次非沙箱复验均通过，故不作为项目失败记录。
+- 最终验证：`pnpm test`（1/1 通过）、`pnpm lint`（退出码 0）、`pnpm typecheck`（API/Web `tsc --noEmit` 通过）、`pnpm build`（Vite `8.1.5` 构建 14 个模块成功）、`git diff --check`（退出码 0）与 `git status --short`（无输出）均通过。
+- 轻量审计：固定检查范围 `0b03b78..decc79a`，其中包含 5 条 T05 提交和 23 个端点变更文件；范围包括 `.gitignore`、`PLAN.md`、`AGENT_LOG.md`、`guiding.md`、根配置、最小 API/Web/共享包、健康函数与测试。无 Decision、Runtime、Policy、工具、数据库、Fastify 路由或服务启动行为。`git ls-files` 未列出 `.superpowers/`、`node_modules/`、`dist/` 或 `.env`；提交差异未发现真实 API Key、token、密码或私钥，文档 SHA 与 `git log` 一致。
+
+### 2026-07-18 · T05 最终工程门禁修正
+
+- 修正范围：将根 `@types/node` 精确固定到 `24.13.3`，并使用 Node `24.14.0` 与 pnpm `11.14.0` 更新锁文件；避免 Node 26 类型定义放宽 Node 24 目标平台的 API 边界。
+- 类型与构建门禁：API 改为 NodeNext ESM 并实际包含 `src/**/*.ts`，新增独立 `typecheck`、产物构建；根 `typecheck` 覆盖 API、Web、domain、shared 和 tests，根 `build` 同时构建 API 与 Web。domain/shared/tests 均拥有最小 TypeScript 配置。
+- 健康契约：测试使用 TypeScript ESM 的 `../../../apps/api/src/health.js` 说明符，并以静态断言锁定 `healthStatus(): { status: "ok" }`；先观察到 `{ status: string }` 不满足字面量契约的 RED，再以显式返回类型获得 GREEN。
+- 忽略与测试门禁：移除 Vitest 的空测试放行；SQLite 忽略规则增加 `*.db-*`、`*.sqlite-*`、`*.sqlite3-*` sidecar 覆盖。最终验证记录见本地忽略的 `.superpowers/sdd/final-fix-report.md`。
+
+### 2026-07-18 · 一周最小交付重规划
+
+- 人工决策：项目负责人认为原 T05–T20 计划无法在可接受时间内完成，明确要求一周内取得最低课程作业结果、总体任务最多到 T12、T06–T12 每个任务最多 6 个提交，并删除无新增信息的重复复检。
+- 保留硬项：自实现 agent loop、真实 OpenAI 兼容 API、mock LLM 确定性测试、工具、记忆、治理、反馈、配置、机制演示、CI、分发、README、反思和在线 WebUI。
+- 核心删减：数据库、多用户、SSE、复杂审批/决策状态机、向量检索、线上后端、Docker/DinD、企业级凭据设施、性能与故障矩阵以及原 T13–T20。
+- 交付选择：真实学校 API 只在本地 Harness 使用；CI 与静态 WebUI 使用 mock。在线 URL 采用 GitLab Pages，不要求服务器权限。
+- 流程偏离：每个 Task 仍保留一次 Spec 检查和一次质量检查以满足课程最低过程要求，但取消重复独立复审；只让 Critical 阻断下一步。取消 guiding 首尾独立提交纪律，避免无价值提交。
+- 计划基线：`PLAN.md` 升为 2.0.0，T05–T12 串行执行，目标完成日期 2026-07-25。
+
+### 2026-07-18 · 项目结构简化
+
+- 人工批准：项目负责人认为原 domain/shared/runtime/infrastructure 多包拆分过于零散，批准改为 `apps/web`、`apps/api`、`packages/harness`、`tests` 四区。
+- 职责边界：Web 只负责 React 页面；API 只负责 Fastify、本地 CLI 和 Key 边界；Harness 包含全部 Agent 核心；tests 放跨模块验证。
+- 依赖方向：`web → api → harness`；Web 不读取真实 Key，Harness 不依赖 React/Fastify。原空 domain/shared 合并为 harness，后续不再创建 runtime/infrastructure workspace 包。
+
+### 2026-07-18 · T05 Node 24 类型依赖图修正
+
+- 发现与边界：尽管根 `@types/node` 已固定为 `24.13.3`，Web workspace 未显式声明该类型包，导致 Vite `8.1.5` 与 `@vitejs/plugin-react` `6.0.3` 的 peer 实例仍解析到 `@types/node@26.1.1`。本轮只修正依赖图与记录，不新增业务行为。
+- 修正：在 `apps/web` 显式精确固定 `@types/node` 为 `24.13.3`，用 Codex Node `24.14.0` 与 pnpm `11.14.0` 重建锁文件和本地依赖链接。锁文件中 `@types/node@26.1.1`、`@types/node: 26.1.1` 及 Node 26 的 Vite/plugin-react snapshot 均为零命中。
+- 实例证据：`apps/web/node_modules/vite` 的 junction 指向 `vite@8.1.5_@types+node@24.13.3`，`@vitejs/plugin-react` 指向其 Node 24 peer 实例，`apps/web/node_modules/@types/node` 指向 `@types+node@24.13.3`。
+- 验证：冻结安装、聚焦健康测试及根 `test`、`lint`、`typecheck`、`build` 全部通过；API `tsc --listFiles` 明确列出 `apps/api/src/health.ts`。完整命令与退出结果记录在忽略的 `.superpowers/sdd/final-version-fix-report.md`。
+
+### 2026-07-18 · 课程最小范围对齐
+
+- 当前分支：`docs/course-minimal-scope`，从 `dev` 的 T05 合并提交 `f014b42` 创建；本分支只修改权威文档，不实现 T06 功能。
+- 用户目标：降低时间和 token 消耗，以“能运行、能演示、能提交”的暑期课程最低结果为准；明确选择方案 A，并要求不遗漏 `guide/` 原始作业硬项。
+- Guide 输入：完整读取 A 类 Coding Agent Harness 专属要求和通用要求；`ADVANCED_LAB_PROJECT.md` 属于另一课后挑战项目，不作为本 Harness 的交付范围。
+- 保留范围：决策封装、工具、记忆、治理、反馈、配置，自研循环，可注入 mock，反馈重点维度，三演示，安全凭据，真实 Provider 本地入口，CI、Pages、npm 分发、README、AGENT_LOG、SPEC_PROCESS 和本人反思。
+- 删除范围：SQLite、多用户/RBAC、决策版本/Rebaseline、SSE、Docker、线上后端、多 Provider、性能/故障矩阵和浏览器 e2e。
+- 一致性修复：SPEC 2.0.0 成为新权威范围；PLAN 2.1.0 与其对齐；Action 命令改为 executable/args；架构改为 API → Harness、Web 独立静态展示；T05 标记已合入 MR !6。
+- 过程纪律：后续 T06–T12 每项最多 6 提交，仍保留独立分支/worktree、新鲜 subagent、一次 RED/GREEN、一次 Spec/质量检查、MR Pipeline 与记录；删除无新增信息的重复复检。
+- 当前状态：只完成文档统一，尚未创建 T06 分支或实现 T06 代码。
+
+### 2026-07-18 19:08:34 +08:00 · T06 最小决策与分发内核
+
+- 分支与提交：在专用分支 `feat/t06-minimal-kernel` 执行；规划提交为 `b3dacb9`，RED 测试提交为 `e419138`，最小实现提交为 `c4eae99`。本记录提交与清空 `guiding.md` 的提交随后补齐，保持总计 5 个提交。
+- 基线验证：在 Node `24.14.0`、pnpm `11.14.0` 和 `CI=true` 下，T05 基线的 `test`、`lint`、`typecheck`、`build` 全部通过；冻结安装前后锁文件未变化。受限沙箱内 Vite/Vitest 子进程出现 `spawn EPERM`，获准在同一工作区非沙箱执行后通过，属于环境限制。
+- TDD 证据：先创建三个测试文件，聚焦运行得到 3 个文件、15 个用例失败；失败原因分别为 `parseAction is not a function`、`Dispatcher is not a constructor`、`ScriptedMockLLM is not a constructor`，符合“实现/导出尚不存在”的预期 RED。实现后同一命令为 3/3 文件、15/15 用例通过。
+- 实现范围：新增四类严格 `Action`、单次 `LLMProvider` 接口、按顺序响应并冻结输入快照的 `ScriptedMockLLM`、拒绝缺失/多余/错型字段的 `parseAction`，以及名称唯一且每次至多调用一个 handler 的 `Dispatcher`；公共接口统一由 harness `index.ts` 导出。
+- Spec 检查：没有实现文件工具、命令执行工具、Policy、Memory、Agent Loop、真实 Provider、重试、网络调用或 T07 以后能力，未增加依赖。结论为无 Critical。
+- 质量检查：确认调用输入和内部数组使用不可变快照，解析错误码固定为 `ACTION_PARSE_FAILED`，分发错误码仅为 `TOOL_UNKNOWN`/`TOOL_EXECUTION_FAILED`，handler 异常不泄漏内部消息，同类型 handler 拒绝重复注册，单次 execute 恰调用一次匹配 handler。结论为无 Critical。
+- 评审安排：本任务由用户直接指定当前 Codex 任务负责；当前协作约束不允许再创建未被用户明确要求的子智能体，因此 Spec 与质量检查由当前任务分两轮本地完成，并如实记录该流程差异。人工修改为零。
+- 完整门禁：`pnpm test` 为 5/5 文件、17/17 用例通过；`pnpm lint` 退出码 0；`pnpm typecheck` 覆盖 API、Web、Harness 与 tests，退出码 0；`pnpm build` 完成 API TypeScript 构建和 Web Vite `8.1.5` 构建（14 个模块），退出码 0。
+- 外部状态：后续 MR !7 已以合并提交 `cdcc01f` 进入 `dev`；Pipeline 状态尚未补录，留待最终审计核对。
+
+### 2026-07-18 · T07 受限工具、治理与最小批准
+
+- 分支与提交：在专用分支 `feat/t07-safe-tools-policy` 执行；规划 `2b7b7f6`，RED 测试 `f05cee2`，受限工具 `b58f477`，治理与批准 `3d580e0`，安全加固 `1524de3`。本记录提交与末尾清空 `guiding.md` 的提交随后补齐；由于安全复审新增一次加固提交，最终总数采用 `guiding.md` 允许的 7 条上限。
+- 基线与环境：固定使用 Node `24.14.0`、pnpm `11.14.0`。系统默认 Node `20.19.4` 不满足 pnpm 引擎；受限沙箱内 Vite/Vitest 会触发 `spawn EPERM`，获准在同一工作区沙箱外按原命令复验，未把环境错误计作 RED 或项目失败。
+- TDD 证据：先提交 5 个 T07 测试文件，聚焦运行得到 26 个失败、17 个 T06 回归通过；失败均为 `PathGuard`、`FileTools`、`CommandTool`、`PolicyEngine`、`ApprovalGate` 构造器/导出尚不存在。初次 GREEN 后，安全审查分别真实复现命令参数绕过、内部链接泄漏敏感内容、无界超时以及完整白名单误放行删除命令，再补回归并修复；最终测试为 10/10 文件、65/65 用例通过。
+- 实现范围：文件读写统一经过 workspace 相对路径、真实路径 containment、敏感文件和符号链接逃逸检查；命令使用 `spawn(executable,args,{ shell:false })`，以可序列化的精确调用规则授权，默认 60 秒超时、stdout/stderr 合计 32 KiB；Shell、删除类和非白名单调用在 spawn 前拒绝。Policy 只返回 `allow | ask | deny`；写入需一次明确批准，拒绝、缺少批准器或批准器异常时 handler 调用为零；Dispatcher 保持 T06 兼容。
+- 独立审查：首次 Spec/质量审查判定 3 个 Critical，全部在 `1524de3` 关闭；复审又发现白名单可显式包含删除命令，amend 后以 `rm -rf .`、`git clean -fdx` 的真实 RED/GREEN 关闭。最终复审的 Spec compliance 与 Task quality 均 PASS；最终全范围代码审查结论为无 Critical、Ready to merge。
+- 已知非阻断项：realpath 检查与文件打开仍有 TOCTOU 窗口；Policy 对文件路径只作词法判断，真实目标安全依赖标准 `FileTools` handler；Windows `taskkill` 为 best-effort 且未等待确认；filesystem root 作为 workspace 时新文件路径切片有边界错误；另有 POSIX 后代持管道测试和 UTF-8 截断边界缺口。按本项目“只由 Critical 阻断”规则记录，未扩展 T07 范围。
+- 最终门禁：主控在 Node `24.14.0`、pnpm `11.14.0` 下重新运行 `pnpm test`、`pnpm lint`、`pnpm typecheck`、`pnpm build`；结果为 65/65 测试通过，ESLint 无错误，API/Web/Harness/tests 类型检查通过，API TypeScript 与 Web Vite `8.1.5`（14 modules）构建通过，整体退出码 0。
+- 人工修改：用户仅指定当前任务负责 T07，未直接修改工作区文件；实现由按 PLAN 派出的新鲜 subagent 完成，主控负责全文件阅读、基线、审查、修复闭环和最终验证。
+- 外部状态：后续 MR !8 已以合并提交 `4fb39c7` 进入 `dev`；Pipeline 状态尚未补录，留待最终审计核对。
+
+### 2026-07-18 · T08 启动前收尾
+
+- 基线状态：T06、T07 已分别通过 MR !7、MR !8 合入 `dev`，对应合并提交为 `cdcc01f`、`4fb39c7`；同步修正 PLAN 与旧日志中的“待 MR”状态，未猜测 Pipeline 结果。
+- 安全复查：确认 Shell 分类使用不完整名称集合，且 Git 删除类判断只覆盖 `clean`，导致精确白名单可能放行 `dash/fish`、`git rm` 与 `git reset --hard`。
+- TDD 证据：先扩展 CommandTool/Policy 回归测试，聚焦运行得到 8 个预期失败、28 个既有用例通过；最小修复统一 `.exe` 名称归一化并补齐危险 Git 调用后，同一聚焦命令为 36/36 GREEN。
+- 完整门禁：Node `24.14.0`、pnpm `11.14.0` 下 `pnpm test` 为 10/10 文件、73/73 用例通过；lint、typecheck、build 均退出码 0。
+- 范围边界：本提交仅收尾 T07 安全分类和过程记录；不实现 T08 的配置、Memory、Trace 或脱敏功能。
+
+### 2026-07-18 · T08 配置、JSON Memory 与脱敏 Trace
+
+- 分支与提交：在专用分支 `feat/t08-config-memory` 执行；规划为 `85bbf15`，RED 测试为 `6b70a29`，核心实现为 `ace9242`。本记录提交与末尾清空 `guiding.md` 的提交随后补齐，保持总计 5 个提交。
+- 基线与环境：固定使用 Node `24.14.0`、pnpm `11.14.0`。系统默认 Node `20.19.4` 无法运行 pnpm 11.14；受限沙箱内 Vite/Vitest 触发 `spawn EPERM`，获准在同一工作区沙箱外验证后通过。T08 开始前基线为 10/10 测试文件、73/73 用例通过。
+- TDD 证据：先只创建 4 个 T08 测试文件，聚焦运行得到 21/21 失败，原因均为 `parseHarnessConfig`、`Redactor`、`JsonMemory`、`JsonTrace` 导出或构造器不存在。实现后同一命令为 21/21 GREEN；评审新增 6 个边界用例后为 27/27 GREEN。
+- 实现范围：配置只接受 workspace、精确命令规则、步数、超时、输出上限和 workspace 相对 Memory 路径，并拒绝未知、越界、逃逸及 Key/secret 字段；Memory 使用版本化 JSON、同目录临时文件加 rename 原子更新，支持缺失空库、按 id upsert、有限相关检索、清空和损坏结构稳定错误；Trace 按 step 保存 Action、Policy、Observation、状态和停机原因；Memory 与 Trace 共用递归 Redactor。
+- 脱敏边界：Redactor 遮蔽会话显式敏感值、Bearer、API Key 字段和值以及独立 `sk-…` 形态。测试只使用 fake Key，并直接断言 Memory 拒绝敏感写入、Trace 原始落盘内容、读取结果和错误结构均不含 fake Key 明文。
+- 评审结果：按 Spec 与质量两轮本地检查，补齐命令规则嵌套未知字段、空白存储路径、独立 Key 形态、重复 Memory id、重复 Trace step 和 EOF 空白。未发现未关闭 Critical；原子写入失败不覆盖既有损坏文件，检索默认上限 5、硬上限 100。
+- 流程差异：用户要求当前任务自动完成，但当前协作约束禁止主动派生子智能体，因此没有调用新鲜 subagent；由当前任务逐条映射 SPEC、复查提交差异并增加对抗性测试，如实保留该差异。
+- 最终门禁：Node `24.14.0` 与 pnpm `11.14.0` 下，`pnpm test` 为 14/14 文件、100/100 用例通过；`pnpm lint`、`pnpm typecheck`、`pnpm build` 均退出码 0，Web Vite `8.1.5` 构建 14 个模块成功。
+- 范围审计：未新增依赖、schema 库、数据库或日志框架；未实现 T09 反馈/Agent Loop、T10 真实 Provider/凭据/CLI 或 T11 WebUI。Memory、Trace 默认文件和原子写入临时文件已加入 `.gitignore`。
+
+### 2026-07-18 · T09 启动前 T08 收尾
+
+- 合并状态：T08 已通过 MR !9 以 `6de04f9` 合入 `dev`；同步修正 PLAN 顶部状态与任务表，Pipeline 状态仍留待最终审计核对。
+- 根因审查：配置只扫描敏感字段名，合法 `args` 中的 `sk-…` 值可通过；Trace 类型遗漏 SPEC 的 `running` 且强制 Action；Memory 查询校验假定 tags/keywords 一定为数组。
+- TDD 证据：先新增配置敏感值、无 Action running Trace、非数组 tags 与 null keywords 四个回归用例；聚焦测试得到 4 个预期失败、21 个既有用例通过。最小修复后同一命令为 3/3 文件、25/25 用例通过。
+- 修复范围：配置复用统一 Redactor 拒绝凭据值；Trace 恢复 `running` 与可选 Action 契约；Memory 对运行时非数组查询返回 `MEMORY_INVALID_QUERY`。未实现任何 T09 Agent Loop 或反馈功能。
+- 完整门禁：Node `24.14.0`、pnpm `11.14.0` 下 14/14 测试文件、104/104 用例通过；lint、typecheck、build 均退出码 0。
+
+### 2026-07-19 · T09 反馈重点维度与自研 Agent Loop
+
+- 分支与提交：在独立 worktree 的 `feat/t09-feedback-loop` 执行；规划为 `8ebcc58`，Feedback RED/GREEN 为 `a839e38`，AgentLoop RED 为 `5933435`，循环实现与评审修复为 `af8d5e5`。本记录提交与末尾清空 `guiding.md` 的提交随后补齐，保持总计 6 个提交。
+- 基线与环境：固定使用仓库现有依赖、Node `24.14.0` 与 pnpm `11.14.0`，开始前 14/14 测试文件、104/104 用例通过。独立 worktree 复用与锁文件一致的主仓库依赖；pnpm 运行前依赖校验因 worktree 路径元数据不同会尝试安装，故关闭自动安装检查，并用本地忽略的 wrapper 保证根脚本内嵌 pnpm 仍使用 Node 24。未下载、升级或改写锁文件。
+- TDD 证据：Feedback 测试先得到 5/5 失败，原因均为 `classifyFeedback is not a function`，实现后 5/5 GREEN；AgentLoop 集成测试先得到 6/6 失败，原因均为 `AgentLoop is not a constructor`，实现后与 Feedback 初次聚焦测试合计 11/11 GREEN。最终审查针对非命令成功文案新增真实 RED，修复后增强聚焦测试为 18/18 GREEN。
+- 实现范围：新增 `pass | fail | timeout | environment_error` 结构化分类和最多 160 字符的脱敏 Observation；AgentLoop 串联 task、JSON Memory、ScriptedMockLLM、严格 Action 解析、共享 Policy/Approval/Dispatcher、单工具执行、Feedback、Trace 与终止状态。默认最多 8 步；首次业务失败回灌，第二次业务失败立即停止；finish、blocked、failed 与 max_steps 都返回稳定 RunResult。
+- 安全与错误边界：Policy deny 在 Dispatcher 前停止；ask 仍由真实 ApprovalGate 决定，deny 与缺少批准的 read/write handler 均显式断言零调用。Provider、解析、Memory、Trace、timeout 与执行环境错误均确定性失败，不自动重试副作用。测试只使用 fake Key，Trace 和完成摘要不保留明文。
+- 独立评审：新鲜实现 subagent 完成三个实现提交；任务评审首次发现 1 个 Important——deny/未批准测试未显式证明 handler 零调用，补真实 Dispatcher handler 计数后复审通过。全分支审查再发现 3 个 Important 和 1 个 Minor：非命令成功 Observation 文案不准确、脱敏/截断测试未触发真实路径、错误矩阵缺 timeout/终态/无重试断言、默认 8 步未锁定。统一修复后，通用成功文案改为 `pass: tool completed`，结构化错误诊断真实经过 Redactor 与 160 字符截断，并逐项锁定 timeout、错误 Trace、调用上限和默认 8 轮。最终复审结论为 `Ready to merge: Yes`，无 Critical/Important；仅记录 1 个不阻断 Minor：契约外自定义 handler 若返回非字符串 `error.message`，类型守卫可进一步收紧，未为此扩展有效 ToolResult 范围。
+- 完整门禁：主控使用项目根脚本重新运行 `pnpm test`、`pnpm lint`、`pnpm typecheck`、`pnpm build`；评审修复后的结果为 16/16 测试文件、122/122 用例通过，ESLint 无错误，API/Web/Harness/tests 类型检查通过，API TypeScript 与 Web Vite `8.1.5`（14 modules）构建通过，整体退出码均为 0。沙箱内 Vitest/Vite 的 `spawn EPERM` 在同一工作树沙箱外按原命令复验通过。
+- 范围审计：未新增依赖，未修改锁文件；未实现真实 Provider、凭据、CLI、网络、机制演示或 WebUI。项目 AI 指令另行补充“优先检查和复用仓库环境”规则；该本地 `.agents/AGENTS.md` 被仓库忽略，不占用 T09 提交。
+
+### 2026-07-19 · T10 启动前 T09 合并后收尾
+
+- 合并状态：T09 已通过 MR !11 以 merge commit `3b0d3fe` 合入 `dev`；本轮直接在 `dev` 收尾，不创建或共用 T10 分支，也未实现 T10 功能。
+- 根因：AgentLoop 与 Dispatcher 可分别持有治理对象，裸 Dispatcher 会让 `ask` 动作绕过批准；非零命令反馈只保留退出码，未回灌 stdout/stderr 摘要；每次 `run()` 都从 step 1 开始，导致复用同一 Trace 时重复冲突；PLAN 仍误记为待 MR。
+- RED 证据：先改为裸 Dispatcher 并新增批准、反馈摘要、Trace 连续运行回归，聚焦测试得到 6 个预期失败；其中未批准写入实际执行、批准回调 0 次、摘要缺失、损坏 Trace 在 Provider 后才失败、第二次运行写入失败均被真实复现。
+- GREEN 修复：AgentLoop 统一执行 Policy/Approval 后再调用 Dispatcher；失败命令优先汇总 stderr、stdout，经 Redactor 脱敏并受 160 字符上限约束；运行前读取 Trace，从最大 step 后追加，RunResult 只返回本次运行条目；损坏 Trace 在 Provider/handler 前停止。
+- 验证：聚焦测试 2/2 文件、20/20 用例通过；完整门禁 16/16 文件、124/124 用例通过，`lint`、`typecheck`、`build` 均退出码 0。未新增依赖、数据库、Provider、CLI 或 WebUI。
+
+### 2026-07-20 · T10 安全凭据、兼容 Provider、CLI 与三项离线演示
+
+- 分支与提交：在 `feat/t10-cli-provider-demo` 上完成；规划 `2eedd1b`，凭据实现 `ff73d6b`，凭据安全边界修复 `7d6d181`，Provider/CLI 与最终安全修复 `6842cd2`，三项演示 `ad530ab`。本记录和最后清空 `guiding.md` 的提交随后补齐，最终保持 7 条提交上限；未执行远端推送、MR 或 Pipeline 操作。
+- 环境与基线：固定使用 Codex bundled Node `24.14.0` 与仓库 pnpm `11.14.0`。开始前 T09 收尾基线为 16/16 文件、124/124 用例；恢复收尾前基线为 19/19 文件、177/177 用例。受限沙箱内 Vitest/Vite 会触发 `spawn EPERM`，获准在同一工作区沙箱外按原命令运行；没有把环境错误当作 RED。
+- 凭据 TDD：初始测试 14/14 因 `CredentialStore` 不存在而 RED；实现 scrypt + AES-256-GCM 后 GREEN。安全审查发现默认 KDF 成本、mutation 竞态和原子失败伪覆盖，随后新增确定性 RED，显式固定 scrypt `N=2^17,r=8,p=1,maxmem=256 MiB`，用拥有者令牌文件锁覆盖跨实例/进程 mutation，并真实验证临时文件创建后 rename 失败的清理。聚焦最终扩展到 19/19；独立复审无 Critical/Important。
+- Provider/CLI TDD：三组测试先得到 23 个预期失败，原因是 CLI/Provider 不存在及 config 拒绝 provider 字段。实现单次 Chat Completions、严格配置、隐藏 stdio 边界、凭据 init/status/update/clear、`pnpm agent --task` 与真实 Harness 组装后 GREEN。提交前审查用真实 307 重定向复现额外请求，补 `redirect: manual` 后复审 PASS。
+- 最终安全修复：全分支审查发现 `/v1` 重复拼接、空/弱秘密可保存、非回环 HTTP 会明文携带 Authorization 三项 Important。逐项先 RED：endpoint 4 个路径断言失败；凭据/CLI 14 个弱输入断言失败；config/Provider 4 个远端 HTTP 断言失败。修复后 endpoint 支持根路径、普通前缀、已有 `/v1` 和完整 endpoint；主密码 trim 后至少 12 字符、Key 非空；任意远端只允许 HTTPS，本机 `localhost`/`127.0.0.1`/`::1` 可用 HTTP。聚焦 96/96、全量 214/214，复审 PASS；临时 fixup 已 autosquash 到 Provider/CLI 提交。
+- 三项演示：`pnpm demo` 缺少脚本时先退出 1；新增 `tests/integration/demos/mechanisms.test.ts` 后 4/4 GREEN。真实 AgentLoop/Policy/Approval/Dispatcher 装配自动证明危险删除和敏感文件访问在治理层阻断且 handler 零调用；首次业务失败的脱敏摘要进入下一轮并驱动不同 Action 成功；第二次连续业务失败后 Provider 与 handler 均恰为 2 次，不发生第三次调用。独立任务审查 Spec/质量均 PASS，零 finding。
+- 最终门禁：autosquash 后主控重新运行 `pnpm test`（20/20 文件、214/214 用例）、`pnpm demo`（1/1 文件、4/4 演示）、`pnpm lint`、`pnpm typecheck`、`pnpm build` 和 `git diff --check`，全部退出码 0；Web Vite `8.1.5` 构建 14 个模块成功。测试仅使用本地回环 stub、`ScriptedMockLLM` 和 fake Key。
+
+- 安全与范围：凭据文件只落盘版本、salt、12-byte nonce、tag、ciphertext；主密码/API Key 不进入参数、普通配置、错误、Trace、Memory 或测试快照。未新增外部依赖、数据库、多 Provider、线上服务、T11 WebUI 或 T12 分发行为。公开导出的 CredentialStore 文件系统测试接缝仍记录为非阻断 Minor，留待后续 API 收敛。
+- 未执行项：真实学校 API smoke 只能由项目负责人在本地使用真实凭据受控执行，本任务未执行，也未伪造结果。MR、Pipeline 和合并状态留待用户后续远端流程补录。
+
+### 2026-07-20 · T11 启动前 T10 合并后安全收尾
+
+- 合并状态：T10 已通过 MR !12 以 merge commit `64458b8` 合入 `dev`；本轮直接在 `dev` 修复审查问题，不占用 T10 功能分支的 7 条提交，也未开始 T11。
+- 根因与 RED：CLI 只把当前凭据交给 Memory/Trace 的 Redactor，Provider 返回的敏感工具 Action 仍能进入批准和 handler；CommandTool 没有 cwd，导致真实命令留在 CLI 启动目录；审批入口忽略 ApprovalRequest。新增真实 CLI/CommandTool 回归后得到 4 个预期失败，并用既有 AgentLoop 用例确认敏感 finish 摘要应脱敏完成而不是误阻断。
+- 修复：AgentLoop 接受调用方 Redactor，在 Policy、批准和工具前阻断含敏感信息的非 finish Action；CommandTool 支持 cwd，CLI 显式传入配置 workspace；审批提示只显示动作类型和目标，不显示写入正文或命令参数。
+- 验证：T10/T09 联合聚焦测试 3/3 文件、56/56 用例通过；完整测试 20/20 文件、218/218 用例，`pnpm demo` 4/4，lint、typecheck、build 和 diff check 均通过。未访问公网或使用真实 Key。
+
+### 2026-07-20 · T11 Task 1 共享 runner 与回环 API
+
+- RED/GREEN：锁定 Node 在获准的非沙箱环境运行 Harness/API/CLI 聚焦测试；初始因本地服务模块缺失及 Provider 限流停机分类不正确而 RED。实现共享 `runHarnessTask`、Fastify 工厂/进程入口、CLI 复用及闭合 Provider stopReason 后，3/3 文件、45/45 用例 GREEN，API typecheck/build 与 lint 退出 0。
+- 审查修复：配置缺失/无效仍读取主密码、畸形 JSON 与超限 body 均误报 500，共产生 4 项预期 RED；增加共享配置预检及 Fastify 客户端错误白名单后，2/2 文件、34/34 用例 GREEN。配置执行时仍会重验，未知异常仍固定映射 500，错误体不含正文、Key 或异常原因。
+- 评审与边界：Task 1 在 CLI 顺序和 Fastify 客户端错误修复后复审无遗留 finding；未使用真实 Key，未访问学校 API。
+
+### 2026-07-20 · T11 Task 2 静态/本地双入口 WebUI
+
+- RED/GREEN：`App`、`LocalApp` 和客户端尚不存在时两个测试套件按预期导入失败；实现静态页面、本地受控表单、单次 JSON POST 和 `local-run` 入口后 GREEN。local 构建曾错误采用静态入口，入口顺序测试先因缺 `order: "pre"` 失败，修复后静态 build 为 17 modules、本地 build 为 19 modules。
+- 安全审查：以 8 项 RED 复现结果回显当前 Key 与无效 Trace 被接受，随后递归拒绝含 Key 的结果，并精确验证 step、闭合枚举、可选字符串和四类 Action；对象化枚举再以 RED 复现原生转换异常，改为仅接受字符串后固定映射格式错误。两个 Web 测试最终 21/21 用例 GREEN。
+- 完整证据：SSR 类型门禁先暴露 NodeNext 扩展名和 JSX 配置错误；未放宽 strict 或排除测试，仅修正测试类型入口后完整 typecheck 通过。静态 artifact 扫描 `/api/runs|127\\.0\\.0\\.1|localhost|type="password"|sk-` 无匹配，lint、两种 build 与 diff check 通过；Task 2 经响应防泄漏、schema 和枚举复审后无遗留 finding。
+
+### 2026-07-20 · T11 Task 3 本地启动、Pages 与交付记录
+
+- TDD：先扩展 CI/launcher 契约；RED 为 `pages` job 和 `scripts/local-web.mjs` 缺失导致 3 项中 2 项失败。新增 launcher、根 `web:local` 和 Pages job 后，聚焦契约 3/3 GREEN；随后 lint 发现 `.mjs` 缺失 Node 全局声明，显式导入 `node:process`/`node:console` 后复跑通过。
+- 本地 smoke：锁定 Node 24.14.0 与 pnpm 11.14.0 下启动 `pnpm web:local`，确认 API 回环 `127.0.0.1:4174` 与 Vite `127.0.0.1:5173`；Ctrl+C 后端口无监听残留。未填写真实 Key，未调用学校 API。
+- Pages 边界：保留精确 `unit-test`，`pages` 仅依赖它并限默认分支；构建默认静态 Web，仅复制 `apps/web/dist/.` 至 `public` artifact。合约扫描确认不含 API Key、凭据文件或 `.ai4se` artifact。
+- 信号审查 Important：审查指出已注册的 SIGINT/SIGTERM handler 可能让父进程以 0 退出。先新增两个 launcher 行为测试，因可注入 runner 缺失而 RED；实现后直接断言 SIGINT→130、SIGTERM→143、两个仍运行子进程均收到清理信号，且其后续 `exit`/`error` 不能覆盖父进程状态。聚焦 CI/launcher 为 2/2 文件、5/5 用例 GREEN。
+- 新鲜完整门禁：修复后的 `pnpm test` 24/24 文件、258/258 用例；`pnpm demo` 4/4；`pnpm lint`、`pnpm typecheck`、`pnpm build` 和 `git diff --check` 均退出 0。此前 Task 2 测试配置阻断的 typecheck 已由上游提交 `a943446` 修复并复审，本任务未改其源码。
+- 交付边界：未执行 push/MR/Pipeline/Pages URL 或真实学校 API smoke；上述外部证据留待项目负责人补录。
+
+### 2026-07-20 · T11 全分支最终审查修复
+
+- RED/GREEN：端口、Web 安全呈现、launcher child error/exit 与静态安装命令测试先在 4 个文件中产生 23 项预期失败；最小实现后同组 47/47 GREEN。加上本地 API 与 CI 合约的聚焦复跑为 6/6 文件、62/62 用例通过。
+- 端口与启动器：API、Vite proxy 和 launcher 使用相同严格规则，只接受十进制 1..65535；launcher 把规范化端口环境传给两个子进程，且只输出“正在启动本地 API”，ready 由 API/Vite 自身监听日志证明。child `error`、正常零退出和非零退出都会置父进程为失败并只终止仍运行的同伴；stopping 后事件不覆盖状态或重复清理。
+- Web 与静态页：fetch 连接失败固定映射“本地服务未启动”，收到非 2xx 仍不解析远端正文并返回通用固定错误；SSR 结果视图显示已通过 schema 与递归 Key 检查的 summary 和各条 stopReason。静态命令区增加当前仓库可执行的 `pnpm install --frozen-lockfile`，未伪造 T12 tarball 命令。
+- 第一次新鲜完整门禁：`pnpm test` 为 25/25 文件、282/282 用例，`pnpm demo` 为 4/4，lint 与 typecheck 退出 0；静态 build 为 17 modules，默认 artifact 扫描无 `/api/runs`、回环地址、password input 或测试 Key，`local-run` build 为 19 modules。未使用真实 Key、未访问学校 API，也未执行 push/MR/Pipeline/Pages URL 验证。
+
+### 2026-07-21 · T11 真实 Provider smoke 与 Action 提示修复
+
+- 真实诊断：负责人创建限额临时 Key 并仅保存至 Git 忽略的 `.ai4se/temp-api-key.txt`；模型列表请求确认 `qwen-turbo` 与 `DeepSeek-R1` 等模型可用。诊断脚本从该文件读取 Key，只输出用当前 Key 精确替换后的响应；测试结束后逐个删除 Key 文件与诊断脚本，并要求负责人在平台撤销临时 Key。
+- 根因证据：旧 system message 未声明 Action schema，`qwen-turbo` 返回 HTTP 200 与 `{"action":"respond","content":"..."}`，Provider 能解析 JSON，但 Harness 以 `parse_error` 拒绝未知 Action。仅将 system message 改为四种精确 Action schema 并要求普通问答使用 `finish` 后，同一真实 API 返回 `{"type":"finish","summary":"..."}`。
+- TDD：Provider 请求契约在旧实现上为 27 项中 1 项预期 RED；最小提示修复后，Provider/AgentLoop/API 聚焦 3/3 文件、54/54 用例 GREEN。完整 `pnpm test` 为 25/25 文件、282/282 用例，lint、typecheck 与 build 均通过，默认静态构建 17 modules。
+- WebUI smoke：负责人使用 `https://njusehub.info/v1/chat/completions`、`qwen-turbo` 与简单问答观察到 `completed`，安全摘要正常，Trace 为 `finish · allow · completed · pass: finish`，停止原因为 `finish`；页面在结果后自动清空 API Key。`DeepSeek-R1` 仍可能因输出非纯 JSON 而得到 `provider_action_invalid`，不作为本次已验证兼容模型。
+- 外部边界：真实学校 API smoke 已完成；push、非 squash MR、Pipeline passed 与公开 Pages URL 仍由负责人执行和记录。
+
+### 2026-07-21 · T12 启动前 T11 合并与 Windows 基线修复
+
+- 合并状态：T11 已通过 MR !13 以 merge commit `7c68221` 合入 `dev`；公开 Pages URL 与远端 Pipeline 状态仍留给 T12 使用真实结果核验，不以本地合并记录代替。
+- 基线问题：pull 后 Windows 工作区将 `.gitlab-ci.yml` 检出为 CRLF，CI 契约测试把 YAML 片段换行写死为 LF，导致完整测试 25 个文件中 1 个失败、281/282 用例通过；YAML 内容本身未改变。
+- 修复与验证：将该断言收窄为兼容 LF/CRLF 的精确结构匹配，聚焦 CI 契约测试恢复为 1/1 文件、3/3 用例通过；修复不改变 Pages job 或产品行为。
+
+### 2026-07-21 · T12 最终自动化审计与交付证据
+
+- 环境：固定使用 Codex bundled Node `24.14.0` 启动 pnpm `11.14.0`；受限沙箱中的 Vitest/Vite 或 Git 子进程 `spawn EPERM` 均按 brief 在非沙箱环境原命令复跑，没有充当 RED 或产品失败证据。
+- RED：先新增 CI 契约和最终审计测试；有效聚焦运行共 27 个文件、293 项，新增 10 项失败、既有 283 项通过。审计 9 项因 `scripts/final-audit.mjs` 不存在而失败，CI 1 项因 `unit-test` 缺少 `pnpm demo` 及后续命令而失败。
+- GREEN：实现无依赖 Node 审计、根 `final:audit` 与 CI 顺序后，CI/审计聚焦为 2/2 文件、13/13 用例通过。真实仓库预跑暴露低置信度测试占位符误报，先以新增用例得到 11 项中 1 项 RED，再收窄高置信度 OpenAI 规则，审计测试 11/11 GREEN。
+- 审查 RED/GREEN：`GIT_DEPTH` 先 1/3 RED 后 CI 3/3 GREEN；OpenAI/GitLab/AWS/PEM 四类含 NUL 历史 blob 先 4/14 RED，替换 `git grep -I` 为 `ls-tree -z` + `cat-file` 后 14/14 GREEN；stage 后工作树安全覆盖先 1/15 RED，index blob 扫描后 15/15 GREEN；raw tree 恶意路径真实回显 token、换行与 ANSI，位置脱敏/转义后 16/16 GREEN；Pages 新增危险文件 6 项 RED，最小 allowlist 后子集 14/14 GREEN；8 MiB+1 对象先被静默接受，明确上限后 1/1 GREEN。
+- 有界内存与 gitlink RED/GREEN：用 `git fast-import` 创建 48 个唯一 1 MiB 历史 blob，并在 16 MiB V8 heap 下用 preload 守卫限制单个 Map 累计 Buffer 不超过 20 MiB；旧实现确定性触发 `AUDIT_TEST_BUFFER_BUDGET` 并退出 2，重构后同一用例 1/1 GREEN（约 3.2 秒）。真实 index 写入 mode `160000` gitlink 与 mode `120000` symlink canary 后，旧实现把 commit OID 当 blob 而退出 2；过滤 gitlink、保留 symlink 正文扫描后 1/1 GREEN，canary 仍以状态 1 和脱敏诊断检出。
+- 审计行为：扫描 `git ls-files` 工作树、index blob 和 `git rev-list --all` 全部可达树/blob；四类规则共用同一来源，含 NUL 内容不跳过。历史按 commit 与最多 64 个 OID 的逻辑批次处理，正文批次以 16 MiB 为预算并在读取后立即分类，只长期保留 `oid -> category[]`；index 同样跳过 mode `160000` gitlink 并按有界批次扫描其他 blob。输出仅含稳定类别、经全规则脱敏并控制字符单行转义的相对路径/提交标识及处置提示。单对象超过 8 MiB 在读取正文前以稳定 `AUDIT_ERROR/BLOB_SIZE_LIMIT/位置` 失败。
+- CI/Pages：精确 job 名保持 `unit-test`，镜像 Node `24.14.0`、pnpm `11.14.0`，设置 `GIT_DEPTH: "0"`；install/test/lint/typecheck/build 后运行 demo、Harness build/pack 与 final audit，tarball 输出到已忽略的 `.ai4se/harness-pack`。`pages` 仍 `needs: ["unit-test"]`、仅默认分支运行且只复制 `apps/web/dist/.` 到 `public/`；artifact 只允许实际 Vite 的 `index.html` 与扁平 `assets`，拒绝 `.env*`、credentials 扩展、backend/functions/server/API 入口及其他文件。
+- 本地门禁：`pnpm install --frozen-lockfile` 显示 4 个 workspace 已是最新；最终聚焦为 2/2 文件、28/28 用例，`pnpm test` 为 27/27 文件、309/309 用例（31.57 秒）；`pnpm lint`、`pnpm typecheck`、`pnpm build` 均退出 0，Vite 构建 17 modules；`pnpm demo` 为 1/1 文件、4/4 用例。CI 等价 pack 生成唯一 `ai4se-harness-0.1.0.tgz`（20,504 bytes），随后按明确单文件删除并非递归删除空 `harness-pack` 子目录，保留 `.ai4se`；真实 `pnpm final:audit` 已扫描工作树、index、完整历史对象和现有 Pages artifact 并退出 0。
+- 分发与文档：完整测试包含从 tarball 离线安装、ESM 导入及 CLI smoke；README、LICENSES 和负责人本人 REFLECTION 已在此前 T12 提交交付，本提交保持 README/REFLECTION 不变。
+- Provider 证据：仅记录此前负责人本地实测的非敏感摘要——endpoint `https://njusehub.info/v1/chat/completions`、model `qwen-turbo`、HTTP 200、`completed`、1 step、`finish`、无 Key 回显；本任务没有联网或接触真实 Key。
+- 自审：测试 canary 只在运行时由片段拼接；脚本不把秘密放入参数、错误输出或快照；未新增依赖或修改锁文件；未修改产品功能、README、REFLECTION 或 guiding。
+- 远端缺口：未执行 push、MR、merge 或任何远端写操作。GitLab MR、最新 Pipeline passed 和公开 Pages URL 均待负责人远端操作/核验，本地契约与旧记录不替代实时状态。
+
+### 2026-07-21 · T12 最终整分支审查修复
+
+- Important 1（CI Git）：`node:24.14.0-bookworm-slim` 未声明 Git 安装。先让 pipeline contract 因四条命令缺失 RED；再仅在 `unit-test.before_script` 依次加入 `apt-get update`、`apt-get install -y --no-install-recommends git`、`rm -rf /var/lib/apt/lists/*`、`git --version`，Pages job 保持不安装 Git。
+- Important 2（工作树覆盖）：动态 untracked canary 在旧实现下状态 0。当前文件枚举改为 `git ls-files --cached --others --exclude-standard -z`；普通文件使用 `lstat` 后读取，symlink/reparse link 只用 `readlinkSync` 扫描 link text，绝不跟随目标。物理 symlink 用例在当前 Windows 因 `symlinkSync` EPERM 条件跳过，未以读取 target 冒充。
+- Important 3（真正内存上界）：192 个小型唯一历史 blob 使旧 `oid -> category[]` Map 触发 `AUDIT_TEST_MAP_ENTRY_BUDGET`；改为固定容量 64 的 LRU 后 GREEN。删除无界 `reportedPaths`，让 findings 以类别/路径键直接去重并固定为 256 条；257 个 untracked canary 从旧实现漏扫状态 0，修复后稳定状态 2、`AUDIT_ERROR | FINDING_LIMIT`，不回显秘密。另以 RED→GREEN 保证同类别/路径只保留 `rev-list` 首次扫描到的提交诊断。
+- 门禁：聚焦 audit+pipeline 为 2/2 文件、32 passed/1 skipped（33 total）；完整 `pnpm test` 为 27/27 文件、313 passed/1 skipped（314 total，37.83 秒）；`pnpm lint`、`pnpm typecheck`、`pnpm build`、`pnpm demo`、`pnpm final:audit` 均退出 0，Vite 构建 17 modules。未修改 README、REFLECTION、guiding 或锁文件，未新增依赖，未读取真实 Key，未执行远端操作。
+
+### 2026-07-21 · dev 统一项目环境入口
+
+- 根因：系统默认 `D:\nodejs\pnpm.ps1` 固定调用 Node 20，与项目要求的 Node 24/pnpm 11 不兼容；直接启动 Vitest 虽可使用 Node 24，却绕过 pnpm 注入的 `npm_execpath`，使 tarball smoke 误报“未提供 pnpm 启动路径”。此前反复调整命令属于执行环境不一致，不是产品代码反复失效。
+- 决策：所有 Txx 已结束，后续收尾直接在 `dev` 提交。新增单一 PowerShell 入口，固定验证 Node 24.14.0/pnpm 11.14.0、设置 PATH 与 npm 启动元数据，并统一承载 install/test/lint/typecheck/build/demo/audit/all；未来智能体不得再手工拼接环境命令。
+- RED/GREEN 与门禁：环境契约先因统一脚本缺失得到 1/1 预期失败；初版脚本又暴露 Windows PowerShell 5.1 对无 BOM 中文源码的解析问题，改为纯 ASCII 脚本后 `versions` 精确输出 Node 24.14.0 与 pnpm 11.14.0。统一 `test` 最终为 28/28 文件、315/315 用例；统一 `all` 下同一完整测试、lint、typecheck、Harness/API/Web build（Vite 17 modules）、demo 4/4 和 final audit 全部退出 0。仓库根 `AGENTS.md` 固化此入口及后续直接在 `dev` 收尾的规则，最后复跑完整测试仍为 315/315。
+
+### 2026-07-21 · dev 最终交付状态与 Release 产物收尾
+
+- 状态核对：T12 已通过 MR !14 以 merge commit `6f8b5d6` 合入 `dev`，功能分支实际为 7 个提交；SPEC/PLAN 中“T12 待执行、上限 6”的旧状态改为真实合并结果。当前仍只把 Pipeline、公开 Pages/Release URL 与最终 `dev → main` 记为外部待办。
+- CI RED：先要求 `unit-test` 不含递归批量删除，并保存 `.ai4se/harness-pack/*.tgz`；旧流水线在完整 315 项测试中仅该契约失败，准确命中 `rm -rf /var/lib/apt/lists/*`。
+- 最小修复：移除禁用删除命令；保留 Git 安装与版本检查；为 Harness tarball 增加按 ref 命名、保存一年的 job artifact，供后续 GitLab Release 链接使用。Pages job 不接触 tarball，仍只发布静态 Web。
+- GREEN 与门禁：统一 `test` 为 28/28 文件、315/315 用例；随后统一 `all` 下相同完整测试、lint、typecheck、Harness/API/Web build（Vite 17 modules）、demo 4/4 和 final audit 全部退出 0。工作树、Git 历史与现有 Pages artifact 扫描未发现凭据命中。

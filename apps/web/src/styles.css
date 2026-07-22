@@ -1,0 +1,27 @@
+:root { --background: #f7f7f3; --ink: #17202a; --muted: #5c6670; --border: #c8ced1; --allow: #176b45; --ask: #996400; --deny: #a82c2c; --success: #176b45; color: var(--ink); background: var(--background); font-family: system-ui, sans-serif; }
+* { box-sizing: border-box; }
+body { margin: 0; line-height: 1.55; }
+a { color: inherit; }
+.container { width: min(100% - 2rem, 72rem); margin-inline: auto; }
+.site-header, .site-footer { padding: 2rem 0; background: #e9ece8; }
+.site-header h1, h2, h3, p { margin-top: 0; }
+.site-nav { border-block: 1px solid var(--border); }
+.site-nav .container { display: flex; gap: 1rem; padding: .75rem 0; flex-wrap: wrap; }
+main { padding-block: 2rem; }
+section { margin-block: 2.5rem; }
+.eyebrow { color: var(--muted); font-size: .875rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+.hero { padding: 2rem; border: 1px solid var(--border); background: #fff; }
+.boundary-callout { border-left: .3rem solid var(--allow); padding-left: 1rem; }
+.card-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1rem; }
+.architecture-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.card, .trace-run, .local-runner { border: 1px solid var(--border); background: #fff; padding: 1rem; }
+.trace-run + .trace-run { margin-top: 1rem; }
+.trace-run ol, .local-trace { overflow-x: auto; padding-left: 2rem; }
+.trace-run li { display: grid; grid-template-columns: 5rem 4rem minmax(13rem, 1fr) minmax(12rem, 1fr) 6rem; gap: .5rem; align-items: start; min-width: 44rem; margin-block: .6rem; }
+.policy { font-weight: 700; }.policy-allow { color: var(--allow); }.policy-ask { color: var(--ask); }.policy-deny { color: var(--deny); } em { color: var(--success); }
+code { overflow-wrap: anywhere; }
+.command-list { display: flex; gap: .75rem; flex-wrap: wrap; }.command-list code { padding: .5rem .75rem; border: 1px solid var(--border); background: #fff; }
+.skip-link { position: absolute; left: -9999px; }.skip-link:focus { left: 1rem; top: 1rem; z-index: 1; background: #fff; padding: .5rem; }
+:focus-visible { outline: 3px solid #1d5fa7; outline-offset: 3px; }
+.local-runner-section { padding-top: 0; }.local-runner form { display: grid; gap: 1rem; }.local-runner label { display: grid; gap: .35rem; font-weight: 700; }.local-runner input, button { font: inherit; padding: .55rem; }.local-runner button { width: fit-content; background: var(--ink); color: #fff; border: 0; cursor: pointer; }.local-runner button:disabled { cursor: wait; opacity: .7; }.run-status { margin-top: 1rem; font-weight: 700; }
+@media (max-width: 720px) { .card-grid, .architecture-grid { grid-template-columns: 1fr; } }

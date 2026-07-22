@@ -1,0 +1,52 @@
+stages:
+  - test
+  - deploy
+
+unit-test:
+  stage: test
+  image: node:24.14.0-bookworm-slim
+  variables:
+    CI: "true"
+    GIT_DEPTH: "0"
+  before_script:
+    - apt-get update
+    - apt-get install -y --no-install-recommends git
+    - git --version
+    - corepack enable
+    - corepack prepare pnpm@11.14.0 --activate
+  script:
+    - pnpm install --frozen-lockfile
+    - pnpm --filter @ai4se/harness build
+    - pnpm test
+    - pnpm lint
+    - pnpm typecheck
+    - pnpm build
+    - pnpm demo
+    - mkdir -p .ai4se/harness-pack
+    - pnpm --filter @ai4se/harness pack --pack-destination .ai4se/harness-pack
+    - pnpm final:audit
+  artifacts:
+    name: "ai4se-harness-$CI_COMMIT_REF_SLUG"
+    paths:
+      - .ai4se/harness-pack/*.tgz
+    expire_in: 1 year
+
+pages:
+  stage: deploy
+  image: node:24.14.0-bookworm-slim
+  needs: ["unit-test"]
+  variables:
+    CI: "true"
+  before_script:
+    - corepack enable
+    - corepack prepare pnpm@11.14.0 --activate
+  script:
+    - pnpm install --frozen-lockfile
+    - pnpm --filter @ai4se/web build
+    - mkdir public
+    - cp -R apps/web/dist/. public/
+  artifacts:
+    paths:
+      - public
+  rules:
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
