@@ -63,6 +63,8 @@ describe("GitLab pipeline", () => {
     expect(pages).toBeDefined();
     expect(pages).toContain("- pnpm --filter @ai4se/web build");
     expect(pages).toContain("- cp -R apps/web/dist/. public/");
+    expect(pages).toMatch(/^ {2}pages: true$/mu);
+    expect(pages).toContain("url: $CI_PAGES_URL");
     expect(pages).toMatch(/paths:\r?\n {6}- public/u);
     expect(pages).not.toMatch(/API_KEY|OPENAI_API_KEY|credentials\.json/iu);
     expect(pages).toContain('needs: ["unit-test"]');
