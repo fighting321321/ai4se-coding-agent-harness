@@ -46,7 +46,7 @@ describe("@ai4se/harness 分发包", () => {
 
     expect(manifest).toMatchObject({
       name: "@ai4se/harness",
-      version: "0.1.0",
+      version: "0.2.0",
       type: "module",
       engines: { node: ">=24.0.0 <25.0.0" },
       files: ["dist", "bin", "README.md"],
@@ -98,7 +98,8 @@ describe("@ai4se/harness 分发包", () => {
     await writeFile(
       join(installation, "verify-import.mjs"),
       [
-        'import { runOfflineSmoke } from "@ai4se/harness";',
+        'import { runCli, runInteractiveSession, runOfflineSmoke } from "@ai4se/harness";',
+        'if (typeof runCli !== "function" || typeof runInteractiveSession !== "function") process.exit(2);',
         "console.log(await runOfflineSmoke());",
         ""
       ].join("\n"),
@@ -111,6 +112,14 @@ describe("@ai4se/harness 分发包", () => {
     const cli = runPnpm(["exec", "ai4se-harness"], installation);
     expectSuccess(cli);
     expect(cli.stdout).toBe("AI4SE Harness 离线 smoke：completed\n");
+
+    const explicitSmoke = runPnpm(["exec", "ai4se-harness", "smoke"], installation);
+    expectSuccess(explicitSmoke);
+    expect(explicitSmoke.stdout).toBe("AI4SE Harness 离线 smoke：completed\n");
+
+    const help = runPnpm(["exec", "ai4se-harness", "--help"], installation);
+    expectSuccess(help);
+    expect(help.stdout).toContain("ai4se-harness start");
 
     const installedManifest = JSON.parse(
       await readFile(join(installation, "node_modules/@ai4se/harness/package.json"), "utf8")

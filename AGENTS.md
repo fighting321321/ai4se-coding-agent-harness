@@ -3,7 +3,7 @@
 ## 统一运行环境
 
 - 在 Windows/Codex 环境中执行本项目命令时，必须使用 `powershell -NoProfile -File .\scripts\project-env.ps1 <task>`。
-- 可用任务为 `versions`、`install`、`test`、`lint`、`typecheck`、`build`、`demo`、`audit` 和 `all`。
+- 可用任务为 `versions`、`install`、`test`、`lint`、`typecheck`、`build`、`demo`、`audit`、`pack` 和 `all`。
 - 不得直接使用系统默认 `node`、`pnpm`，也不得绕过 pnpm 直接启动 Vitest；统一入口负责固定 Node 24.14.0、pnpm 11.14.0 与 `npm_execpath`。
 - 如果 Vite、Vitest 或 Git 子进程在沙箱内出现 `spawn EPERM`，应在获准环境中原样重跑同一个统一入口，不得临时改用另一套启动命令。
 

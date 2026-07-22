@@ -52,6 +52,14 @@ function processDependencies(): CliDependencies {
   return {
     cwd: process.cwd(),
     readSecret,
+    readLine: async (question) => {
+      const prompt = createInterface({ input: process.stdin, output: process.stdout });
+      try {
+        return await prompt.question(question);
+      } finally {
+        prompt.close();
+      }
+    },
     askApproval: async (request) => {
       const prompt = createInterface({ input: process.stdin, output: process.stdout });
       try {
@@ -62,6 +70,7 @@ function processDependencies(): CliDependencies {
         prompt.close();
       }
     },
+    clearScreen: () => console.clear(),
     writeOut: (message) => console.log(message),
     writeError: (message) => console.error(message)
   };

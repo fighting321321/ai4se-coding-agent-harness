@@ -1,6 +1,6 @@
 # Coding Agent Harness
 
-一个面向课程学习的、可确定性验证的 Coding Agent Harness。它把一次可替换的 LLM 补全放进由 TypeScript 代码实现的工具边界、策略、记忆、反馈和 Trace 中；不是现成 Agent Runner，也不是线上多用户平台。
+一个面向课程学习的、可确定性验证的 Coding Agent Harness。它把可替换的 LLM 补全放进由 TypeScript 代码实现的工具边界、策略、记忆、反馈和 Trace 中，并提供可连续输入任务的终端 Agent；它不是线上多用户平台。
 
 ## 30 秒了解项目
 
@@ -44,7 +44,7 @@ Harness 的六个维度及其对应实现是：
 - 过程与反思：[`AGENT_LOG.md`](AGENT_LOG.md)、[`COLD_START_VALIDATION.md`](COLD_START_VALIDATION.md)、[`REFLECTION.md`](REFLECTION.md)。
 - 实现与测试：`packages/harness` 自研内核、`apps/api` CLI/本地 API、`apps/web` 本地 WebUI，以及 mock LLM 单元测试和三项机制演示。
 - 持续集成：`.gitlab-ci.yml` 中精确名为 `unit-test` 的作业，执行测试、lint、类型检查、构建、演示、打包和凭据审计。
-- 托管分发：[GitLab v1.0.0 Release](https://git.nju.edu.cn/HuanghaoXu/ai4se-coding-agent-harness/-/releases/v1.0.0) 与 `ai4se-harness-0.1.0.tgz`。
+- 托管分发：[GitLab v1.1.0 Release](https://git.nju.edu.cn/HuanghaoXu/ai4se-coding-agent-harness/-/releases/v1.1.0) 与 `ai4se-harness-0.2.0.tgz`；原 v1.0.0 Release 保留为首版交付记录。
 
 ## 前提与源码安装
 
@@ -108,7 +108,13 @@ node apps/api/dist/cli-entry.js credentials clear
 }
 ```
 
-随后在 TTY 中运行任务。写文件动作会显示动作类型与目标，并要求当前会话人工批准；没有批准时不会调用工具。
+随后在 TTY 中启动会话式 Agent。程序只在启动时隐藏询问一次主密码，之后可连续输入多个任务；Memory 和 Trace 在同一工作区持续保存。每一个写文件动作都会单独显示动作类型与目标并要求人工批准，不会复用上一次批准。
+
+```powershell
+node apps/api/dist/cli-entry.js start --config ".ai4se/config.json"
+```
+
+进入 `ai4se>` 后可直接输入自然语言任务，也可使用 `/help`、`/status`、`/trace`、`/clear` 和 `/exit`。空输入不会调用 Provider。一次性兼容入口仍可使用：
 
 ```powershell
 node apps/api/dist/cli-entry.js --task "为当前工作区运行允许的检查" --config ".ai4se/config.json"
@@ -130,20 +136,22 @@ pnpm web:local
 
 ## 托管交付：GitLab Release
 
-课程检查入口：[v1.0.0 Release](https://git.nju.edu.cn/HuanghaoXu/ai4se-coding-agent-harness/-/releases/v1.0.0)。学校 GitLab 当前没有为本项目提供可用的公开 Pages 地址，因此依据助教补充说明，本项目采用“CLI + 托管平台 Release”方式交付，不迁移到 GitHub。
+课程检查入口：[v1.1.0 Release](https://git.nju.edu.cn/HuanghaoXu/ai4se-coding-agent-harness/-/releases/v1.1.0)。学校 GitLab 当前没有为本项目提供可用的公开 Pages 地址，因此依据助教补充说明，本项目采用“CLI + 托管平台 Release”方式交付，不迁移到 GitHub。
 
-从 Release 下载 `ai4se-harness-0.1.0.tgz` 后，在 Node.js 24 与 pnpm 11.14.0 环境中安装并验证：
+从 Release 下载 `ai4se-harness-0.2.0.tgz` 后，在 Node.js 24 与 pnpm 11.14.0 环境中安装并验证：
 
 ```powershell
-pnpm add --global .\ai4se-harness-0.1.0.tgz
+pnpm add --global .\ai4se-harness-0.2.0.tgz
 ai4se-harness smoke
+ai4se-harness credentials init
+ai4se-harness start --config .ai4se/config.json
 ```
 
-成功时输出 `AI4SE Harness 离线 smoke：completed`。WebUI 仍可通过仓库统一入口在本地运行；`apps/web` 的静态页面只用于脱敏架构演示，不接收 API Key，也不连接线上后端。
+`smoke` 成功时输出 `AI4SE Harness 离线 smoke：completed`。`start` 会打开持续运行的 `ai4se>` 终端会话。WebUI 仍可通过仓库统一入口在本地运行；`apps/web` 的静态页面只用于脱敏架构演示，不接收 API Key，也不连接线上后端。
 
 ## npm tarball 分发 smoke
 
-`@ai4se/harness` 是可安装的 ESM 包，提供类型入口、`runOfflineSmoke` 导入和 `ai4se-harness` CLI。以下 PowerShell 命令会构建 tarball，在新目录离线安装，然后分别验证 ESM 导入和已安装 CLI：
+`@ai4se/harness` 0.2.0 是可安装的 ESM 包，提供类型入口、共享任务运行器、会话运行器、`runOfflineSmoke` 和 `ai4se-harness` CLI。以下 PowerShell 命令会构建 tarball，在新目录离线安装，然后分别验证 ESM 导入和已安装 CLI：
 
 ```powershell
 pnpm --filter @ai4se/harness build
@@ -170,6 +178,7 @@ console.log(await runOfflineSmoke());
 '@ | Set-Content -Encoding utf8 verify-import.mjs
 node verify-import.mjs
 pnpm exec ai4se-harness
+pnpm exec ai4se-harness --help
 ```
 
 两个 smoke 都应输出 `AI4SE Harness 离线 smoke：completed`。tarball 是课程交付产物，不表示它已发布到公共 npm registry；`@ai4se/harness` 当前标记为 `UNLICENSED`，不得假定获得再分发权利。

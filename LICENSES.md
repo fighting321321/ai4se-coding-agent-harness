@@ -12,7 +12,7 @@
 | `apps/web` | `react` | `19.2.7` | MIT | 静态 mock 与本地运行界面的组件渲染。 |
 | `apps/web` | `react-dom` | `19.2.7` | MIT | React 的 DOM 渲染。 |
 
-`apps/api` 还直接声明了 `@ai4se/harness: workspace:*`。这是仓库内本地 workspace 包，不是第三方依赖；其版本为 `0.1.0`，包元数据标记为 `UNLICENSED`。这不授予任何再分发或开源许可。`packages/harness` 自身没有第三方运行时直接依赖。
+`apps/api` 还直接声明了 `@ai4se/harness: workspace:*`。这是仓库内本地 workspace 包，不是第三方依赖；其版本为 `0.2.0`，包元数据标记为 `UNLICENSED`。这不授予任何再分发或开源许可。`packages/harness` 自身没有第三方运行时直接依赖。
 
 ## 开发时直接依赖
 
