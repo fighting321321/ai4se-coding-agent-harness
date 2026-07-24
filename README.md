@@ -75,56 +75,88 @@ powershell -NoProfile -File .\scripts\project-env.ps1 all
 2. 第一次允许的验证命令失败后，失败摘要回灌给 mock LLM；它选择修正动作并以 `finish` 完成。
 3. 两次连续业务失败后立即以既定原因停止，不请求第三次 Provider，也不发生第三次工具调用。
 
-## CLI：凭据与真实任务
+## CLI：测试当前开发版
 
-先构建，再直接调用本地 CLI 入口：
+当前 `dev` 已支持“无参数启动”和“当前目录即工作区”，但首次三项向导与 Windows 系统凭据存储尚未实现。下面是这一过渡版本的完整可执行测试流程；后续向导完成后，第 2 步和 `credentials init` 将由程序内部自动完成。
+
+### 1. 打包、安装与离线检查
+
+在仓库根目录运行：
 
 ```powershell
-pnpm build
-node apps/api/dist/cli-entry.js credentials init
-node apps/api/dist/cli-entry.js credentials status
-node apps/api/dist/cli-entry.js credentials update
-node apps/api/dist/cli-entry.js credentials clear
+powershell -NoProfile -File .\scripts\project-env.ps1 pack
+$tarball = (Get-ChildItem .\.ai4se\submission-output\ai4se-harness-*.tgz | Select-Object -First 1).FullName
+pnpm add --global $tarball
+ai4se-harness smoke
 ```
 
-`init` 和 `update` 依次以隐藏输入读取主密码和 API Key；`clear` 以隐藏输入读取主密码；`status` 只输出 `configured` 或 `unconfigured`，不读取或显示秘密。主密码去除首尾空白后必须至少 12 个字符。请使用可恢复的密码管理方式保存主密码：遗忘后无法恢复已加密的 Key。
+预期输出：
 
-凭据文件位于当前工作目录的 `.ai4se/credentials.json`，以 scrypt 派生密钥和 AES-256-GCM 加密存储。不要把 Key、主密码或等价秘密放进命令行参数：CLI 会拒绝 `--api-key`、`--password`、`--master-password`、`--secret` 和 `--token`。加密不改变运行时内存风险，主密码和 Key 在处理期间仍可能短暂以明文存在于进程内存中。
+```text
+AI4SE Harness 离线 smoke：completed
+```
 
-真实任务还需要一个不含秘密的 `.ai4se/config.json`。下面是可复制的最小结构；将 Provider 地址、模型、工作区与白名单替换为你的本地环境，但不要加入 API Key：
+`smoke` 完全离线，不读取配置或 API Key。如果 pnpm 报 `ERR_PNPM_NO_GLOBAL_BIN_DIR`，先运行 `pnpm setup`，关闭并重新打开终端，再重新安装；不要因此把 Key 写入命令行。
+
+### 2. 准备真实 Provider 测试
+
+进入希望 Agent 操作的项目目录。这个目录会自动成为工作区：
+
+```powershell
+cd D:\path\to\your-project
+New-Item -ItemType Directory -Force .ai4se | Out-Null
+```
+
+创建 `.ai4se/config.json`，只替换 `baseUrl` 和 `model`；`workspace` 是过渡兼容字段，当前开发版不会用它切换工作区。配置中严禁填写 API Key：
 
 ```json
 {
   "workspace": ".",
-  "allowedCommands": [
-    { "executable": "pnpm", "args": ["test"] }
-  ],
+  "allowedCommands": [],
   "maxSteps": 8,
   "commandTimeoutMs": 60000,
   "maxOutputBytes": 32768,
   "memoryPath": ".ai4se/memory.json",
   "provider": {
     "baseUrl": "https://your-provider.example/v1",
-    "model": "your-model"
+    "model": "your-model-name"
   }
 }
 ```
 
-随后在 TTY 中启动会话式 Agent。程序只在启动时隐藏询问一次主密码，之后可连续输入多个任务；Memory 和 Trace 在同一工作区持续保存。每一个写文件动作都会单独显示动作类型与目标并要求人工批准，不会复用上一次批准。
+当前过渡版本还需要初始化旧式加密凭据：
+
+```powershell
+ai4se-harness credentials init
+```
+
+程序会隐藏询问主密码和 API Key。主密码至少 12 个字符；API Key 和主密码都不要写入命令参数、配置、日志或 Git。最终路线 B 会取消这一步中的主密码，并改为首次启动时只填写服务地址、隐藏 API Key 和模型名称。
+
+### 3. 启动并验证真实 Agent
+
+保持终端位于刚才的项目目录，直接运行：
 
 ```powershell
 ai4se-harness
 ```
 
-当前 `dev` 已将无参数入口改为启动交互 Agent，并强制以命令启动时的当前目录为工作区；`start --config` 仅作为兼容入口。首次配置向导尚未完成，因此这一过渡版本仍要求当前目录已有 `.ai4se/config.json` 与加密凭据。
+启动后应显示当前工作区和模型。建议依次测试：
 
-进入 `ai4se>` 后可直接输入自然语言任务，也可使用 `/help`、`/status`、`/trace`、`/clear` 和 `/exit`。空输入不会调用 Provider。一次性兼容入口仍可使用：
-
-```powershell
-node apps/api/dist/cli-entry.js --task "为当前工作区运行允许的检查" --config ".ai4se/config.json"
+```text
+/status
+请先使用 read_file 读取 README.md，然后用 finish 总结项目名称和用途。不要写文件，不要运行命令。
+/trace
+/exit
 ```
 
-当前 `dev` 不再使用配置中的旧 `workspace` 切换目录；命令白名单、最大步数、超时、输出上限和 Memory 路径仍由本地文件控制，任务请求不能覆盖这些边界。
+验收结果应满足：
+
+1. `/status` 显示的工作区等于启动命令所在目录。
+2. Agent 能调用读取工具并以 `completed` 结束，Trace 不包含 API Key。
+3. 无参数 `ai4se-harness` 进入会话；只有显式 `ai4se-harness smoke` 才运行离线检查。
+4. 当前版本在一次启动中只询问一次主密码，但不同任务仍不共享完整对话历史；这是路线 B 后续提交要修复的已知缺口。
+
+兼容入口 `ai4se-harness start --config .ai4se/config.json` 和一次性 `--task` 仍然保留，但不属于最终普通用户流程。
 
 ## 本地 Web：一次运行的临时 Key
 
