@@ -1,6 +1,6 @@
 # Coding Agent Harness
 
-> **开发状态（dev 重新评估）：** `v1.1.0` 是安全工具循环与分发基线，不是《Agent 的一生》所描述的最终 Harness。它不能让后一项终端任务读取前一项任务的对话内容，`JsonMemory` 也尚未接入主循环的写入与固化。项目负责人已批准路线 B（教学级完整 Harness）及面向用户的 CLI 方向，但决定延期实施；完整差距、CLI 决策、提交上限和成本估计见 [`FULL_HARNESS_REASSESSMENT.md`](FULL_HARNESS_REASSESSMENT.md)。当前版本仍不应作为完整 Harness 最终提交。
+> **开发状态（dev 重新评估）：** `v1.1.0` 是安全工具循环与分发基线，不是《Agent 的一生》所描述的最终 Harness。它不能让后一项终端任务读取前一项任务的对话内容，`JsonMemory` 也尚未接入主循环的写入与固化。项目负责人已批准路线 B（教学级完整 Harness）及面向用户的 CLI 方向：最终首次向导只填写服务地址、隐藏 API Key 和模型名称，不再设置本地保护密码；当前目录自动成为工作区。完整差距、CLI 决策、提交上限和成本估计见 [`FULL_HARNESS_REASSESSMENT.md`](FULL_HARNESS_REASSESSMENT.md)。当前版本仍不应作为完整 Harness 最终提交。
 
 一个面向课程学习的、可确定性验证的 Coding Agent Harness。它把可替换的 LLM 补全放进由 TypeScript 代码实现的工具边界、策略、记忆、反馈和 Trace 中，并提供可连续输入任务的终端 Agent；它不是线上多用户平台。
 
@@ -113,8 +113,10 @@ node apps/api/dist/cli-entry.js credentials clear
 随后在 TTY 中启动会话式 Agent。程序只在启动时隐藏询问一次主密码，之后可连续输入多个任务；Memory 和 Trace 在同一工作区持续保存。每一个写文件动作都会单独显示动作类型与目标并要求人工批准，不会复用上一次批准。
 
 ```powershell
-node apps/api/dist/cli-entry.js start --config ".ai4se/config.json"
+ai4se-harness
 ```
+
+当前 `dev` 已将无参数入口改为启动交互 Agent，并强制以命令启动时的当前目录为工作区；`start --config` 仅作为兼容入口。首次配置向导尚未完成，因此这一过渡版本仍要求当前目录已有 `.ai4se/config.json` 与加密凭据。
 
 进入 `ai4se>` 后可直接输入自然语言任务，也可使用 `/help`、`/status`、`/trace`、`/clear` 和 `/exit`。空输入不会调用 Provider。一次性兼容入口仍可使用：
 
@@ -122,7 +124,7 @@ node apps/api/dist/cli-entry.js start --config ".ai4se/config.json"
 node apps/api/dist/cli-entry.js --task "为当前工作区运行允许的检查" --config ".ai4se/config.json"
 ```
 
-配置中的 `workspace`、命令白名单、最大步数、超时、输出上限和 Memory 路径由本地文件控制；任务请求不能覆盖这些边界。
+当前 `dev` 不再使用配置中的旧 `workspace` 切换目录；命令白名单、最大步数、超时、输出上限和 Memory 路径仍由本地文件控制，任务请求不能覆盖这些边界。
 
 ## 本地 Web：一次运行的临时 Key
 

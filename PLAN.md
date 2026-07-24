@@ -2,6 +2,8 @@
 
 > **状态修正（2026-07-22）：** T01–T12 和 `v1.1.0` 只完成课程最小基线，不代表《Agent 的一生》中的完整 Harness 已完成。真人测试确认不同终端任务不共享对话历史，主循环也没有 Memory 写入与 consolidate。项目负责人已批准 [`FULL_HARNESS_REASSESSMENT.md`](FULL_HARNESS_REASSESSMENT.md) 中的路线 B 及面向用户的 CLI 方向，但决定延期实施；恢复开发前先完成正式设计，不得退回路线 A 或扩展为路线 C。
 
+> **路线 B 初始化边界（2026-07-24）：** 首次运行只允许向用户收集服务地址、隐藏 API Key 和模型名称；三项均由用户直接填写。当前目录自动成为工作区，其余配置全部由程序内部生成。普通流程不得要求选择 Provider、选择预设模型、编辑 JSON、指定路径或设置本地保护密码；`v1.1.0` 的主密码流程仅作为历史兼容实现。
+
 > **For agentic workers:** 按 T06–T12 串行执行；每个 Task 使用独立 branch/worktree、一次新鲜 subagent、TDD、Spec 检查、质量检查和 MR Pipeline。步骤用 `guiding.md` 细化，不扩展本计划范围。
 
 **版本：** 2.4.0

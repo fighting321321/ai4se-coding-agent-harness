@@ -13,10 +13,12 @@ ai4se-harness smoke
 
 ```powershell
 ai4se-harness credentials init
-ai4se-harness start --config .ai4se/config.json
+ai4se-harness
 ```
 
-启动时只需输入一次主密码。进入 `ai4se>` 后可连续输入自然语言任务，并使用 `/help`、`/status`、`/trace`、`/clear`、`/exit`；每个写入动作仍会单独请求批准。一次性任务入口 `ai4se-harness --task "任务" --config .ai4se/config.json` 保持兼容。
+当前命令所在目录就是 Agent 工作区；旧配置中的 `workspace` 不再切换目录。启动时只需输入一次主密码。进入 `ai4se>` 后可连续输入自然语言任务，并使用 `/help`、`/status`、`/trace`、`/clear`、`/exit`；每个写入动作仍会单独请求批准。`start --config` 与一次性任务入口 `ai4se-harness --task "任务" --config .ai4se/config.json` 保持兼容。
+
+只填写服务地址、隐藏 API Key 和模型名称的首次向导，以及会话内直接填写新模型名称的 `/model`，仍在开发中；在它们完成前，开发版仍需预先准备配置和旧式加密凭据。离线安装检查必须显式运行 `ai4se-harness smoke`。
 
 也可以通过 ESM 导入：
 
