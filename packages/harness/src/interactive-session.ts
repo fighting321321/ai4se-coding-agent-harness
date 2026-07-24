@@ -2,6 +2,8 @@ import { join, resolve } from "node:path";
 
 import type { ApprovalHandler } from "./approval.js";
 import { CredentialStore, type CredentialStoreFactory } from "./credential-store.js";
+import type { SystemCredentialVaultFactory } from "./first-run.js";
+import { WindowsUserCredentialVault } from "./system-credential-vault.js";
 import {
   readHarnessTaskConfig,
   runHarnessTask,
@@ -13,11 +15,13 @@ import type { TraceEntry } from "./trace.js";
 export interface InteractiveSessionOptions {
   readonly cwd: string;
   readonly configPath: string;
+  readonly credentialMode?: "legacy" | "system";
 }
 
 export interface InteractiveSessionDependencies {
   readonly readSecret: (prompt: string) => Promise<string>;
   readonly credentialStoreFactory?: CredentialStoreFactory;
+  readonly systemCredentialVaultFactory?: SystemCredentialVaultFactory;
   readonly readLine: (prompt: string) => Promise<string | undefined>;
   readonly askApproval?: ApprovalHandler;
   readonly runTask?: (options: RunHarnessTaskOptions) => Promise<RunTaskResult>;
@@ -71,14 +75,12 @@ export async function runInteractiveSession(
   }
 
   const workspace = resolve(options.cwd);
-  const credentialPath = join(options.cwd, ".ai4se", "credentials.json");
-  const credentials = dependencies.credentialStoreFactory?.(credentialPath)
-    ?? new CredentialStore(credentialPath);
   try {
-    const masterPassword = await dependencies.readSecret("主密码：");
-    const credential = await credentials.read(masterPassword);
+    const credential = options.credentialMode === "system"
+      ? await readSystemCredential(options.cwd, dependencies)
+      : await readLegacyCredential(options.cwd, dependencies);
     if (!credential.ok) {
-      dependencies.writeError(`凭据读取失败：${credential.error.code}`);
+      dependencies.writeError(`凭据读取失败：${credential.code}`);
       return 1;
     }
     const apiKey = credential.value;
@@ -142,4 +144,27 @@ export async function runInteractiveSession(
     dependencies.writeError("会话启动失败");
     return 1;
   }
+}
+
+async function readLegacyCredential(
+  cwd: string,
+  dependencies: InteractiveSessionDependencies
+): Promise<{ ok: true; value: string } | { ok: false; code: string }> {
+  const credentialPath = join(cwd, ".ai4se", "credentials.json");
+  const credentials = dependencies.credentialStoreFactory?.(credentialPath)
+    ?? new CredentialStore(credentialPath);
+  const masterPassword = await dependencies.readSecret("主密码：");
+  const result = await credentials.read(masterPassword);
+  return result.ok ? result : { ok: false, code: result.error.code };
+}
+
+async function readSystemCredential(
+  cwd: string,
+  dependencies: InteractiveSessionDependencies
+): Promise<{ ok: true; value: string } | { ok: false; code: string }> {
+  const path = join(cwd, ".ai4se", "credentials.system.json");
+  const vault = dependencies.systemCredentialVaultFactory?.(path)
+    ?? new WindowsUserCredentialVault(path);
+  const result = await vault.read();
+  return result.ok ? result : { ok: false, code: result.error.code };
 }

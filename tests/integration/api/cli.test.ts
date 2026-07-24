@@ -10,7 +10,8 @@ import {
   formatApprovalRequest,
   runCli,
   type CliDependencies,
-  type CredentialStoreBoundary
+  type CredentialStoreBoundary,
+  type SystemCredentialVault
 } from "../../../packages/harness/src/index.js";
 
 interface CliCapture {
@@ -49,6 +50,28 @@ function captureCli(
 
 async function temporaryWorkspace(): Promise<string> {
   return await mkdtemp(join(tmpdir(), "ai4se-cli-"));
+}
+
+function memorySystemVault(): SystemCredentialVault {
+  let value: string | undefined;
+  return {
+    status: async () => ({ ok: true, value: value === undefined ? "unconfigured" : "configured" }),
+    init: async (apiKey) => {
+      value = apiKey;
+      return { ok: true, value: undefined };
+    },
+    read: async () => value === undefined
+      ? { ok: false, error: { code: "SYSTEM_CREDENTIAL_NOT_CONFIGURED", message: "missing" } }
+      : { ok: true, value },
+    update: async (apiKey) => {
+      value = apiKey;
+      return { ok: true, value: undefined };
+    },
+    clear: async () => {
+      value = undefined;
+      return { ok: true, value: undefined };
+    }
+  };
 }
 
 async function writeConfig(
@@ -131,7 +154,7 @@ describe("runCli", () => {
     expect(capture.stdout).toEqual(["凭据状态：configured"]);
   });
 
-  it("无参数时直接在当前目录启动交互 Agent，smoke 只保留为显式命令", async () => {
+  it("显式 start 保留旧凭据兼容入口，smoke 只保留为显式命令", async () => {
     const cwd = await temporaryWorkspace();
     await writeConfig(cwd, "https://example.invalid/v1");
     await new CredentialStore(join(cwd, ".ai4se", "credentials.json")).init(
@@ -141,7 +164,7 @@ describe("runCli", () => {
     const capture = captureCli(cwd, ["master-password"]);
     const readLine = vi.fn(async () => "/exit");
 
-    const exitCode = await runCli([], { ...capture.dependencies, readLine });
+    const exitCode = await runCli(["start"], { ...capture.dependencies, readLine });
 
     expect(exitCode).toBe(0);
     expect(readLine).toHaveBeenCalled();
@@ -151,6 +174,67 @@ describe("runCli", () => {
     const smoke = captureCli(cwd);
     expect(await runCli(["smoke"], smoke.dependencies)).toBe(0);
     expect(smoke.stdout).toEqual(["AI4SE Harness 离线 smoke：completed"]);
+  });
+
+  it("普通无参数首次启动只收集三项并在第二次启动零重复输入", async () => {
+    const cwd = await temporaryWorkspace();
+    const vault = memorySystemVault();
+    const prompts: string[] = [];
+    const firstValues = ["https://provider.example/v1", "model-name", "/exit"];
+    const first = captureCli(cwd, ["test-onboarding-key"]);
+    const firstReadLine = vi.fn(async (prompt: string) => {
+      prompts.push(prompt);
+      return firstValues.shift();
+    });
+    const factory = vi.fn(() => vault);
+
+    expect(await runCli([], {
+      ...first.dependencies,
+      readLine: firstReadLine,
+      systemCredentialVaultFactory: factory
+    })).toBe(0);
+    expect(prompts).toEqual(["服务地址：", "模型名称：", ""]);
+    expect(first.stdout.join("\n")).toContain(`工作区：${cwd}`);
+    const config = await readFile(join(cwd, ".ai4se", "config.json"), "utf8");
+    expect(config).not.toContain("test-onboarding-key");
+    expect(JSON.stringify([first.stdout, first.stderr])).not.toContain("test-onboarding-key");
+
+    const second = captureCli(cwd);
+    const secondReadLine = vi.fn(async () => "/exit");
+    const secondReadSecret = vi.fn(async () => "must-not-read");
+    expect(await runCli([], {
+      ...second.dependencies,
+      readLine: secondReadLine,
+      readSecret: secondReadSecret,
+      systemCredentialVaultFactory: factory
+    })).toBe(0);
+    expect(secondReadLine).toHaveBeenCalledTimes(1);
+    expect(secondReadSecret).not.toHaveBeenCalled();
+  });
+
+  it("普通入口在非 Windows 系统 vault 上 fail-closed 且不询问任何输入", async () => {
+    const cwd = await temporaryWorkspace();
+    const readLine = vi.fn();
+    const readSecret = vi.fn();
+    const capture = captureCli(cwd);
+    const unsupported: SystemCredentialVault = {
+      status: async () => ({
+        ok: false,
+        error: { code: "SYSTEM_CREDENTIAL_UNSUPPORTED", message: "unsupported" }
+      }),
+      init: vi.fn(), read: vi.fn(), update: vi.fn(), clear: vi.fn()
+    };
+
+    expect(await runCli([], {
+      ...capture.dependencies,
+      readLine,
+      readSecret,
+      systemCredentialVaultFactory: () => unsupported
+    })).toBe(1);
+    expect(readLine).not.toHaveBeenCalled();
+    expect(readSecret).not.toHaveBeenCalled();
+    expect(capture.stderr).toEqual(["首次初始化失败：FIRST_RUN_SYSTEM_CREDENTIAL_FAILED"]);
+    await expect(access(join(cwd, ".ai4se", "config.json"))).rejects.toMatchObject({ code: "ENOENT" });
   });
 
   it("审批提示显示动作和目标，但不显示写入内容", () => {

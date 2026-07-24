@@ -9,31 +9,19 @@ pnpm add --global .\ai4se-harness-0.2.0.tgz
 ai4se-harness smoke
 ```
 
-准备一个不含 API Key 的 `.ai4se/config.json`：
-
-```json
-{
-  "workspace": ".",
-  "allowedCommands": [],
-  "maxSteps": 8,
-  "commandTimeoutMs": 60000,
-  "maxOutputBytes": 32768,
-  "memoryPath": ".ai4se/memory.json",
-  "provider": {
-    "baseUrl": "https://your-provider.example/v1",
-    "model": "your-model-name"
-  }
-}
-```
-
-随后以隐藏输入保存凭据，再启动连续终端会话：
+普通使用时，进入希望 Agent 操作的项目目录并直接运行：
 
 ```powershell
-ai4se-harness credentials init
 ai4se-harness
 ```
 
-当前命令所在目录就是 Agent 工作区；旧配置中的 `workspace` 不再切换目录。启动时只需输入一次主密码。进入 `ai4se>` 后可连续输入自然语言任务，并使用 `/help`、`/status`、`/trace`、`/clear`、`/exit`；每个写入动作仍会单独请求批准。`start --config` 与一次性任务入口 `ai4se-harness --task "任务" --config .ai4se/config.json` 保持兼容。
+首次启动只依次填写服务地址、隐藏的 API Key 和模型名称；当前目录自动成为工作区，程序自动生成不含秘密的 `.ai4se/config.json`。API Key 由 Windows 当前用户范围的系统保护持久化，后续启动不询问主密码，也不重复询问 API Key。非 Windows 平台安全拒绝，不会明文降级。
+
+服务地址、API Key 和模型名称会经过严格本地格式及非空校验；当前版本不声称执行 Provider 网络联通性或鉴权预检。真实连接结果在首次任务请求时确定。
+
+进入 `ai4se>` 后可连续输入自然语言任务，并使用 `/help`、`/status`、`/trace`、`/clear`、`/exit`；每个写入动作仍会单独请求批准。
+
+`credentials`、`start --config` 与一次性 `--task` 是旧式高级兼容入口，它们继续使用主密码凭据与显式配置，不属于普通流程。
 
 进入会话后可用以下任务检查真实 Provider 和文件读取：
 
@@ -46,7 +34,7 @@ ai4se-harness
 
 `/status` 显示的工作区应等于启动命令所在目录，任务应以 `completed` 结束，输出和 Trace 都不得包含 API Key。
 
-只填写服务地址、隐藏 API Key 和模型名称的首次向导，以及会话内直接填写新模型名称的 `/model`，仍在开发中；在它们完成前，开发版仍需预先准备配置和旧式加密凭据。离线安装检查必须显式运行 `ai4se-harness smoke`。
+会话内直接填写新模型名称的 `/model` 仍在开发中。离线安装检查必须显式运行 `ai4se-harness smoke`。
 
 也可以通过 ESM 导入：
 

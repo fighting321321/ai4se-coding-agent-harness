@@ -112,7 +112,7 @@ describe("@ai4se/harness 分发包", () => {
     const cli = runPnpm(["exec", "ai4se-harness"], installation);
     expect(cli.status).toBe(1);
     expect(cli.stdout).not.toContain("离线 smoke");
-    expect(cli.stderr).toContain("配置读取失败");
+    expect(cli.stderr).toContain("交互会话需要 TTY");
 
     const explicitSmoke = runPnpm(["exec", "ai4se-harness", "smoke"], installation);
     expectSuccess(explicitSmoke);

@@ -7,6 +7,11 @@ import {
   type CredentialStoreFactory
 } from "./credential-store.js";
 import {
+  initializeFirstRun,
+  type FirstRunInputValidator,
+  type SystemCredentialVaultFactory
+} from "./first-run.js";
+import {
   runInteractiveSession,
   type InteractiveSessionDependencies
 } from "./interactive-session.js";
@@ -15,7 +20,10 @@ import { preflightHarnessTaskConfig, runHarnessTask } from "./run-task.js";
 
 export interface CliDependencies {
   readonly cwd: string;
+  readonly isTty?: boolean;
   readonly credentialStoreFactory?: CredentialStoreFactory;
+  readonly systemCredentialVaultFactory?: SystemCredentialVaultFactory;
+  readonly validateFirstRunInput?: FirstRunInputValidator;
   readonly readSecret: (prompt: string) => Promise<string>;
   readonly readLine?: InteractiveSessionDependencies["readLine"];
   readonly askApproval?: ApprovalHandler;
@@ -256,13 +264,48 @@ export async function runCli(
       }
       return await runCredentialCommand(args[1], dependencies);
     }
-    if (args.length === 0 || args[0] === "start") {
-      if (dependencies.readLine === undefined) {
+    if (args.length === 0) {
+      if (dependencies.isTty === false || dependencies.readLine === undefined) {
+        dependencies.writeError("交互会话需要 TTY");
+        return 1;
+      }
+      const initialized = await initializeFirstRun(
+        { cwd: dependencies.cwd },
+        {
+          readLine: dependencies.readLine,
+          readSecret: dependencies.readSecret,
+          systemCredentialVaultFactory: dependencies.systemCredentialVaultFactory,
+          validateInput: dependencies.validateFirstRunInput
+        }
+      );
+      if (!initialized.ok) {
+        dependencies.writeError(`首次初始化失败：${initialized.error.code}`);
+        return 1;
+      }
+      return await runInteractiveSession(
+        {
+          cwd: dependencies.cwd,
+          configPath: join(dependencies.cwd, ".ai4se", "config.json"),
+          credentialMode: "system"
+        },
+        {
+          readSecret: dependencies.readSecret,
+          systemCredentialVaultFactory: dependencies.systemCredentialVaultFactory,
+          readLine: dependencies.readLine,
+          askApproval: dependencies.askApproval,
+          clearScreen: dependencies.clearScreen,
+          writeOut: dependencies.writeOut,
+          writeError: dependencies.writeError
+        }
+      );
+    }
+    if (args[0] === "start") {
+      if (dependencies.isTty === false || dependencies.readLine === undefined) {
         dependencies.writeError("交互会话需要 TTY");
         return 1;
       }
       const configPath = configPathFromArgs(
-        args.length === 0 ? [] : args.slice(1),
+        args.slice(1),
         dependencies
       );
       if (typeof configPath === "number") {

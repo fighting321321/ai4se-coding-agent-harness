@@ -57,6 +57,18 @@ export {
   type FileToolErrorCode,
   type FileToolResult
 } from "./file-tools.js";
+export {
+  initializeFirstRun,
+  validateFirstRunInput,
+  type FirstRunDependencies,
+  type FirstRunField,
+  type FirstRunInput,
+  type FirstRunInputValidator,
+  type FirstRunOptions,
+  type FirstRunResult,
+  type FirstRunValidationResult,
+  type SystemCredentialVaultFactory
+} from "./first-run.js";
 export type { LLMInput, LLMOutput, LLMProvider } from "./llm-provider.js";
 export { runOfflineSmoke } from "./offline-smoke.js";
 export {

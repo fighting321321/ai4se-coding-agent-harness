@@ -60,6 +60,7 @@ async function question(message) {
 
 process.exitCode = await runCli(process.argv.slice(2), {
   cwd: process.cwd(),
+  isTty: process.stdin.isTTY === true && process.stdout.isTTY === true,
   readSecret,
   readLine: question,
   askApproval: async (request) =>

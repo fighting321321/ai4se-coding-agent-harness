@@ -1,6 +1,6 @@
 # Coding Agent Harness
 
-> **开发状态（dev 重新评估）：** `v1.1.0` 是安全工具循环与分发基线，不是《Agent 的一生》所描述的最终 Harness。它不能让后一项终端任务读取前一项任务的对话内容，`JsonMemory` 也尚未接入主循环的写入与固化。项目负责人已批准路线 B（教学级完整 Harness）及面向用户的 CLI 方向：最终首次向导只填写服务地址、隐藏 API Key 和模型名称，不再设置本地保护密码；当前目录自动成为工作区。完整差距、CLI 决策、提交上限和成本估计见 [`FULL_HARNESS_REASSESSMENT.md`](FULL_HARNESS_REASSESSMENT.md)。当前版本仍不应作为完整 Harness 最终提交。
+> **开发状态（dev 重新评估）：** `v1.1.0` 是安全工具循环与分发基线，不是《Agent 的一生》所描述的最终 Harness。它不能让后一项终端任务读取前一项任务的对话内容，`JsonMemory` 也尚未接入主循环的写入与固化。项目负责人已批准路线 B（教学级完整 Harness）；面向普通用户的首次三项向导、Windows 当前用户凭据保护和当前目录工作区已经完成。完整差距、CLI 决策、提交上限和成本估计见 [`FULL_HARNESS_REASSESSMENT.md`](FULL_HARNESS_REASSESSMENT.md)。当前版本仍不应作为完整 Harness 最终提交。
 
 一个面向课程学习的、可确定性验证的 Coding Agent Harness。它把可替换的 LLM 补全放进由 TypeScript 代码实现的工具边界、策略、记忆、反馈和 Trace 中，并提供可连续输入任务的终端 Agent；它不是线上多用户平台。
 
@@ -75,9 +75,29 @@ powershell -NoProfile -File .\scripts\project-env.ps1 all
 2. 第一次允许的验证命令失败后，失败摘要回灌给 mock LLM；它选择修正动作并以 `finish` 完成。
 3. 两次连续业务失败后立即以既定原因停止，不请求第三次 Provider，也不发生第三次工具调用。
 
-## CLI：测试当前开发版
+## CLI：普通使用
 
-当前 `dev` 已支持“无参数启动”和“当前目录即工作区”，但首次三项向导与 Windows 系统凭据存储尚未实现。下面是这一过渡版本的完整可执行测试流程；后续向导完成后，第 2 步和 `credentials init` 将由程序内部自动完成。
+进入希望 Agent 操作的项目目录，直接运行：
+
+```powershell
+ai4se-harness
+```
+
+当前目录会自动成为工作区。首次启动只会依次要求直接填写以下三项：
+
+1. 服务地址；
+2. API Key（隐藏输入）；
+3. 模型名称。
+
+初始化成功后，程序自动写入不含秘密的 `.ai4se/config.json`，并使用 Windows 当前用户范围的系统保护保存 API Key。后续在同一目录再次运行 `ai4se-harness` 会直接进入会话，不再询问主密码或重复询问 API Key。API Key 不会写入普通配置、命令参数、输出或 Trace。
+
+服务地址必须是 HTTPS 地址，或指向本机回环地址的 HTTP 地址；地址不得包含用户名、密码、查询参数或片段。API Key 和模型名称必须是无首尾空白的非空值。当前版本只执行这些严格本地校验，**不声称已完成 Provider 网络联通性或鉴权验证**；真实 Provider 会在首次任务请求时返回网络或鉴权结果。
+
+普通无参数流程在非 Windows 平台会安全拒绝，不会退回明文凭据。`credentials`、`start --config` 和一次性 `--task` 仍作为旧式高级维护入口保留。
+
+## CLI：高级兼容入口
+
+以下流程只用于维护和验证旧式配置、主密码凭据及显式命令，不是普通用户的启动方式。
 
 ### 1. 打包、安装与离线检查
 
@@ -124,13 +144,13 @@ New-Item -ItemType Directory -Force .ai4se | Out-Null
 }
 ```
 
-当前过渡版本还需要初始化旧式加密凭据：
+旧式兼容入口需要初始化主密码加密凭据：
 
 ```powershell
 ai4se-harness credentials init
 ```
 
-程序会隐藏询问主密码和 API Key。主密码至少 12 个字符；API Key 和主密码都不要写入命令参数、配置、日志或 Git。最终路线 B 会取消这一步中的主密码，并改为首次启动时只填写服务地址、隐藏 API Key 和模型名称。
+程序会隐藏询问主密码和 API Key。主密码至少 12 个字符；API Key 和主密码都不要写入命令参数、配置、日志或 Git。普通无参数流程不使用这一凭据文件，也不会询问主密码。
 
 ### 3. 启动并验证真实 Agent
 
@@ -242,7 +262,7 @@ scripts/             本地 Web 启动器
 - 仅支持一个 OpenAI-compatible Provider 接口；不提供多 Provider、凭据轮换或线上服务。
 - 不提供数据库、向量检索、Docker、SSE、多用户、RBAC、团队协作或浏览器端到端测试。
 - 自动修正只允许一次，默认最多运行 8 步；复杂或高风险任务应由人工拆分与审核。
-- 加密凭据依赖主密码质量，且无法消除进程内存中的短暂明文暴露风险。
+- 旧式兼容凭据依赖主密码质量；普通流程使用 Windows 当前用户保护。两者都无法消除进程内存中的短暂明文暴露风险。
 
 ## 第三方许可证
 
