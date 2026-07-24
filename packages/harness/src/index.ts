@@ -97,6 +97,18 @@ export {
 } from "./run-task.js";
 export { ScriptedMockExhaustedError, ScriptedMockLLM } from "./scripted-mock-llm.js";
 export {
+  WindowsUserCredentialVault,
+  runWindowsCredentialProtectionProcess,
+  type CredentialProtectionProcess,
+  type CredentialProtectionProcessRequest,
+  type CredentialProtectionProcessResult,
+  type SystemCredentialErrorCode,
+  type SystemCredentialResult,
+  type SystemCredentialVault,
+  type SystemCredentialVaultFileSystem,
+  type WindowsUserCredentialVaultOptions
+} from "./system-credential-vault.js";
+export {
   runInteractiveSession,
   type InteractiveSessionDependencies,
   type InteractiveSessionOptions
