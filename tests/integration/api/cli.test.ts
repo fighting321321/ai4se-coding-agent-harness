@@ -9,7 +9,8 @@ import {
   CredentialStore,
   formatApprovalRequest,
   runCli,
-  type CliDependencies
+  type CliDependencies,
+  type CredentialStoreBoundary
 } from "../../../packages/harness/src/index.js";
 
 interface CliCapture {
@@ -101,6 +102,35 @@ async function startActionStub(actions: readonly Record<string, unknown>[]) {
 }
 
 describe("runCli", () => {
+  it("凭据命令通过可替换的存储边界执行", async () => {
+    const cwd = await temporaryWorkspace();
+    const status = vi.fn(async () => ({
+      ok: true as const,
+      value: "configured" as const
+    }));
+    const credentialStore: CredentialStoreBoundary = {
+      status,
+      init: vi.fn(),
+      read: vi.fn(),
+      update: vi.fn(),
+      clear: vi.fn()
+    };
+    const credentialStoreFactory = vi.fn(() => credentialStore);
+    const capture = captureCli(cwd);
+
+    const exitCode = await runCli(
+      ["credentials", "status"],
+      { ...capture.dependencies, credentialStoreFactory }
+    );
+
+    expect(exitCode).toBe(0);
+    expect(credentialStoreFactory).toHaveBeenCalledWith(
+      join(cwd, ".ai4se", "credentials.json")
+    );
+    expect(status).toHaveBeenCalledTimes(1);
+    expect(capture.stdout).toEqual(["凭据状态：configured"]);
+  });
+
   it("无参数时直接在当前目录启动交互 Agent，smoke 只保留为显式命令", async () => {
     const cwd = await temporaryWorkspace();
     await writeConfig(cwd, "https://example.invalid/v1");

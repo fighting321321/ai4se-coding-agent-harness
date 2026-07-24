@@ -30,6 +30,8 @@ export {
   CredentialStore,
   type CredentialErrorCode,
   type CredentialResult,
+  type CredentialStoreBoundary,
+  type CredentialStoreFactory,
   type CredentialStoreFileSystem,
   type CredentialStoreOptions,
   type CredentialStatus

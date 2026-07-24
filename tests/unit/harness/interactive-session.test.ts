@@ -7,6 +7,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   CredentialStore,
   runInteractiveSession,
+  type CredentialStoreBoundary,
   type InteractiveSessionDependencies,
   type RunHarnessTaskOptions,
   type RunTaskResult
@@ -89,6 +90,34 @@ function completed(summary: string): RunTaskResult {
 }
 
 describe("runInteractiveSession", () => {
+  it("通过可替换的凭据存储边界读取 API Key", async () => {
+    const cwd = await sessionWorkspace();
+    const read = vi.fn(async () => ({
+      ok: true as const,
+      value: "sk-injected-session-key"
+    }));
+    const credentialStore: CredentialStoreBoundary = {
+      status: vi.fn(),
+      init: vi.fn(),
+      read,
+      update: vi.fn(),
+      clear: vi.fn()
+    };
+    const runTask = vi.fn(async () => completed("注入成功"));
+    const capture = captureSession(["检查注入", "/exit"], runTask);
+
+    const exitCode = await runInteractiveSession(
+      { cwd, configPath: join(cwd, ".ai4se", "config.json") },
+      { ...capture.dependencies, credentialStoreFactory: () => credentialStore }
+    );
+
+    expect(exitCode).toBe(0);
+    expect(read).toHaveBeenCalledWith("master-password");
+    expect(runTask).toHaveBeenCalledWith(expect.objectContaining({
+      provider: { apiKey: "sk-injected-session-key" }
+    }));
+  });
+
   it("显示并使用启动目录作为工作区，不采用配置中的旧 workspace", async () => {
     const cwd = await sessionWorkspace();
     const configPath = join(cwd, ".ai4se", "config.json");

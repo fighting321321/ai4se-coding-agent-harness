@@ -1,7 +1,11 @@
 import { isAbsolute, join, resolve } from "node:path";
 
 import type { ApprovalHandler, ApprovalRequest } from "./approval.js";
-import { CredentialStore, type CredentialResult } from "./credential-store.js";
+import {
+  CredentialStore,
+  type CredentialResult,
+  type CredentialStoreFactory
+} from "./credential-store.js";
 import {
   runInteractiveSession,
   type InteractiveSessionDependencies
@@ -11,6 +15,7 @@ import { preflightHarnessTaskConfig, runHarnessTask } from "./run-task.js";
 
 export interface CliDependencies {
   readonly cwd: string;
+  readonly credentialStoreFactory?: CredentialStoreFactory;
   readonly readSecret: (prompt: string) => Promise<string>;
   readonly readLine?: InteractiveSessionDependencies["readLine"];
   readonly askApproval?: ApprovalHandler;
@@ -61,7 +66,7 @@ async function runCredentialCommand(
   command: string,
   dependencies: CliDependencies
 ): Promise<number> {
-  const store = new CredentialStore(join(dependencies.cwd, ".ai4se", "credentials.json"));
+  const store = createCredentialStore(dependencies);
   if (command === "status") {
     const result = await store.status();
     if (!result.ok) {
@@ -93,6 +98,11 @@ async function runCredentialCommand(
   }
   dependencies.writeOut(command === "init" ? "凭据初始化成功" : "凭据更新成功");
   return 0;
+}
+
+function createCredentialStore(dependencies: CliDependencies) {
+  const path = join(dependencies.cwd, ".ai4se", "credentials.json");
+  return dependencies.credentialStoreFactory?.(path) ?? new CredentialStore(path);
 }
 
 interface TaskArguments {
@@ -183,7 +193,7 @@ async function runTask(
     );
     return 1;
   }
-  const store = new CredentialStore(join(dependencies.cwd, ".ai4se", "credentials.json"));
+  const store = createCredentialStore(dependencies);
   const masterPassword = await dependencies.readSecret("主密码");
   const credential = await store.read(masterPassword);
   if (!credential.ok) {
@@ -262,6 +272,7 @@ export async function runCli(
         { cwd: dependencies.cwd, configPath },
         {
           readSecret: dependencies.readSecret,
+          credentialStoreFactory: dependencies.credentialStoreFactory,
           readLine: dependencies.readLine,
           askApproval: dependencies.askApproval,
           clearScreen: dependencies.clearScreen,

@@ -1,7 +1,7 @@
 import { join, resolve } from "node:path";
 
 import type { ApprovalHandler } from "./approval.js";
-import { CredentialStore } from "./credential-store.js";
+import { CredentialStore, type CredentialStoreFactory } from "./credential-store.js";
 import {
   readHarnessTaskConfig,
   runHarnessTask,
@@ -17,6 +17,7 @@ export interface InteractiveSessionOptions {
 
 export interface InteractiveSessionDependencies {
   readonly readSecret: (prompt: string) => Promise<string>;
+  readonly credentialStoreFactory?: CredentialStoreFactory;
   readonly readLine: (prompt: string) => Promise<string | undefined>;
   readonly askApproval?: ApprovalHandler;
   readonly runTask?: (options: RunHarnessTaskOptions) => Promise<RunTaskResult>;
@@ -70,7 +71,9 @@ export async function runInteractiveSession(
   }
 
   const workspace = resolve(options.cwd);
-  const credentials = new CredentialStore(join(options.cwd, ".ai4se", "credentials.json"));
+  const credentialPath = join(options.cwd, ".ai4se", "credentials.json");
+  const credentials = dependencies.credentialStoreFactory?.(credentialPath)
+    ?? new CredentialStore(credentialPath);
   try {
     const masterPassword = await dependencies.readSecret("主密码：");
     const credential = await credentials.read(masterPassword);
