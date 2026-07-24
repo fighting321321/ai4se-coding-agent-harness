@@ -89,6 +89,38 @@ function completed(summary: string): RunTaskResult {
 }
 
 describe("runInteractiveSession", () => {
+  it("显示并使用启动目录作为工作区，不采用配置中的旧 workspace", async () => {
+    const cwd = await sessionWorkspace();
+    const configPath = join(cwd, ".ai4se", "config.json");
+    await writeFile(
+      configPath,
+      `${JSON.stringify({
+        workspace: "legacy-subdirectory",
+        allowedCommands: [],
+        maxSteps: 8,
+        commandTimeoutMs: 5_000,
+        maxOutputBytes: 4_096,
+        memoryPath: ".ai4se/memory.json",
+        provider: {
+          baseUrl: "https://example.invalid/v1",
+          model: "test-model"
+        }
+      })}\n`,
+      "utf8"
+    );
+    const runTask = vi.fn(async () => completed("不应执行"));
+    const capture = captureSession(["/status", "/exit"], runTask);
+
+    const exitCode = await runInteractiveSession(
+      { cwd, configPath },
+      capture.dependencies
+    );
+
+    expect(exitCode).toBe(0);
+    expect(capture.stdout.join("\n")).toContain(`工作区：${cwd}`);
+    expect(capture.stdout.join("\n")).not.toContain("legacy-subdirectory");
+  });
+
   it("一次解锁凭据后连续执行多项任务，并且不输出 API Key", async () => {
     const cwd = await sessionWorkspace();
     const runTask = vi.fn(async (options: RunHarnessTaskOptions) =>

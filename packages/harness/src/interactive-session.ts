@@ -69,7 +69,7 @@ export async function runInteractiveSession(
     return 1;
   }
 
-  const workspace = resolve(options.cwd, configured.value.workspace);
+  const workspace = resolve(options.cwd);
   const credentials = new CredentialStore(join(options.cwd, ".ai4se", "credentials.json"));
   try {
     const masterPassword = await dependencies.readSecret("主密码：");

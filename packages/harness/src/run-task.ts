@@ -78,7 +78,7 @@ export async function runHarnessTask(options: RunHarnessTaskOptions): Promise<Ru
     return configured;
   }
 
-  const workspace = resolve(options.cwd, configured.value.workspace);
+  const workspace = resolve(options.cwd);
   const redactor = new Redactor([options.provider.apiKey]);
   const memory = new JsonMemory(resolve(workspace, configured.value.memoryPath), redactor);
   const trace = new JsonTrace(join(workspace, ".ai4se", "trace.json"), redactor);

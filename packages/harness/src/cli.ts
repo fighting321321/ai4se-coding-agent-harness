@@ -23,6 +23,7 @@ const HELP = [
   "AI4SE Coding Agent Harness",
   "",
   "用法：",
+  "  ai4se-harness",
   "  ai4se-harness start [--config <path>]",
   "  ai4se-harness --task <task> [--config <path>]",
   "  ai4se-harness credentials <init|status|update|clear>",
@@ -226,7 +227,7 @@ export async function runCli(
   }
 
   try {
-    if (args.length === 0 || args[0] === "smoke") {
+    if (args[0] === "smoke") {
       if (args.length > 1) {
         dependencies.writeError("命令参数无效");
         return 2;
@@ -245,12 +246,15 @@ export async function runCli(
       }
       return await runCredentialCommand(args[1], dependencies);
     }
-    if (args[0] === "start") {
+    if (args.length === 0 || args[0] === "start") {
       if (dependencies.readLine === undefined) {
         dependencies.writeError("交互会话需要 TTY");
         return 1;
       }
-      const configPath = configPathFromArgs(args.slice(1), dependencies);
+      const configPath = configPathFromArgs(
+        args.length === 0 ? [] : args.slice(1),
+        dependencies
+      );
       if (typeof configPath === "number") {
         return configPath;
       }

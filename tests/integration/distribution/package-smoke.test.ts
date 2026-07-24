@@ -110,8 +110,9 @@ describe("@ai4se/harness 分发包", () => {
     expect(imported.stdout).toBe("AI4SE Harness 离线 smoke：completed\n");
 
     const cli = runPnpm(["exec", "ai4se-harness"], installation);
-    expectSuccess(cli);
-    expect(cli.stdout).toBe("AI4SE Harness 离线 smoke：completed\n");
+    expect(cli.status).toBe(1);
+    expect(cli.stdout).not.toContain("离线 smoke");
+    expect(cli.stderr).toContain("配置读取失败");
 
     const explicitSmoke = runPnpm(["exec", "ai4se-harness", "smoke"], installation);
     expectSuccess(explicitSmoke);
@@ -119,6 +120,7 @@ describe("@ai4se/harness 分发包", () => {
 
     const help = runPnpm(["exec", "ai4se-harness", "--help"], installation);
     expectSuccess(help);
+    expect(help.stdout).toContain("  ai4se-harness\n");
     expect(help.stdout).toContain("ai4se-harness start");
 
     const installedManifest = JSON.parse(

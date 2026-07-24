@@ -6,11 +6,11 @@ import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 
 import {
+  CredentialStore,
   formatApprovalRequest,
   runCli,
   type CliDependencies
-} from "../../../apps/api/src/cli.js";
-import { CredentialStore } from "../../../packages/harness/src/index.js";
+} from "../../../packages/harness/src/index.js";
 
 interface CliCapture {
   readonly stdout: string[];
@@ -101,6 +101,28 @@ async function startActionStub(actions: readonly Record<string, unknown>[]) {
 }
 
 describe("runCli", () => {
+  it("无参数时直接在当前目录启动交互 Agent，smoke 只保留为显式命令", async () => {
+    const cwd = await temporaryWorkspace();
+    await writeConfig(cwd, "https://example.invalid/v1");
+    await new CredentialStore(join(cwd, ".ai4se", "credentials.json")).init(
+      "master-password",
+      "sk-cli-provider-key"
+    );
+    const capture = captureCli(cwd, ["master-password"]);
+    const readLine = vi.fn(async () => "/exit");
+
+    const exitCode = await runCli([], { ...capture.dependencies, readLine });
+
+    expect(exitCode).toBe(0);
+    expect(readLine).toHaveBeenCalled();
+    expect(capture.stdout.join("\n")).toContain("AI4SE Coding Agent");
+    expect(capture.stdout.join("\n")).not.toContain("离线 smoke");
+
+    const smoke = captureCli(cwd);
+    expect(await runCli(["smoke"], smoke.dependencies)).toBe(0);
+    expect(smoke.stdout).toEqual(["AI4SE Harness 离线 smoke：completed"]);
+  });
+
   it("审批提示显示动作和目标，但不显示写入内容", () => {
     const prompt = formatApprovalRequest({
       action: { type: "write_file", path: "result.txt", content: "must-stay-hidden" }
@@ -347,7 +369,7 @@ describe("runCli", () => {
     }
   });
 
-  it("真实 CLI 在配置的 workspace 内执行命令", async () => {
+  it("真实 CLI 始终在启动目录执行命令，不接受旧配置切换工作区", async () => {
     const cwd = await temporaryWorkspace();
     const workspace = join(cwd, "project");
     await mkdir(workspace, { recursive: true });
@@ -381,8 +403,8 @@ describe("runCli", () => {
       const exitCode = await runCli(["--task", "run in workspace"], capture.dependencies);
 
       expect(exitCode).toBe(0);
-      await expect(readFile(join(workspace, marker), "utf8")).resolves.toBe(workspace);
-      await expect(access(join(cwd, marker))).rejects.toMatchObject({ code: "ENOENT" });
+      await expect(readFile(join(cwd, marker), "utf8")).resolves.toBe(cwd);
+      await expect(access(join(workspace, marker))).rejects.toMatchObject({ code: "ENOENT" });
     } finally {
       await stub.close();
     }
