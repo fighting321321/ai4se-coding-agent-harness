@@ -18,6 +18,9 @@ import { Redactor } from "./redactor.js";
 import { SessionContext } from "./session-context.js";
 import { loadWorkspaceRules } from "./workspace-rules.js";
 import type { TraceEntry } from "./trace.js";
+import { JsonTrace } from "./trace.js";
+import { HookManager, type LifecycleHook, type SessionEndReason } from "./hooks.js";
+import { randomUUID } from "node:crypto";
 
 export interface InteractiveSessionOptions {
   readonly cwd: string;
@@ -36,6 +39,7 @@ export interface InteractiveSessionDependencies {
   readonly confirmMemoryClear?: () => Promise<boolean>;
   readonly writeOut: (message: string) => void;
   readonly writeError: (message: string) => void;
+  readonly lifecycleHooks?: readonly LifecycleHook[];
 }
 
 const HELP = [
@@ -70,6 +74,12 @@ function actionLabel(entry: TraceEntry): string {
   if (action.type === "run_command") {
     return `run_command ${action.executable}`;
   }
+  if (action.type === "load_skill") {
+    return `load_skill ${action.name}`;
+  }
+  if (action.type === "call_mcp") {
+    return `call_mcp ${action.server}/${action.tool}`;
+  }
   return "finish";
 }
 
@@ -96,6 +106,7 @@ export async function runInteractiveSession(
 
   const workspace = resolve(options.cwd);
   let memoryLifecycle: MemoryLifecycle | undefined;
+  let hookManager: HookManager | undefined;
   try {
     const credential = options.credentialMode === "system"
       ? await readSystemCredential(options.cwd, dependencies)
@@ -106,6 +117,19 @@ export async function runInteractiveSession(
     }
     const apiKey = credential.value;
     const redactor = new Redactor([apiKey]);
+    const trace = new JsonTrace(join(workspace, ".ai4se", "trace.json"), redactor);
+    const createHookManager = (): HookManager => new HookManager({
+      hooks: dependencies.lifecycleHooks ?? [coreLifecycleHook],
+      sessionId: randomUUID(),
+      redactor,
+      record: async (event) => { await trace.appendHookEvent(event); }
+    });
+    hookManager = createHookManager();
+    const sessionStarted = await hookManager.start();
+    if (!sessionStarted.ok) {
+      dependencies.writeError(`会话 Hook 启动失败：${sessionStarted.error.code}`);
+      return 1;
+    }
     memoryLifecycle = new MemoryLifecycle({
       memory: new JsonMemory(resolve(workspace, configured.value.memoryPath), redactor),
       redactor
@@ -118,13 +142,17 @@ export async function runInteractiveSession(
     });
     let currentModel = configured.value.provider.model;
 
-    const finalizeMemory = async (): Promise<boolean> => {
+    const finalizeSession = async (reason: SessionEndReason): Promise<boolean> => {
+      const ended = await hookManager!.end(reason);
       const consolidated = await memoryLifecycle!.consolidate();
+      if (!ended.ok) {
+        dependencies.writeError(`会话 Hook 收尾失败：${ended.error.code}`);
+      }
       if (!consolidated.ok) {
         dependencies.writeError(`Memory 固化失败：${consolidated.error.code}`);
         return false;
       }
-      return true;
+      return ended.ok;
     };
 
     dependencies.writeOut("AI4SE Coding Agent");
@@ -137,7 +165,7 @@ export async function runInteractiveSession(
       dependencies.writeOut("ai4se>");
       const input = await dependencies.readLine("");
       if (input === undefined || input.trim() === "/exit") {
-        if (!(await finalizeMemory())) {
+        if (!(await finalizeSession(input === undefined ? "eof" : "exit"))) {
           return 1;
         }
         dependencies.writeOut("会话已结束");
@@ -153,10 +181,16 @@ export async function runInteractiveSession(
         continue;
       }
       if (task === "/new") {
-        if (!(await finalizeMemory())) {
+        if (!(await finalizeSession("new"))) {
           continue;
         }
         session.reset();
+        hookManager = createHookManager();
+        const restarted = await hookManager.start();
+        if (!restarted.ok) {
+          dependencies.writeError(`会话 Hook 启动失败：${restarted.error.code}`);
+          return 1;
+        }
         latestTrace = [];
         dependencies.writeOut("已开始新对话");
         continue;
@@ -229,7 +263,8 @@ export async function runInteractiveSession(
         provider: { apiKey, model: currentModel },
         approval: dependencies.askApproval,
         session,
-        memoryLifecycle
+        memoryLifecycle,
+        hooks: hookManager
       });
       if (!result.ok) {
         dependencies.writeError(`任务启动失败：${result.error.code}`);
@@ -240,6 +275,12 @@ export async function runInteractiveSession(
       dependencies.writeOut(result.value.summary);
     }
   } catch {
+    if (hookManager !== undefined) {
+      const ended = await hookManager.end("error");
+      if (!ended.ok) {
+        dependencies.writeError(`会话 Hook 收尾失败：${ended.error.code}`);
+      }
+    }
     if (memoryLifecycle !== undefined) {
       const consolidated = await memoryLifecycle.consolidate();
       if (!consolidated.ok) {
@@ -250,6 +291,14 @@ export async function runInteractiveSession(
     return 1;
   }
 }
+
+const coreLifecycleHook: LifecycleHook = {
+  name: "core-lifecycle",
+  sessionStart: () => undefined,
+  preToolUse: () => undefined,
+  postToolUse: () => undefined,
+  sessionEnd: () => undefined
+};
 
 async function readLegacyCredential(
   cwd: string,

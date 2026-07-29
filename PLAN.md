@@ -1,24 +1,23 @@
 # Coding Agent Harness 课程最小实现计划
 
-> **状态修正（2026-07-29）：** T14 已完成长期 Memory 的任务前检索、安全候选、会话末 consolidate、重启恢复和 `/memory`；没有引入通用 Hooks。下一步仍以 [`FULL_HARNESS_REASSESSMENT.md`](docs/assessments/FULL_HARNESS_REASSESSMENT.md) 第 6 节为准，进入 Skill/MCP/Hooks 单项。
+> **状态修正（2026-07-29）：** T15 已完成 Skill 渐进加载、最小 MCP 适配/mock 和四类生命周期 Hooks。下一步仍以 [`FULL_HARNESS_REASSESSMENT.md`](docs/assessments/FULL_HARNESS_REASSESSMENT.md) 第 6 节为准，进入受限子 Agent、自动传感器与 Checkpoint 单项。
 
 > **路线 B 初始化边界（2026-07-24）：** 首次运行只允许向用户收集服务地址、隐藏 API Key 和模型名称；三项均由用户直接填写。当前目录自动成为工作区，其余配置全部由程序内部生成。普通流程不得要求选择 Provider、选择预设模型、编辑 JSON、指定路径或设置本地保护密码；`v1.1.0` 的主密码流程仅作为历史兼容实现。
 
 > **For agentic workers:** 按 T06–T12 串行执行；每个 Task 使用独立 branch/worktree、一次新鲜 subagent、TDD、Spec 检查、质量检查和 MR Pipeline。步骤用 `guiding.md` 细化，不扩展本计划范围。
 
-**版本：** 2.6.0
+**版本：** 2.7.0
 
-**SPEC 基线：** `SPEC.md` 2.4.0
+**SPEC 基线：** `SPEC.md` 2.5.0
 
 **目标日期：** 2026-07-25
 
-**当前状态：** G1–G3、T01–T14 已完成；T14 分支等待负责人手动合并。完整 Harness Gate 仍打开，后续依次完成 Skill/MCP/Hooks、子 Agent/传感器/Checkpoint，最后发布 `v2.0.0`。
+**当前状态：** G1–G3、T01–T15 已完成；T15 分支等待负责人手动合并。完整 Harness Gate 仍打开，后续完成子 Agent/传感器/Checkpoint，再发布 `v2.0.0`。
 
 ### 路线 B 剩余任务（简化）
 
-1. Skill 渐进加载、MCP 适配和四类生命周期 Hook。
-2. 受限子 Agent、自动反馈传感器和 Checkpoint 恢复。
-3. 完整 Trace、真实 Provider、tarball 与 `v2.0.0` Release 验收。
+1. 受限子 Agent、自动反馈传感器和 Checkpoint 恢复。
+2. 完整 Trace、真实 Provider、tarball 与 `v2.0.0` Release 验收。
 
 执行纪律：一次只做上述一个单项，默认最多一个提交；每项通过统一 `all` 门禁后停止并由负责人决定是否继续。
 
@@ -88,7 +87,8 @@ pnpm build
 | T11 | 双模式 WebUI、本地 API 与静态 mock | `feat/t11-static-web` | 已合入 `dev`（MR !13，merge `7c68221`）；学校 Pages 不可用，托管交付由 Release 取代 | 7 |
 | T12 | npm 分发、README、反思与最终审计 | `docs/t12-final-delivery` | 已合入 `dev`（MR !14，merge `6f8b5d6`） | 7 |
 | T13 | 完整短期会话、命令、规则与压缩 | `feat/t13-session-context-rules` | 已合入 `dev`（merge `32006ec`） | 7 |
-| T14 | 长期 Memory 生命周期、重启恢复与管理 | `feat/t14-memory-lifecycle` | 已完成，等待负责人手动合并 | 7 |
+| T14 | 长期 Memory 生命周期、重启恢复与管理 | `feat/t14-memory-lifecycle` | 已合入 `dev`（merge `e9a6e2a`） | 7 |
+| T15 | Skill、MCP 与生命周期 Hooks | `feat/t15-skills-mcp-hooks` | 已完成，等待负责人手动合并 | 7 |
 
 ## 5. T05：工程骨架与最小 CI（已完成）
 
@@ -374,3 +374,11 @@ pnpm pack
 - 根据助教“CLI 项目可提供托管平台 Release 链接”的补充说明，最终交付入口固定为 `https://git.nju.edu.cn/HuanghaoXu/ai4se-coding-agent-harness/-/releases/v1.0.0`。
 - Release 附件固定为 CI 已验证的 `ai4se-harness-0.1.0.tgz`；WebUI 只保留本地运行和静态 mock 源码。
 - 本节是最终状态；T11/T12 执行证据中保留的“Pages 待核验”属于当时的历史事实，不再是当前待办。
+
+## 16. T15：Skill、MCP 与生命周期 Hooks（已完成）
+
+- `HookManager` 只实现 `SessionStart`、`PreToolUse`、`PostToolUse`、`SessionEnd`，按注入顺序串行执行；Pre 阻断发生在副作用前，职责不替代 Policy/Approval。
+- `SkillRegistry` 在工作区约定目录安全发现名片，显式 `load_skill` 后才读取正文；拒绝路径逃逸、符号链接、工作区外真实路径、超大、损坏 UTF-8 与无效元数据。
+- `McpRegistry` 和 `MockMcpConnection` 只提供自研适配边界、稳定发现和离线调用；`call_mcp` 固定视为外部信任边界并逐次审批，不连接真实服务。
+- `AgentLoop` 每轮提供限长统一能力菜单，Skill/MCP/Hook 接入脱敏上下文、Observation 与 Trace；T13 会话和 T14 Memory 收尾保持兼容。
+- TDD 从 9 个缺失边界用例 RED 开始；最终统一 test、lint、typecheck、build、demo 和 audit 均退出 0，demo 4/4，Vite 构建 17 modules。未使用真实 Provider、网络或凭据。

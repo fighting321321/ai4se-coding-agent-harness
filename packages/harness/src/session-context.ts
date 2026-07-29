@@ -2,6 +2,7 @@ import type { Action } from "./action.js";
 import type { LLMInput } from "./llm-provider.js";
 import { Redactor } from "./redactor.js";
 import type { WorkspaceRule } from "./workspace-rules.js";
+import type { CapabilityMenu } from "./llm-provider.js";
 
 export type ConversationMessage =
   | { readonly role: "user"; readonly content: string }
@@ -32,7 +33,9 @@ function freezeMessage(message: ConversationMessage): ConversationMessage {
   }
   const action = message.action.type === "run_command"
     ? { ...message.action, args: Object.freeze([...message.action.args]) }
-    : { ...message.action };
+    : message.action.type === "call_mcp"
+      ? { ...message.action, arguments: Object.freeze(structuredClone(message.action.arguments)) }
+      : { ...message.action };
   return Object.freeze({ role: "action", action: Object.freeze(action) as Action });
 }
 
@@ -137,6 +140,18 @@ export class SessionContext {
   }
 
   toLLMInput(task: string, context: readonly string[], observations: readonly string[]): LLMInput {
+    return this.toExtendedLLMInput(task, context, observations);
+  }
+
+  toExtendedLLMInput(
+    task: string,
+    context: readonly string[],
+    observations: readonly string[],
+    extensions: {
+      readonly capabilities?: CapabilityMenu;
+      readonly skillInstructions?: readonly string[];
+    } = {}
+  ): LLMInput {
     this.#compactIfNeeded();
     const snapshot = this.snapshot();
     return {
@@ -149,7 +164,15 @@ export class SessionContext {
       summary: snapshot.summary,
       messages: snapshot.messages,
       systemConstraints: this.#systemConstraints,
-      rules: this.#rules
+      rules: this.#rules,
+      ...(extensions.capabilities === undefined ? {} : {
+        capabilities: this.#redactor.redact(extensions.capabilities)
+      }),
+      ...(extensions.skillInstructions === undefined ? {} : {
+        skillInstructions: extensions.skillInstructions.map((value) =>
+          this.#boundedText(value, this.#maxMessageChars)
+        )
+      })
     };
   }
 }
@@ -178,6 +201,12 @@ function summarizeMessage(message: ConversationMessage): string {
   }
   if (action.type === "run_command") {
     return `action: run_command executable=${truncate(action.executable, 160)} args=[OMITTED]`;
+  }
+  if (action.type === "load_skill") {
+    return `action: load_skill name=${truncate(action.name, 160)}`;
+  }
+  if (action.type === "call_mcp") {
+    return `action: call_mcp server=${truncate(action.server, 80)} tool=${truncate(action.tool, 80)} arguments=[OMITTED]`;
   }
   return `action: finish summary=${truncate(action.summary, 240)}`;
 }

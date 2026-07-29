@@ -22,6 +22,19 @@ function hasExactKeys(record: UnknownRecord, expected: readonly string[]): boole
   return keys.length === expected.length && expected.every((key) => Object.hasOwn(record, key));
 }
 
+function copyJsonRecord(value: UnknownRecord): UnknownRecord | undefined {
+  try {
+    const serialized = JSON.stringify(value);
+    if (serialized.length > 16_384) {
+      return undefined;
+    }
+    const copy: unknown = JSON.parse(serialized);
+    return isRecord(copy) ? copy : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 export function parseAction(raw: unknown): ActionParseResult {
   if (!isRecord(raw) || typeof raw.type !== "string") {
     return failure("动作必须是包含字符串 type 字段的对象");
@@ -60,6 +73,33 @@ export function parseAction(raw: unknown): ActionParseResult {
         ok: true,
         value: { type: "run_command", executable: raw.executable, args: [...raw.args] }
       };
+
+    case "load_skill":
+      if (!hasExactKeys(raw, ["type", "name"]) || typeof raw.name !== "string") {
+        return failure("load_skill 动作必须且只能包含字符串 name 字段");
+      }
+      return { ok: true, value: { type: "load_skill", name: raw.name } };
+
+    case "call_mcp": {
+      const copiedArguments = isRecord(raw.arguments) ? copyJsonRecord(raw.arguments) : undefined;
+      if (
+        !hasExactKeys(raw, ["type", "server", "tool", "arguments"]) ||
+        typeof raw.server !== "string" ||
+        typeof raw.tool !== "string" ||
+        copiedArguments === undefined
+      ) {
+        return failure("call_mcp 动作必须且只能包含 server、tool 和对象 arguments 字段");
+      }
+      return {
+        ok: true,
+        value: {
+          type: "call_mcp",
+          server: raw.server,
+          tool: raw.tool,
+          arguments: copiedArguments
+        }
+      };
+    }
 
     case "finish":
       if (!hasExactKeys(raw, ["type", "summary"]) || typeof raw.summary !== "string") {

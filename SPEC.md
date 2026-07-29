@@ -1,17 +1,17 @@
 # Coding Agent Harness 课程最小交付规约
 
-> **2026-07-29 T14 增量：** 路线 B 已完成长期 Memory 的任务前检索、安全候选、会话末原子固化、重启恢复和 `/memory` 管理。通用 Hooks、Skill/MCP、子 Agent、传感器和 Checkpoint 仍未实现，因此完整 Harness Gate 继续打开；后续范围仍以 [`FULL_HARNESS_REASSESSMENT.md`](docs/assessments/FULL_HARNESS_REASSESSMENT.md) 第 6 节为准。
+> **2026-07-29 T15 增量：** 路线 B 已完成本地 Skill 渐进加载、最小 MCP 适配/mock，以及 `SessionStart`、`PreToolUse`、`PostToolUse`、`SessionEnd` 四类 Hooks。子 Agent、自动传感器和 Checkpoint 仍未实现，因此完整 Harness Gate 继续打开；后续范围仍以 [`FULL_HARNESS_REASSESSMENT.md`](docs/assessments/FULL_HARNESS_REASSESSMENT.md) 第 6 节为准。
 
 ## 0. 文档控制
 
 | 字段 | 值 |
 | --- | --- |
-| 文档版本 | 2.4.0 |
+| 文档版本 | 2.5.0 |
 | 批准日期 | 2026-07-29 |
 | 项目负责人 | 徐黄浩 |
 | 权威需求来源 | 本文件；`guide/AI4SE_Final_Project_通用要求.md` 与 `guide/AI4SE_Final_Project_A_Coding_Agent_Harness.md` 是不可删减的上位要求 |
 | 当前 Gate | `v1.1.0` 基线已交付并通过门禁；完整 Harness Gate 已重新打开，路线 B 及面向用户的 CLI 方向已获批准，延期实施 |
-| 实现范围 | T05–T14；T14 只增加长期 Memory 生命周期与管理 |
+| 实现范围 | T05–T15；T15 只增加 Skill、最小 MCP 与四类生命周期 Hooks |
 
 本版本取代 SPEC 1.0.0 的实现承诺。旧版本保留为 Git 历史和过程证据，不再要求实现数据库、多用户平台、复杂决策版本、SSE、Docker 或线上后端。任何删减都不得违反上述两份课程原始要求。
 
@@ -87,6 +87,8 @@ type Action =
   | { type: "read_file"; path: string }
   | { type: "write_file"; path: string; content: string }
   | { type: "run_command"; executable: string; args: readonly string[] }
+  | { type: "load_skill"; name: string }
+  | { type: "call_mcp"; server: string; tool: string; arguments: Readonly<Record<string, unknown>> }
   | { type: "finish"; summary: string };
 ```
 
@@ -105,6 +107,7 @@ type Action =
 
 - `deny`：路径逃逸、敏感文件、删除类命令、Shell 启动器、白名单外程序。
 - `ask`：工作区文件写入和其他配置为需批准的副作用。
+- 外部 MCP 调用固定为 `ask`；本地 PathGuard 与命令白名单不延伸到远端实现。
 - `allow`：安全读取和已允许的只读验证命令。
 
 `ask` 必须暂停并生成结构化批准请求；没有批准时不得调用工具。最小版本只支持当前 CLI 会话中的一次批准，不实现持久化审批平台。
@@ -139,12 +142,20 @@ JSON 配置通过运行时 schema 校验，至少包含工作区路径、允许�
 - 候选在会话内暂存，由 `/new`、`/exit`、输入结束和可控异常边界调用最小明确收尾；批量合并使用单次原子替换，不引入通用 Hook。
 - 新进程从当前工作区 `.ai4se/memory.json` 恢复检索；`/memory` 只显示安全摘要，`/memory clear` 必须在用户确认后执行。`/new` 先固化候选并只重置短期上下文。
 
+### 4.10 T15 Skill、MCP 与生命周期 Hooks
+
+- Skill 从工作区 `.ai4se/skills/<name>/SKILL.md` 发现；平时只提供稳定排序、限长的名称和简介，显式 `load_skill` 后才读取并注入完整指令。同一会话不重复注入。
+- Skill 名称、真实路径、符号链接、文件大小、UTF-8 与严格 frontmatter 均由代码校验；失败返回固定脱敏错误。Skill 指令低于系统安全约束、Policy、Approval 和工作区规则。
+- MCP 仅定义自研连接/工具/请求/结果接口与离线 mock；工具名片标注 `external`。`call_mcp` 通过统一 Policy、逐次 Approval、Pre/Post Hook 和 Dispatcher，不实现生产协议客户端或真实外部连接。
+- Hook 固定为 `SessionStart`、`PreToolUse`、`PostToolUse`、`SessionEnd`，按注册顺序串行执行。Pre 可在副作用前阻断；Post 只接收脱敏结果；异常统一映射为固定错误。
+- Hook 事件使用会话 ID 写入 Trace 的独立有序事件列表；`SessionEnd` 在 `/new`、`/exit`、EOF 和可控异常边界至多执行一次，并先于 Memory consolidate。
+
 ## 5. 功能规约
 
 ### 5.1 Mock LLM 与动作解析
 
 - 输入：任务、记忆摘要和 Observation 历史。
-- 行为：脚本化 mock 按顺序返回结果；解析器只接受四类 Action 和精确字段。
+- 行为：脚本化 mock 按顺序返回结果；解析器只接受六类 Action 和精确字段。
 - 输出：Action 或结构化解析错误。
 - 边界：脚本耗尽、未知动作、缺失字段和多余字段均失败；测试不联网。
 

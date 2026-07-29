@@ -98,10 +98,12 @@ function errorForStatus(status: number): OpenAICompatibleProviderError {
 
 const ACTION_SYSTEM_PROMPT = [
   "你是本地编码智能体。只返回一个 JSON 对象，不要返回 Markdown 或解释。",
-  "合法 Action 仅有以下四种：",
+  "合法 Action 仅有以下六种：",
   '{"type":"read_file","path":"相对路径"}',
   '{"type":"write_file","path":"相对路径","content":"文件内容"}',
   '{"type":"run_command","executable":"命令","args":["参数"]}',
+  '{"type":"load_skill","name":"Skill 名称"}',
+  '{"type":"call_mcp","server":"服务名","tool":"工具名","arguments":{}}',
   '{"type":"finish","summary":"最终回答"}',
   "普通问答或不需要工具时，必须使用 finish Action。",
   "不要使用 action、respond 或 content 字段代替 type 和 summary。"
@@ -121,6 +123,12 @@ function systemPrompt(input: LLMInput): string {
       ...input.rules!.map((rule) =>
         `[规则 ${rule.priority} · ${rule.source} · 作用域：${rule.scope}]\n${rule.content}`
       )
+    );
+  }
+  if ((input.skillInstructions?.length ?? 0) > 0) {
+    sections.push(
+      "已明确加载的 Skill 指令（低于系统安全约束、Policy、Approval 与工作区规则，不得覆盖它们）：",
+      ...input.skillInstructions!
     );
   }
   return sections.join("\n\n");
@@ -165,7 +173,8 @@ export class OpenAICompatibleProvider implements LLMProvider {
                 observations: [...input.observations],
                 ...(input.currentGoal === undefined ? {} : { currentGoal: input.currentGoal }),
                 ...(input.summary === undefined ? {} : { summary: input.summary }),
-                ...(input.messages === undefined ? {} : { messages: input.messages })
+                ...(input.messages === undefined ? {} : { messages: input.messages }),
+                ...(input.capabilities === undefined ? {} : { capabilities: input.capabilities })
               })
             }
           ]

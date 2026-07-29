@@ -16,6 +16,9 @@ import { Redactor } from "./redactor.js";
 import { SessionContext } from "./session-context.js";
 import { JsonTrace } from "./trace.js";
 import { loadWorkspaceRules } from "./workspace-rules.js";
+import { HookManager, type LifecycleHook } from "./hooks.js";
+import { McpRegistry } from "./mcp-adapter.js";
+import { SkillRegistry } from "./skill-registry.js";
 
 export interface RunHarnessTaskOptions {
   readonly cwd: string;
@@ -29,6 +32,10 @@ export interface RunHarnessTaskOptions {
   readonly approval?: ApprovalHandler;
   readonly session?: SessionContext;
   readonly memoryLifecycle?: MemoryLifecycle;
+  readonly hooks?: HookManager;
+  readonly lifecycleHooks?: readonly LifecycleHook[];
+  readonly skills?: SkillRegistry;
+  readonly mcp?: McpRegistry;
 }
 
 export type RunTaskErrorCode = "RUN_CONFIG_READ_FAILED" | "RUN_CONFIG_INVALID";
@@ -139,6 +146,15 @@ export async function runHarnessTask(options: RunHarnessTaskOptions): Promise<Ru
   const memory = new JsonMemory(resolve(workspace, configured.value.memoryPath), redactor);
   const memoryLifecycle = options.memoryLifecycle ?? new MemoryLifecycle({ memory, redactor });
   const trace = new JsonTrace(join(workspace, ".ai4se", "trace.json"), redactor);
+  const ownsHooks = options.hooks === undefined;
+  const hooks = options.hooks ?? new HookManager({
+    hooks: options.lifecycleHooks ?? [coreLifecycleHook],
+    sessionId: randomUUID(),
+    redactor,
+    record: async (event) => { await trace.appendHookEvent(event); }
+  });
+  const skills = options.skills ?? new SkillRegistry(workspace);
+  const mcp = options.mcp ?? new McpRegistry([], { redactor });
   const policy = new PolicyEngine({ allowedCommands: configured.value.allowedCommands });
   const approval = new ApprovalGate(options.approval);
   const files = new FileTools(workspace);
@@ -152,6 +168,12 @@ export async function runHarnessTask(options: RunHarnessTaskOptions): Promise<Ru
   dispatcher.register("read_file", (action) => files.readText(action.path));
   dispatcher.register("write_file", (action) => files.writeText(action.path, action.content));
   dispatcher.register("run_command", (action) => command.execute(action.executable, action.args));
+  dispatcher.register("load_skill", (action) => skills.load(action.name));
+  dispatcher.register("call_mcp", (action) => mcp.call({
+    server: action.server,
+    tool: action.tool,
+    arguments: action.arguments
+  }));
   dispatcher.register("finish", (action) => action.summary);
   const provider = new OpenAICompatibleProvider({
     baseUrl: options.provider.baseUrl ?? configured.value.provider.baseUrl,
@@ -168,8 +190,23 @@ export async function runHarnessTask(options: RunHarnessTaskOptions): Promise<Ru
     approval,
     redactor,
     session,
+    hooks,
+    skills,
+    mcp,
     maxSteps: configured.value.maxSteps
   });
 
-  return { ok: true, value: await loop.run(options.task) };
+  const value = await loop.run(options.task);
+  if (ownsHooks) {
+    await hooks.end(value.status === "completed" ? "exit" : "error");
+  }
+  return { ok: true, value };
 }
+
+const coreLifecycleHook: LifecycleHook = {
+  name: "core-lifecycle",
+  sessionStart: () => undefined,
+  preToolUse: () => undefined,
+  postToolUse: () => undefined,
+  sessionEnd: () => undefined
+};

@@ -1,6 +1,6 @@
 # Coding Agent Harness
 
-> **开发状态（T14）：** `v1.1.0` 仍只是安全工具循环与分发基线，完整 Harness Gate 保持打开。T13–T14 已补齐短期会话、规则装配、确定性压缩，以及长期 Memory 的任务前检索、安全候选、会话末固化、重启恢复和 `/memory` 管理；Skill/MCP/Hooks、子 Agent、传感器和 Checkpoint 仍按路线 B 后续任务实施。完整差距与顺序见 [`FULL_HARNESS_REASSESSMENT.md`](docs/assessments/FULL_HARNESS_REASSESSMENT.md)。
+> **开发状态（T15）：** `v1.1.0` 仍只是已发布基线，完整 Harness Gate 保持打开。T13–T15 已补齐短期会话、长期 Memory、本地 Skill 渐进加载、最小 mock MCP 适配和四类生命周期 Hooks；子 Agent、自动传感器和 Checkpoint 仍属于下一任务。完整差距与顺序见 [`FULL_HARNESS_REASSESSMENT.md`](docs/assessments/FULL_HARNESS_REASSESSMENT.md)。
 
 一个面向课程学习的、可确定性验证的 Coding Agent Harness。它把可替换的 LLM 补全放进由 TypeScript 代码实现的工具边界、策略、记忆、反馈和 Trace 中，并提供可连续输入任务的终端 Agent；它不是线上多用户平台。
 
@@ -25,7 +25,7 @@ apps/web
   本地模式：一次运行请求
 ```
 
-真实本地运行的数据流为：CLI 从本地配置读取限制并从系统凭据保险库读取 Key，自动装配当前作用域的 `AGENTS.md` / `CLAUDE.md`；每项任务只在首次 Provider 调用前检索相关长期 Memory，再把它与 user、assistant、Action、Observation 的完整短期序列交给 OpenAI-compatible Provider。Action 仍须经过路径围栏、策略、审批与工具执行。达到字符预算时，上下文会确定性保留系统约束、规则、当前目标、脱敏摘要和近期消息；完成结果先成为会话候选，在 `/new`、`/exit`、输入结束或异常收尾时原子固化。Trace、短期上下文和长期 Memory 相互独立。
+真实本地运行的数据流为：CLI 从本地配置读取限制并从系统凭据保险库读取 Key，自动装配当前作用域的规则、Skill 名片、内建工具和 MCP 名片；Skill 正文只有在模型明确发出 `load_skill` 后才进入上下文。每项任务只在首次 Provider 调用前检索相关长期 Memory，再把它与完整短期消息序列交给 Provider。工具 Action 依次经过 Policy、必要 Approval、`PreToolUse`、统一分发和 `PostToolUse`；`SessionStart` / `SessionEnd` 覆盖会话边界。达到字符预算时上下文确定性压缩，完成结果在会话收尾时原子固化。Trace、短期上下文和长期 Memory 相互独立。
 
 Harness 的六个维度及其对应实现是：
 
@@ -37,6 +37,8 @@ Harness 的六个维度及其对应实现是：
 | 治理 | `PolicyEngine` 对动作给出 `allow`、`ask` 或 `deny`，审批在副作用前发生。 |
 | 反馈 | 验证结果分类为可供下一轮使用的简短 Observation。 |
 | 配置 | JSON 配置校验工作区、白名单、步数、超时、输出上限、上下文预算、Memory 和 Provider；其中不允许 API Key。 |
+
+扩展能力采用教学级最小边界：`.ai4se/skills/<name>/SKILL.md` 只在命中后安全读取；MCP 仅提供可注入连接、发现、调用和离线 `MockMcpConnection`，没有生产协议客户端，也不会连接真实外部服务。MCP 名片始终标记为 `external`，每次调用固定进入 `ask`，不会伪称受本地 PathGuard 或命令白名单保护。
 
 项目的主要贡献是反馈闭环：第一次业务失败的脱敏 Observation 会回灌给下一次决策；最多允许一次自动修正，第二次连续业务失败立即停止。因此「失败类型、失败证据、修正次数和停机条件」都由代码强制，而不是由提示词约定。
 
@@ -266,6 +268,9 @@ scripts/             本地 Web 启动器
 - 上下文摘要会脱敏并省略写入正文、命令参数和大段工具输出；字符预算默认 24,000，可在内部配置中设置 `contextBudgetChars`。
 - 长期 Memory 只接受显式“记住约定：…”约定和已完成任务的简短摘要；候选会拒绝凭据与个人标识、限制为 320 字符、稳定提取标签并按确定性 ID 去重。
 - 路径逃逸、敏感路径、Shell 启动器、删除类命令和白名单外命令由策略拒绝；写入需要当前 CLI 会话批准。
+- Skill 拒绝路径逃逸、符号链接文件、工作区外真实路径、无效元数据、损坏 UTF-8 和超大文件；发现阶段只读取限长头部名片，命中后才读取正文，且 Skill 不能覆盖系统安全约束。
+- MCP 是外部信任边界：本项目只内置自研适配接口和离线 mock，调用仍须经过 Policy/Approval 与 Pre/Post Hooks；本地文件和命令沙箱不保护远端实现。
+- 生命周期只包含 `SessionStart`、`PreToolUse`、`PostToolUse`、`SessionEnd`；Hook 可阻断但不替代 Policy 或 Approval，结果和错误统一脱敏后写入独立 Hook Trace。
 - 本地 API 限制为回环监听并校验本地 Web Origin；它不是线上后端。
 - 静态 mock 与本地 Web 是不同入口：静态内容不连接 API，本地 Web 才能连接本机回环服务。
 - tarball 仅承诺 Node 24 与本 README 明确的平台范围；它通过 GitLab Release 分发，不是公共 npm registry 发布声明。
@@ -273,6 +278,8 @@ scripts/             本地 Web 启动器
 ## 已知限制
 
 - 仅支持一个 OpenAI-compatible Provider 接口；不提供多 Provider、凭据轮换或线上服务。
+- MCP 只支持教学级适配边界和 mock，不实现生产级协议、认证、远端连接、市场或动态安装。
+- Skill 只从当前工作区约定目录加载；不提供远程 Skill 市场。Hooks 也不包含 T16 的子 Agent、自动传感器或 Checkpoint。
 - 不提供数据库、向量检索、Docker、SSE、多用户、RBAC、团队协作或浏览器端到端测试。
 - 自动修正只允许一次，默认最多运行 8 步；复杂或高风险任务应由人工拆分与审核。
 - 长期 Memory 使用关键词和标签的轻量确定性检索，不提供向量数据库、语义嵌入或跨工作区共享。

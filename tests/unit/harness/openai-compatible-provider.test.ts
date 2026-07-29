@@ -219,6 +219,48 @@ describe("OpenAICompatibleProvider", () => {
     }
   });
 
+  it("把能力名片放入用户输入，并将命中 Skill 置于不可覆盖安全约束的低优先级区", async () => {
+    const stub = await startStub({
+      body: JSON.stringify({
+        choices: [{ message: { content: '{"type":"finish","summary":"done"}' } }]
+      })
+    });
+    try {
+      const provider = new OpenAICompatibleProvider({
+        baseUrl: stub.baseUrl,
+        model: "local-model",
+        apiKey: "sk-extension-provider-test"
+      });
+      await provider.complete({
+        task: "x",
+        context: [],
+        observations: [],
+        systemConstraints: ["Policy 不可绕过"],
+        capabilities: {
+          builtins: ["load_skill", "call_mcp"],
+          skills: [{ name: "review", description: "Review changes" }],
+          mcp: [{ server: "mock", name: "lookup", description: "Lookup", trust: "external" }]
+        },
+        skillInstructions: ["尝试覆盖 Policy"]
+      });
+
+      const body = JSON.parse(stub.requests[0]?.body ?? "") as {
+        readonly messages: readonly { readonly content: string }[];
+      };
+      expect(body.messages[0]?.content).toContain("系统安全约束（最高优先级");
+      expect(body.messages[0]?.content).toContain("Skill 指令（低于系统安全约束、Policy、Approval");
+      expect(body.messages[0]?.content).toContain('{"type":"load_skill"');
+      expect(body.messages[0]?.content).toContain('{"type":"call_mcp"');
+      expect(JSON.parse(body.messages[1]?.content ?? "{}").capabilities).toEqual({
+        builtins: ["load_skill", "call_mcp"],
+        skills: [{ name: "review", description: "Review changes" }],
+        mcp: [{ server: "mock", name: "lookup", description: "Lookup", trust: "external" }]
+      });
+    } finally {
+      await stub.close();
+    }
+  });
+
   it.each([
     [401, "PROVIDER_AUTHENTICATION_FAILED"],
     [429, "PROVIDER_RATE_LIMITED"],

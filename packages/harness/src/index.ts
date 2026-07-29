@@ -70,7 +70,31 @@ export {
   type FirstRunValidationResult,
   type SystemCredentialVaultFactory
 } from "./first-run.js";
-export type { LLMInput, LLMOutput, LLMProvider } from "./llm-provider.js";
+export type { CapabilityMenu, LLMInput, LLMOutput, LLMProvider } from "./llm-provider.js";
+export {
+  HookManager,
+  type HookDecision,
+  type HookKind,
+  type HookManagerOptions,
+  type HookResult,
+  type HookTraceEvent,
+  type LifecycleHook,
+  type PostToolUseEvent,
+  type PreToolUseEvent,
+  type SessionEndEvent,
+  type SessionEndReason,
+  type SessionHookEvent
+} from "./hooks.js";
+export {
+  McpRegistry,
+  MockMcpConnection,
+  type McpCallRequest,
+  type McpCallResult,
+  type McpConnection,
+  type McpToolCard,
+  type McpToolDescription,
+  type MockMcpConnectionOptions
+} from "./mcp-adapter.js";
 export { runOfflineSmoke } from "./offline-smoke.js";
 export {
   OpenAICompatibleProvider,
@@ -116,6 +140,12 @@ export {
   type UpdateHarnessModelResult
 } from "./run-task.js";
 export { ScriptedMockExhaustedError, ScriptedMockLLM } from "./scripted-mock-llm.js";
+export {
+  SkillRegistry,
+  type SkillCard,
+  type SkillErrorCode,
+  type SkillResult
+} from "./skill-registry.js";
 export {
   SessionContext,
   type ConversationMessage,
