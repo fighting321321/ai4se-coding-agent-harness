@@ -544,3 +544,13 @@
 - TDD：反馈单测先因成功文本未进入 Observation 得到 1 项预期 RED；最小实现将成功文本经现有 Redactor 和 160 字符上限写入反馈后 GREEN。随后 AgentLoop 集成测试先因下一轮 observations 为空得到 1 项预期 RED；改为传递所有可继续执行的反馈后 GREEN，并同步更新机制演示对成功命令反馈的断言。
 - 真人复验：相同真实 CLI 任务的最新 Trace 为 Step 14 `read_file · allow · running`，Observation 含脱敏且截断的 README 正文；Step 15 为 `finish · allow · completed`。未读取、记录或提交主密码与 API Key。
 - 门禁：完整测试、lint、typecheck、Harness/API/Web build、4/4 机制演示和最终审计均退出 0；静态 Web 构建仍为 17 modules，安全审计未发现受控文件、完整 Git 历史或 Web artifact 凭据命中。
+
+### 2026-07-29 · T13 完整会话上下文与规则装配
+
+- 范围与提交：严格停留在短期会话上下文、`/new`、`/model`、`AGENTS.md` / `CLAUDE.md` 规则装配和确定性压缩；未实现长期 Memory、Skill、MCP、Hooks、子 Agent、传感器或 Checkpoint。分支以指导提交 `c764894` 开始，产品实现按消息模型、CLI 命令、规则装配、压缩四个原子提交推进，最终收尾后总提交数为 6，未超过 7。
+- TDD：会话消息模型、跨任务引用、CLI 重置/模型保存、缺失与嵌套规则、冲突顺序、压缩触发/不触发/幂等、摘要脱敏及压缩后继续工具调用均先得到预期 RED，再由最小实现转 GREEN。全部机制使用 `ScriptedMockLLM`、本地文件和 HTTP stub 离线验证。
+- 会话与 CLI：`SessionContext` 独立于 Trace，按顺序保存 user、assistant、Action、Observation；同一终端会话复用同一实例。`/new` 只清空短期上下文；`/model` 可查看模型，合法新名称使用临时文件加原子替换保存并立即生效。普通任务输出不再默认展开 Trace 或底层工具动作。
+- 规则与安全：规则按作用域祖先链从浅到深加载，同层 `CLAUDE.md` 后 `AGENTS.md`；每条规则携带来源、作用域和稳定优先级。规则处于系统安全约束之下，不能覆盖路径围栏、Policy、Approval 或凭据隔离；越界作用域、工作区外符号链接、缺失或不可读文件不会被注入。
+- 压缩：配置新增可选 `contextBudgetChars`，首次初始化默认 24,000 字符。超限时确定性保留系统约束、规则、当前目标、脱敏摘要和近期消息；摘要省略写入正文、命令参数与大段工具输出，重复调用结果稳定，压缩后循环仍能继续调用工具并完成。
+- 最终统一门禁：仅通过 `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\project-env.ps1 all` 运行；33/33 测试文件、355/355 用例通过，lint、typecheck、Harness/API/Web build、4/4 机制演示和最终审计全部退出 0。Vite 静态构建为 17 modules；审计确认当前受控文件、完整 Git 历史和静态 Web artifact 无凭据命中。
+- 交付状态：`guiding.md` 已清空，分支保持 `feat/t13-session-context-rules`，不合并 `dev`、不创建或合并 MR、不发布版本，等待项目负责人手动合并。

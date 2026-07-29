@@ -1,17 +1,17 @@
 # Coding Agent Harness 课程最小交付规约
 
-> **2026-07-22 重新评估：** 本规约描述并实现了 `v1.1.0` 的课程最小基线，但该基线不能让后续终端任务读取上一项任务的对话，Memory 也没有接入主循环的写入与会话末固化。项目负责人要求目标升级为《Agent 的一生》所描述的最终 Harness，因此完成 Gate 已重新打开。正式重写本 SPEC 前，以 [`FULL_HARNESS_REASSESSMENT.md`](docs/assessments/FULL_HARNESS_REASSESSMENT.md) 作为差距与决策依据；其中已经批准的“三项输入、无本地保护密码”首次向导取代本文件 5.5 节作为路线 B 的未来凭据交互要求。本文件中的主密码加密文件只描述 `v1.1.0` 历史实现，当前文档中的“已完成”和“六维实现”不得解释为完整 Harness 已完成。
+> **2026-07-29 T13 增量：** 路线 B 已完成完整短期会话、`/new`、`/model`、工作区规则装配和确定性上下文压缩。长期 Memory 写入、固化和重启检索仍未实现，因此完整 Harness Gate 继续打开；后续范围仍以 [`FULL_HARNESS_REASSESSMENT.md`](docs/assessments/FULL_HARNESS_REASSESSMENT.md) 第 6 节为准。
 
 ## 0. 文档控制
 
 | 字段 | 值 |
 | --- | --- |
-| 文档版本 | 2.2.0 |
-| 批准日期 | 2026-07-22 |
+| 文档版本 | 2.3.0 |
+| 批准日期 | 2026-07-29 |
 | 项目负责人 | 徐黄浩 |
 | 权威需求来源 | 本文件；`guide/AI4SE_Final_Project_通用要求.md` 与 `guide/AI4SE_Final_Project_A_Coding_Agent_Harness.md` 是不可删减的上位要求 |
 | 当前 Gate | `v1.1.0` 基线已交付并通过门禁；完整 Harness Gate 已重新打开，路线 B 及面向用户的 CLI 方向已获批准，延期实施 |
-| 实现范围 | T05–T12，一周内完成最低可用课程作业 |
+| 实现范围 | T05–T13；T13 只增加短期会话上下文与规则装配 |
 
 本版本取代 SPEC 1.0.0 的实现承诺。旧版本保留为 Git 历史和过程证据，不再要求实现数据库、多用户平台、复杂决策版本、SSE、Docker 或线上后端。任何删减都不得违反上述两份课程原始要求。
 
@@ -40,6 +40,7 @@
 6. 作为真实模型使用者，我希望安全录入、查看状态、更新和清除学校 OpenAI-compatible API Key；本地 WebUI 可为单次运行临时接收 Key，但明文不得进入源码、Git、日志、Trace、Memory、URL 或浏览器持久化存储。
 7. 作为评审者，我希望一条命令运行全部离线测试和三项机制演示，并能从 README 理解静态 mock 运行轨迹。
 8. 作为新用户，我希望从 GitLab `v1.0.0` Release 下载 npm tarball，在全新目录安装并按照 README 完成配置与运行。
+9. 作为 CLI 用户，我希望后一题能引用前文，并能用 `/new` 重置短期对话、用 `/model` 查看或保存模型；超出预算时仍保留安全约束、规则、目标、摘要和近期消息。
 
 这些故事可独立验收，均有明确用户、价值和可观察结果。
 
@@ -121,6 +122,14 @@ JSON 配置通过运行时 schema 校验，至少包含工作区路径、允许�
 ### 4.7 为什么这些是代码机制
 
 工具分发、路径检查、策略、反馈分类、记忆读写和停机判断均由项目源码实现。替换真实 Provider 为 `ScriptedMockLLM` 后，全部机制仍可用单元测试验证；Prompt、配置和 Skill 只作为输入内容，不计为 Harness 内核。
+
+### 4.8 T13 会话上下文与规则
+
+- `SessionContext` 按顺序保存 user、assistant、Action 和 Observation；Trace 只承担审计，不充当模型历史。
+- `/new` 仅重置当前进程内短期上下文；`/model` 查看当前模型，或校验后原子保存新模型名称。
+- 启动装配按浅到深的作用域祖先链加载 `CLAUDE.md`、`AGENTS.md`；同层后加载的 `AGENTS.md` 优先。规则带来源和作用域，且不能覆盖路径围栏、Policy、Approval 或凭据隔离。
+- `contextBudgetChars` 达到阈值后执行确定性压缩，保留系统约束、规则、当前目标、脱敏摘要和近期消息；摘要省略写入正文、命令参数及大段工具输出。
+- T13 不写入长期 Memory，不实现 `/memory`、Skill、MCP、Hooks、子 Agent、传感器或 Checkpoint。
 
 ## 5. 功能规约
 
