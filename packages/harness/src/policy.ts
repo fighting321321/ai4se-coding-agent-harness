@@ -52,6 +52,11 @@ export class PolicyEngine {
           return "deny";
         }
         return "allow";
+      case "load_skill":
+        return "allow";
+      case "call_mcp":
+        // MCP 位于外部信任边界，最小适配无法证明远端工具无副作用。
+        return "ask";
       case "finish":
         return "allow";
     }
