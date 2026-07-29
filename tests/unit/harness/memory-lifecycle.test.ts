@@ -30,6 +30,7 @@ describe("MemoryLifecycle", () => {
     expect(lifecycle.collectExplicitConvention("以后请使用 pnpm")).toBe(false);
     expect(lifecycle.collectExplicitConvention("记住约定：测试统一使用 Vitest")).toBe(true);
     expect(lifecycle.collectExplicitConvention(`记住约定：API key=${secret}`)).toBe(false);
+    expect(lifecycle.collectExplicitConvention("记住约定：password is hunter2-value")).toBe(false);
 
     const pending = lifecycle.pending();
     expect(pending).toHaveLength(1);
