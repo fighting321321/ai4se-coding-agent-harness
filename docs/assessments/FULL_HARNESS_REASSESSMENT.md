@@ -1,6 +1,6 @@
 # 完整 Coding Agent Harness 重新评估
 
-> **进度更新（2026-07-29）：** 顺序 1（T13 会话上下文与规则）和顺序 2（T14 长期 Memory 生命周期）已完成；当前缺口从顺序 3 的 Skill/MCP/Hooks 开始。本文的路线选择和最低验收场景保持不变。
+> **进度更新（2026-07-29）：** 顺序 1–3（T13 会话上下文与规则、T14 长期 Memory、T15 Skill/MCP/Hooks）已完成；当前缺口从顺序 4 的子 Agent/传感器/Checkpoint 开始。本文的路线选择和最低验收场景保持不变。
 
 ## 1. 结论与文档地位
 
@@ -38,16 +38,16 @@
 | RAG / Select | 规则按作用域装配；Memory 按任务关键词和标签有限检索 | 部分 | 扩展到 Skill 与项目知识选择 |
 | Context Compress | 无 | 缺失 | 达到预算阈值时确定性裁剪并保留摘要与近期消息 |
 | 规则文件 | 不自动读取 `AGENTS.md` / `CLAUDE.md` | 缺失 | 启动装配时按作用域加载并注入 |
-| Skill | 无注册与渐进式披露 | 缺失 | 平时只提供描述，命中后加载完整指令 |
-| MCP | 无协议边界 | 缺失 | 自研 MCP 工具适配接口、连接配置与 mock 测试 |
+| Skill | 工作区安全发现、名片与显式 `load_skill` | 已有 | 平时只提供描述，命中后加载完整指令 |
+| MCP | 自研适配接口、外部边界标记、离线 mock | 已有 | 自研 MCP 工具适配接口、连接配置与 mock 测试 |
 | 子 Agent / Isolate | 无 | 缺失 | 受限子 Harness、独立上下文、深度与总预算守卫 |
-| Hooks | 无生命周期系统 | 缺失 | SessionStart、PreToolUse、PostToolUse、SessionEnd |
+| Hooks | 四类串行 Hook、Pre 阻断、脱敏事件 Trace | 已有 | SessionStart、PreToolUse、PostToolUse、SessionEnd |
 | Guardrail / HITL | `PolicyEngine`、`ApprovalGate` | 已有 | 纳入统一生命周期，逐动作审批 |
 | Sandbox / 边界 | 路径围栏、命令白名单、超时、输出上限 | 部分 | 明确能力边界；外部 MCP 不伪称受本地沙箱保护 |
 | 反馈传感器 | 工具结果分类存在 | 部分 | 代码变更后自动运行配置的 test/lint/typecheck 传感器 |
 | Checkpoint / 回滚 | 无 | 缺失 | 副作用前状态快照，工具或传感器失败时可恢复 |
 | Trace | Action、策略、Observation、停机原因 | 部分 | 补全 assistant 文本、会话、Hook、传感器和父子关系 |
-| 会话收尾 | `/new`、`/exit`、EOF 与异常边界执行 Memory consolidate | 部分 | T15 纳入统一 SessionEnd Hook |
+| 会话收尾 | 四类边界执行一次 SessionEnd，再 consolidate Memory | 已有 | T15 纳入统一 SessionEnd Hook |
 | 配置与凭据 | 首次三项向导、Windows 当前用户保险库、严格配置、脱敏 | 已有 | 随新模块扩展配置并保持秘密隔离 |
 | CLI 分发 | 无参数启动、当前目录工作区、三项初始化、短期会话、`/model` 与 `/memory` | 部分 | 随后续机制补全扩展状态命令 |
 
@@ -123,7 +123,7 @@
 
 截至 2026-07-24，CLI 产品化部分已经完成：无参数运行进入交互会话，显式 `smoke` 才运行离线验证；当前目录强制作为工作区；首次只填写服务地址、隐藏 API Key 和模型名称；Windows 使用当前用户 DPAPI 保险库，后续启动不再要求本地保护密码或重复 Key。旧 `credentials`、`start --config` 和 `--task` 只保留为高级兼容入口。
 
-CLI 外壳、短期会话和长期 Memory 已接通，但仍不等于 Harness 完成。当前最关键的缺口是 Skill、MCP、通用 Hooks、子 Agent、自动传感器与 Checkpoint 尚未实现。
+CLI 外壳、短期会话、长期 Memory、Skill、最小 MCP 和通用 Hooks 已接通，但仍不等于 Harness 完成。当前最关键的缺口是子 Agent、自动传感器与 Checkpoint 尚未实现。
 
 ## 6. 后续实施顺序
 
@@ -133,7 +133,7 @@ CLI 外壳、短期会话和长期 Memory 已接通，但仍不等于 Harness �
 | ---: | --- | --- |
 | 1（已完成） | `feat: 建立完整会话上下文与规则装配` | 同一会话保留 user/assistant/action/observation；支持 `/new`、直接填写模型名的 `/model`；自动加载项目规则；确定性上下文压缩 |
 | 2（已完成） | `feat: 接入长期记忆生命周期` | 主循环读写 Memory、明确会话收尾 consolidate、重启检索、`/memory`；秘密与大段正文不得固化；通用 SessionEnd Hook 留到顺序 3 |
-| 3 | `feat: 加入Skill、MCP与生命周期Hooks` | Skill 渐进加载、mock MCP 适配、SessionStart/PreToolUse/PostToolUse/SessionEnd；全部可离线测试 |
+| 3（已完成） | `feat: 加入Skill、MCP与生命周期Hooks` | Skill 渐进加载、mock MCP 适配、SessionStart/PreToolUse/PostToolUse/SessionEnd；全部可离线测试 |
 | 4 | `feat: 实现受限子Agent、传感器与Checkpoint` | 独立子上下文和总预算；代码变更后自动反馈；副作用前快照及失败恢复 |
 | 5 | `release: 验收并发布完整Harness v2.0.0` | 完整 Trace、真实 Provider 人工验收、全新目录 tarball、README、提交材料和 GitLab Release |
 

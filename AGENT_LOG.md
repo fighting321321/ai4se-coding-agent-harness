@@ -564,3 +564,14 @@
 - CLI 与恢复：`/new`、`/exit`、EOF 和可控异常使用最小明确收尾边界，不抽象为 Hook；`/new` 只重置短期上下文。`/memory` 只显示约定/最近结果摘要，不显示底层 JSON；`/memory clear` 必须通过可注入确认。相同工作区的新会话可从 `.ai4se/memory.json` 检索上一会话结果，无关任务不注入。
 - 最终统一门禁：仅通过 `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\project-env.ps1 all` 运行；34/34 测试文件、367/367 用例通过，lint、typecheck、Harness/API/Web build、4/4 机制演示和最终审计全部退出 0，Vite 静态构建为 17 modules。
 - 交付状态：`guiding.md` 已清空，分支保持 `feat/t14-memory-lifecycle`，不合并 `dev`、不创建或合并 MR、不发布版本，等待项目负责人手动合并。未读取 `.ai4se/temp-api-key.txt`，未读取、记录或提交任何真实凭据。
+
+### 2026-07-29 · T15 Skill、MCP 与生命周期 Hooks
+
+- 范围与提交：严格只实现四类 Hooks、本地 Skill 渐进加载和最小 MCP 适配/mock；没有实现子 Agent、自动传感器、Checkpoint、生产 MCP 客户端、真实远端连接或动态插件。首提交为 `b6531c3`，RED 测试为 `c61348a`，扩展边界与运行时整合为 `98d56af`、`7a895ef`，最终总提交数保持在 7 条上限内。
+- TDD：先加入 Hook 顺序/幂等/阻断/脱敏、Skill 名片/命中/路径与损坏边界、MCP 发现/成功/失败/超时/无效结果共 9 项测试，在实现缺失时全部 RED；随后由最小实现转 GREEN。补充端到端测试用 `ScriptedMockLLM`、`MockMcpConnection` 和临时工作区确定性证明渐进加载、统一治理、结果回灌及零副作用阻断。
+- Hooks：`SessionStart`、`PreToolUse`、`PostToolUse`、`SessionEnd` 按注册顺序串行运行且会话边界至多一次；Policy 决策和必要 Approval 先完成，Pre 仍在 Dispatcher 副作用前阻断。Post 只接收脱敏结果，异常映射为固定错误；四类事件以 sessionId、状态和收尾原因写入独立 Hook Trace。
+- Skill：启动只读取限长 frontmatter 并暴露稳定排序名片；显式 `load_skill` 后才读取完整正文，同一会话不重复注入。名称、大小、严格元数据、fatal UTF-8、符号链接与 realpath 工作区边界均由代码校验；Skill 在 Provider 中明确低于系统安全约束、规则、Policy 与 Approval。
+- MCP：自研 `McpConnection`/Registry/请求/结果边界只连接注入式 mock。工具名片稳定限长并标记 `external`；`call_mcp` 参数是限长 JSON 对象，固定进入逐次 `ask`，再经过 Pre/Dispatcher/Post。本地 PathGuard 和命令白名单没有被错误描述为远端沙箱。
+- 会话与兼容：`/new`、`/exit`、EOF 和可控异常先运行一次 SessionEnd，再 consolidate T14 Memory；T13 的完整消息上下文、压缩与真实 Provider 提示均能携带能力菜单和已命中 Skill。秘密不会进入普通输出、上下文、Trace 或 Memory。
+- 最终门禁：PowerShell 执行策略要求仅对子进程使用 `ExecutionPolicy Bypass`，所有命令仍通过 `scripts/project-env.ps1`。统一 test、lint、typecheck、build、demo 和 audit 均退出 0；demo 4/4，Vite 静态构建 17 modules，最终审计确认当前受控文件、完整 Git 历史与静态 Web artifact 无凭据命中。
+- 交付状态：分支保持 `feat/t15-skills-mcp-hooks`，不合并 `dev`、不创建或合并 MR、不发布版本，等待项目负责人检查与手动合并。未读取 `.ai4se/temp-api-key.txt`，未使用真实 Provider，未读取、记录或提交任何真实凭据。
