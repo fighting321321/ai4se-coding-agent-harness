@@ -6,6 +6,7 @@ import type { Action } from "./action.js";
 import { parseAction } from "./action-parser.js";
 import type { PolicyDecision } from "./policy.js";
 import type { Redactor } from "./redactor.js";
+import type { HookTraceEvent } from "./hooks.js";
 
 export type TraceStatus = "running" | "completed" | "blocked" | "failed";
 
@@ -29,8 +30,9 @@ export type TraceResult<T> =
   | { ok: false; error: { code: TraceErrorCode; message: string } };
 
 interface TraceDocument {
-  version: 1;
+  version: 2;
   entries: TraceEntry[];
+  hookEvents: HookTraceEvent[];
 }
 
 function failure<T>(code: TraceErrorCode, message: string): TraceResult<T> {
@@ -87,6 +89,8 @@ function copyEntry(entry: TraceEntry): TraceEntry {
           action:
             entry.action.type === "run_command"
               ? { ...entry.action, args: [...entry.action.args] }
+              : entry.action.type === "call_mcp"
+                ? { ...entry.action, arguments: structuredClone(entry.action.arguments) }
               : { ...entry.action }
         })
   };
@@ -97,18 +101,46 @@ function parseDocument(source: string): TraceDocument | undefined {
     const value: unknown = JSON.parse(source);
     if (
       !isRecord(value) ||
-      Object.keys(value).length !== 2 ||
-      value.version !== 1 ||
+      ![1, 2].includes(value.version as number) ||
+      (value.version === 1 && !hasExactDocumentKeys(value, ["version", "entries"])) ||
+      (value.version === 2 && !hasExactDocumentKeys(value, ["version", "entries", "hookEvents"])) ||
       !Array.isArray(value.entries) ||
       !value.entries.every(isTraceEntry) ||
       new Set(value.entries.map((entry) => entry.step)).size !== value.entries.length
     ) {
       return undefined;
     }
-    return { version: 1, entries: value.entries.map(copyEntry) };
+    const hookEvents = value.version === 2 && Array.isArray(value.hookEvents) &&
+      value.hookEvents.every(isHookTraceEvent)
+      ? value.hookEvents.map((event) => ({ ...event }))
+      : value.version === 1
+        ? []
+        : undefined;
+    if (hookEvents === undefined) {
+      return undefined;
+    }
+    return { version: 2, entries: value.entries.map(copyEntry), hookEvents };
   } catch {
     return undefined;
   }
+}
+
+function hasExactDocumentKeys(value: Record<string, unknown>, expected: readonly string[]): boolean {
+  const keys = Object.keys(value);
+  return keys.length === expected.length && expected.every((key) => Object.hasOwn(value, key));
+}
+
+function isHookTraceEvent(value: unknown): value is HookTraceEvent {
+  if (!isRecord(value)) {
+    return false;
+  }
+  const allowed = ["sessionId", "kind", "hook", "status", "actionType", "reason"];
+  return Object.keys(value).every((key) => allowed.includes(key)) &&
+    typeof value.sessionId === "string" && typeof value.hook === "string" &&
+    ["SessionStart", "PreToolUse", "PostToolUse", "SessionEnd"].includes(value.kind as string) &&
+    ["completed", "blocked", "failed"].includes(value.status as string) &&
+    (value.actionType === undefined || typeof value.actionType === "string") &&
+    (value.reason === undefined || typeof value.reason === "string");
 }
 
 async function atomicWrite(path: string, value: unknown): Promise<void> {
@@ -175,10 +207,58 @@ export class JsonTrace {
       (left, right) => left.step - right.step
     );
     try {
-      await atomicWrite(this.#path, { version: 1, entries: next });
+      const source = await this.#readDocument();
+      if (!source.ok) {
+        return source;
+      }
+      await atomicWrite(this.#path, { version: 2, entries: next, hookEvents: source.value.hookEvents });
       return { ok: true, value: copyEntry(redacted) };
     } catch {
       return failure("TRACE_IO_ERROR", "无法写入 Trace 文件");
     }
+  }
+
+  async readHookEvents(): Promise<TraceResult<readonly HookTraceEvent[]>> {
+    const document = await this.#readDocument();
+    return document.ok
+      ? { ok: true, value: this.#redactor.redact(document.value.hookEvents.map((event) => ({ ...event }))) }
+      : document;
+  }
+
+  async appendHookEvent(event: HookTraceEvent): Promise<TraceResult<HookTraceEvent>> {
+    if (!isHookTraceEvent(event)) {
+      return failure("TRACE_INVALID_ENTRY", "Hook Trace 条目格式无效");
+    }
+    const document = await this.#readDocument();
+    if (!document.ok) {
+      return document;
+    }
+    const redacted = this.#redactor.redact({ ...event });
+    try {
+      await atomicWrite(this.#path, {
+        version: 2,
+        entries: document.value.entries,
+        hookEvents: [...document.value.hookEvents, redacted]
+      });
+      return { ok: true, value: redacted };
+    } catch {
+      return failure("TRACE_IO_ERROR", "无法写入 Trace 文件");
+    }
+  }
+
+  async #readDocument(): Promise<TraceResult<TraceDocument>> {
+    let source: string;
+    try {
+      source = await readFile(this.#path, "utf8");
+    } catch (error) {
+      if (errorCode(error) === "ENOENT") {
+        return { ok: true, value: { version: 2, entries: [], hookEvents: [] } };
+      }
+      return failure("TRACE_IO_ERROR", "无法读取 Trace 文件");
+    }
+    const document = parseDocument(source);
+    return document === undefined
+      ? failure("TRACE_CORRUPT", "Trace JSON 已损坏或结构无效")
+      : { ok: true, value: document };
   }
 }

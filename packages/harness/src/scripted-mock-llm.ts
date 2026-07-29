@@ -20,6 +20,18 @@ function snapshotInput(input: LLMInput): LLMInput {
     ...(input.rules === undefined
       ? {}
       : { rules: Object.freeze(input.rules.map((rule) => Object.freeze({ ...rule }))) }),
+    ...(input.capabilities === undefined
+      ? {}
+      : {
+          capabilities: Object.freeze({
+            builtins: Object.freeze([...input.capabilities.builtins]),
+            skills: Object.freeze(input.capabilities.skills.map((card) => Object.freeze({ ...card }))),
+            mcp: Object.freeze(input.capabilities.mcp.map((card) => Object.freeze({ ...card })))
+          })
+        }),
+    ...(input.skillInstructions === undefined
+      ? {}
+      : { skillInstructions: Object.freeze([...input.skillInstructions]) }),
     ...(input.messages === undefined
       ? {}
       : {
@@ -31,7 +43,9 @@ function snapshotInput(input: LLMInput): LLMInput {
               role: "action" as const,
               action: Object.freeze(message.action.type === "run_command"
                 ? { ...message.action, args: Object.freeze([...message.action.args]) }
-                : { ...message.action })
+                : message.action.type === "call_mcp"
+                  ? { ...message.action, arguments: Object.freeze(structuredClone(message.action.arguments)) }
+                  : { ...message.action })
             });
           }))
         })

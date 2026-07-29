@@ -45,6 +45,9 @@ describe("SkillRegistry", () => {
     await writeSkill(root, "large", `---\nname: large\ndescription: too large\n---\n${"x".repeat(70_000)}`);
     const outside = join(await workspace(), "outside.md");
     await writeFile(outside, "---\nname: linked\ndescription: outside\n---\noutside", "utf8");
+    const corruptDirectory = join(root, ".ai4se", "skills", "corrupt");
+    await mkdir(corruptDirectory, { recursive: true });
+    await writeFile(join(corruptDirectory, "SKILL.md"), Buffer.from([0xff, 0xfe, 0xfd]));
     const linkedDirectory = join(root, ".ai4se", "skills", "linked");
     await mkdir(linkedDirectory, { recursive: true });
     try {
@@ -71,6 +74,10 @@ describe("SkillRegistry", () => {
     await expect(registry.load("large")).resolves.toEqual({
       ok: false,
       error: { code: "SKILL_TOO_LARGE", message: "Skill 文件超过大小限制" }
+    });
+    await expect(registry.load("corrupt")).resolves.toEqual({
+      ok: false,
+      error: { code: "SKILL_INVALID", message: "Skill 文件无效" }
     });
   });
 });

@@ -9,6 +9,9 @@ import type { PolicyEngine } from "./policy.js";
 import { Redactor } from "./redactor.js";
 import { SessionContext } from "./session-context.js";
 import type { JsonTrace, TraceEntry } from "./trace.js";
+import { HookManager } from "./hooks.js";
+import type { McpRegistry } from "./mcp-adapter.js";
+import type { SkillRegistry } from "./skill-registry.js";
 
 export type RunStatus = "completed" | "blocked" | "failed" | "max_steps";
 
@@ -29,6 +32,9 @@ export interface AgentLoopOptions {
   approval?: ApprovalGate;
   redactor?: Redactor;
   session?: SessionContext;
+  hooks?: HookManager;
+  skills?: SkillRegistry;
+  mcp?: McpRegistry;
   maxSteps?: number;
 }
 
@@ -67,6 +73,9 @@ export class AgentLoop {
   readonly #maxSteps: number;
   readonly #redactor: Redactor;
   readonly #session: SessionContext;
+  readonly #hooks: HookManager;
+  readonly #skills: SkillRegistry | undefined;
+  readonly #mcp: McpRegistry | undefined;
 
   constructor(options: AgentLoopOptions) {
     this.#provider = options.provider;
@@ -80,6 +89,9 @@ export class AgentLoop {
       redactor: this.#redactor
     });
     this.#session = options.session ?? new SessionContext({ redactor: this.#redactor });
+    this.#hooks = options.hooks ?? new HookManager({ redactor: this.#redactor });
+    this.#skills = options.skills;
+    this.#mcp = options.mcp;
     this.#maxSteps = options.maxSteps ?? DEFAULT_MAX_STEPS;
     if (!Number.isInteger(this.#maxSteps) || this.#maxSteps < 1) {
       throw new Error("maxSteps 必须是正整数");
@@ -123,6 +135,17 @@ export class AgentLoop {
       (next, entry) => Math.max(next, entry.step + 1),
       1
     );
+    const started = await this.#hooks.start();
+    if (!started.ok) {
+      await this.#append({
+        step: traceStartStep,
+        policy: "allow",
+        observation: `environment_error: ${started.error.code}`,
+        status: "failed",
+        stopReason: "hook_failed"
+      });
+      return await this.#result("failed", "会话启动 Hook 失败", 1, traceStartStep);
+    }
     this.#session.beginTurn(task);
     this.#memoryLifecycle.collectExplicitConvention(task);
     let observations: readonly string[] = [];
@@ -143,15 +166,51 @@ export class AgentLoop {
         : await this.#result("failed", "Trace 写入失败", 1, traceStartStep);
     }
     const memoryContext = memory.value.map((item) => item.content);
+    const skillCards = this.#skills === undefined
+      ? { ok: true as const, value: [] }
+      : await this.#skills.discover();
+    if (!skillCards.ok) {
+      this.#session.appendObservation("environment_error: Skill discovery failed");
+      await this.#append({
+        step: traceStartStep,
+        policy: "allow",
+        observation: "environment_error: Skill discovery failed",
+        status: "failed",
+        stopReason: "skill_discovery_failed"
+      });
+      return await this.#result("failed", "Skill 发现失败", 1, traceStartStep);
+    }
+    const mcpCards = this.#mcp === undefined
+      ? { ok: true as const, value: [] }
+      : await this.#mcp.discover();
+    if (!mcpCards.ok) {
+      this.#session.appendObservation("environment_error: MCP discovery failed");
+      await this.#append({
+        step: traceStartStep,
+        policy: "allow",
+        observation: "environment_error: MCP discovery failed",
+        status: "failed",
+        stopReason: "mcp_discovery_failed"
+      });
+      return await this.#result("failed", "MCP 发现失败", 1, traceStartStep);
+    }
 
     for (let iteration = 1; iteration <= this.#maxSteps; iteration += 1) {
       const step = traceStartStep + iteration - 1;
       let output: LLMOutput;
       try {
-        output = await this.#provider.complete(this.#session.toLLMInput(
+        output = await this.#provider.complete(this.#session.toExtendedLLMInput(
           task,
           memoryContext,
-          observations
+          observations,
+          {
+            capabilities: {
+              builtins: ["read_file", "write_file", "run_command", "load_skill", "call_mcp", "finish"],
+              skills: skillCards.value,
+              mcp: mcpCards.value
+            },
+            skillInstructions: this.#skills?.loadedInstructions() ?? []
+          }
         ));
       } catch (error) {
         this.#session.appendObservation("environment_error: Provider failed");
@@ -237,9 +296,17 @@ export class AgentLoop {
         return await this.#result("completed", summary, iteration, traceStartStep);
       }
 
-      const approval = await this.#approval.execute(decision, { action }, () =>
-        this.#dispatcher.execute(action)
-      );
+      const approval = await this.#approval.execute(decision, { action }, async () => {
+        const hooked = await this.#hooks.aroundTool(action, async () => {
+          if (action.type === "load_skill" && this.#skills !== undefined) {
+            return await this.#skills.load(action.name);
+          }
+          return await this.#dispatcher.execute(action);
+        });
+        return hooked.ok
+          ? hooked.value
+          : { ok: false as const, error: hooked.error };
+      });
       const dispatched = approval.ok
         ? approval.value
         : { ok: false as const, error: approval.error };
@@ -256,6 +323,30 @@ export class AgentLoop {
         return appended
           ? await this.#result("blocked", "动作未获批准", iteration, traceStartStep)
           : await this.#result("failed", "Trace 写入失败", iteration, traceStartStep);
+      }
+      if (!dispatched.ok && dispatched.error.code === "HOOK_BLOCKED") {
+        this.#session.appendObservation("blocked: HOOK_BLOCKED");
+        await this.#append({
+          step,
+          action,
+          policy: decision,
+          observation: "blocked: HOOK_BLOCKED",
+          status: "blocked",
+          stopReason: "hook_blocked"
+        });
+        return await this.#result("blocked", "生命周期 Hook 阻断该动作", iteration, traceStartStep);
+      }
+      if (!dispatched.ok && dispatched.error.code === "HOOK_FAILED") {
+        this.#session.appendObservation("environment_error: HOOK_FAILED");
+        await this.#append({
+          step,
+          action,
+          policy: decision,
+          observation: "environment_error: HOOK_FAILED",
+          status: "failed",
+          stopReason: "hook_failed"
+        });
+        return await this.#result("failed", "生命周期 Hook 执行失败", iteration, traceStartStep);
       }
 
       const feedback = classifyFeedback(dispatched, this.#redactor);

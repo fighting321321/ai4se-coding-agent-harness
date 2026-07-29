@@ -7,6 +7,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   CredentialStore,
   JsonMemory,
+  JsonTrace,
   Redactor,
   runInteractiveSession,
   type CredentialStoreBoundary,
@@ -219,6 +220,22 @@ describe("runInteractiveSession", () => {
     expect(errorMemory.ok && errorMemory.value[0]?.content).toBe("异常前完成");
     expect(errorCapture.stderr.join("\n")).toContain("会话运行失败");
     expect(errorCapture.stderr.join("\n")).not.toContain("sk-raw-exception-secret");
+    const eofHooks = await new JsonTrace(
+      join(eofCwd, ".ai4se", "trace.json"),
+      new Redactor()
+    ).readHookEvents();
+    const errorHooks = await new JsonTrace(
+      join(errorCwd, ".ai4se", "trace.json"),
+      new Redactor()
+    ).readHookEvents();
+    expect(eofHooks.ok && eofHooks.value.map((event) => [event.kind, event.reason])).toEqual([
+      ["SessionStart", undefined],
+      ["SessionEnd", "eof"]
+    ]);
+    expect(errorHooks.ok && errorHooks.value.map((event) => [event.kind, event.reason])).toEqual([
+      ["SessionStart", undefined],
+      ["SessionEnd", "error"]
+    ]);
   });
 
   it("通过可替换的凭据存储边界读取 API Key", async () => {
