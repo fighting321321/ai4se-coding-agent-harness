@@ -7,9 +7,13 @@ import { WindowsUserCredentialVault } from "./system-credential-vault.js";
 import {
   readHarnessTaskConfig,
   runHarnessTask,
+  updateHarnessModel,
   type RunHarnessTaskOptions,
   type RunTaskResult
 } from "./run-task.js";
+import { validModelName } from "./config.js";
+import { Redactor } from "./redactor.js";
+import { SessionContext } from "./session-context.js";
 import type { TraceEntry } from "./trace.js";
 
 export interface InteractiveSessionOptions {
@@ -33,6 +37,8 @@ export interface InteractiveSessionDependencies {
 const HELP = [
   "可用命令：",
   "  /help   显示帮助",
+  "  /new    开始新对话",
+  "  /model  查看或切换模型",
   "  /status 显示当前工作区和模型",
   "  /trace  显示上一项任务的 Trace",
   "  /clear  清屏",
@@ -84,10 +90,12 @@ export async function runInteractiveSession(
       return 1;
     }
     const apiKey = credential.value;
+    const session = new SessionContext({ redactor: new Redactor([apiKey]) });
+    let currentModel = configured.value.provider.model;
 
     dependencies.writeOut("AI4SE Coding Agent");
     dependencies.writeOut(`工作区：${workspace}`);
-    dependencies.writeOut(`模型：${configured.value.provider.model}`);
+    dependencies.writeOut(`模型：${currentModel}`);
     dependencies.writeOut("输入 /help 查看命令。");
 
     let latestTrace: readonly TraceEntry[] = [];
@@ -107,8 +115,33 @@ export async function runInteractiveSession(
         dependencies.writeOut(HELP);
         continue;
       }
+      if (task === "/new") {
+        session.reset();
+        latestTrace = [];
+        dependencies.writeOut("已开始新对话");
+        continue;
+      }
+      if (task === "/model") {
+        dependencies.writeOut(`当前模型：${currentModel}`);
+        continue;
+      }
+      if (task.startsWith("/model ")) {
+        const model = task.slice("/model ".length);
+        if (!validModelName(model)) {
+          dependencies.writeError("模型名称无效");
+          continue;
+        }
+        const saved = await updateHarnessModel(options.configPath, model);
+        if (!saved.ok) {
+          dependencies.writeError("模型保存失败");
+          continue;
+        }
+        currentModel = model;
+        dependencies.writeOut(`模型已切换：${currentModel}`);
+        continue;
+      }
       if (task === "/status") {
-        dependencies.writeOut(`工作区：${workspace}\n模型：${configured.value.provider.model}`);
+        dependencies.writeOut(`工作区：${workspace}\n模型：${currentModel}`);
         continue;
       }
       if (task === "/trace") {
@@ -128,15 +161,15 @@ export async function runInteractiveSession(
         cwd: options.cwd,
         configPath: options.configPath,
         task,
-        provider: { apiKey },
-        approval: dependencies.askApproval
+        provider: { apiKey, model: currentModel },
+        approval: dependencies.askApproval,
+        session
       });
       if (!result.ok) {
         dependencies.writeError(`任务启动失败：${result.error.code}`);
         continue;
       }
       latestTrace = result.value.trace;
-      dependencies.writeOut(formatTrace(latestTrace));
       dependencies.writeOut(`任务状态：${result.value.status}`);
       dependencies.writeOut(result.value.summary);
     }

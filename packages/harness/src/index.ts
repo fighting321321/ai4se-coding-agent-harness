@@ -38,6 +38,7 @@ export {
 } from "./credential-store.js";
 export {
   parseHarnessConfig,
+  validModelName,
   type ConfigErrorCode,
   type ConfigParseResult,
   type HarnessConfig
@@ -102,10 +103,12 @@ export {
   preflightHarnessTaskConfig,
   readHarnessTaskConfig,
   runHarnessTask,
+  updateHarnessModel,
   type RunHarnessTaskOptions,
   type RunTaskConfigPreflightResult,
   type RunTaskErrorCode,
-  type RunTaskResult
+  type RunTaskResult,
+  type UpdateHarnessModelResult
 } from "./run-task.js";
 export { ScriptedMockExhaustedError, ScriptedMockLLM } from "./scripted-mock-llm.js";
 export {

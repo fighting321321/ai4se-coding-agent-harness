@@ -13,7 +13,8 @@ import {
   PolicyEngine,
   Redactor,
   SessionContext,
-  ScriptedMockLLM
+  ScriptedMockLLM,
+  type LLMOutput
 } from "../../../packages/harness/src/index.js";
 
 interface HarnessOptions {
@@ -24,7 +25,7 @@ interface HarnessOptions {
 }
 
 async function createHarness(
-  script: readonly { raw: unknown }[],
+  script: readonly LLMOutput[],
   options: HarnessOptions = {}
 ) {
   const directory = await mkdtemp(join(tmpdir(), "ai4se-agent-loop-"));

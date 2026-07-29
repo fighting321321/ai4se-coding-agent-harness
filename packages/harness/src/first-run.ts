@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { mkdir, readFile, rename, unlink, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 
-import { parseHarnessConfig, type HarnessConfig } from "./config.js";
+import { parseHarnessConfig, validModelName, type HarnessConfig } from "./config.js";
 import { validProviderBaseUrl } from "./openai-compatible-provider.js";
 import {
   WindowsUserCredentialVault,
@@ -91,12 +91,7 @@ export const validateFirstRunInput: FirstRunInputValidator = (input) => {
   if (input.apiKey.length === 0 || input.apiKey !== input.apiKey.trim()) {
     return { ok: false, error: { field: "apiKey", message: "API Key 无效" } };
   }
-  if (
-    input.model.length > 200 ||
-    input.model.length === 0 ||
-    input.model !== input.model.trim() ||
-    /\p{C}/u.test(input.model)
-  ) {
+  if (!validModelName(input.model)) {
     return { ok: false, error: { field: "model", message: "模型名称无效" } };
   }
   return { ok: true };

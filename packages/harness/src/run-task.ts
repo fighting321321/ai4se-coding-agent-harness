@@ -1,16 +1,18 @@
-import { readFile } from "node:fs/promises";
-import { join, resolve } from "node:path";
+import { randomUUID } from "node:crypto";
+import { mkdir, readFile, rename, unlink, writeFile } from "node:fs/promises";
+import { dirname, join, resolve } from "node:path";
 
 import { AgentLoop, type RunResult } from "./agent-loop.js";
 import { ApprovalGate, type ApprovalHandler } from "./approval.js";
 import { CommandTool } from "./command-tool.js";
-import { parseHarnessConfig, type HarnessConfig } from "./config.js";
+import { parseHarnessConfig, validModelName, type HarnessConfig } from "./config.js";
 import { Dispatcher } from "./dispatcher.js";
 import { FileTools } from "./file-tools.js";
 import { JsonMemory } from "./json-memory.js";
 import { OpenAICompatibleProvider } from "./openai-compatible-provider.js";
 import { PolicyEngine } from "./policy.js";
 import { Redactor } from "./redactor.js";
+import type { SessionContext } from "./session-context.js";
 import { JsonTrace } from "./trace.js";
 
 export interface RunHarnessTaskOptions {
@@ -23,9 +25,20 @@ export interface RunHarnessTaskOptions {
     readonly model?: string;
   };
   readonly approval?: ApprovalHandler;
+  readonly session?: SessionContext;
 }
 
 export type RunTaskErrorCode = "RUN_CONFIG_READ_FAILED" | "RUN_CONFIG_INVALID";
+
+export type UpdateHarnessModelResult =
+  | { readonly ok: true }
+  | {
+      readonly ok: false;
+      readonly error: {
+        readonly code: RunTaskErrorCode | "RUN_CONFIG_WRITE_FAILED";
+        readonly message: string;
+      };
+    };
 
 export type RunTaskResult =
   | { readonly ok: true; readonly value: RunResult }
@@ -72,6 +85,40 @@ export async function preflightHarnessTaskConfig(
   return configured.ok ? { ok: true } : configured;
 }
 
+export async function updateHarnessModel(
+  configPath: string,
+  model: string
+): Promise<UpdateHarnessModelResult> {
+  if (!validModelName(model)) {
+    return configFailure("RUN_CONFIG_INVALID", "模型名称无效");
+  }
+  const configured = await readHarnessTaskConfig(configPath);
+  if (!configured.ok) {
+    return configured;
+  }
+  const temporaryPath = `${configPath}.${process.pid}.${randomUUID()}.tmp`;
+  const next = {
+    ...configured.value,
+    provider: { ...configured.value.provider, model }
+  };
+  try {
+    await mkdir(dirname(configPath), { recursive: true });
+    await writeFile(temporaryPath, `${JSON.stringify(next, null, 2)}\n`, "utf8");
+    await rename(temporaryPath, configPath);
+    return { ok: true };
+  } catch {
+    try {
+      await unlink(temporaryPath);
+    } catch {
+      // 临时文件可能尚未创建；保留固定的外层错误。
+    }
+    return {
+      ok: false,
+      error: { code: "RUN_CONFIG_WRITE_FAILED", message: "无法保存模型配置" }
+    };
+  }
+}
+
 export async function runHarnessTask(options: RunHarnessTaskOptions): Promise<RunTaskResult> {
   const configured = await readHarnessTaskConfig(options.configPath);
   if (!configured.ok) {
@@ -109,6 +156,7 @@ export async function runHarnessTask(options: RunHarnessTaskOptions): Promise<Ru
     policy,
     approval,
     redactor,
+    session: options.session,
     maxSteps: configured.value.maxSteps
   });
 

@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -114,7 +114,7 @@ describe("runInteractiveSession", () => {
     expect(exitCode).toBe(0);
     expect(read).toHaveBeenCalledWith("master-password");
     expect(runTask).toHaveBeenCalledWith(expect.objectContaining({
-      provider: { apiKey: "sk-injected-session-key" }
+      provider: expect.objectContaining({ apiKey: "sk-injected-session-key" })
     }));
   });
 
@@ -172,11 +172,69 @@ describe("runInteractiveSession", () => {
     expect(runTask.mock.calls.every(([options]) =>
       options.provider.apiKey === "sk-session-secret"
     )).toBe(true);
+    expect(runTask.mock.calls[0]?.[0].session).toBe(runTask.mock.calls[1]?.[0].session);
     expect(capture.stdout.join("\n")).toContain("ai4se>");
     expect(capture.stdout.join("\n")).toContain("完成：总结 README");
     expect(JSON.stringify([capture.stdout, capture.stderr])).not.toContain(
       "sk-session-secret"
     );
+  });
+
+  it("/new 只清空当前短期会话并让后续任务复用已重置的上下文", async () => {
+    const cwd = await sessionWorkspace();
+    const snapshots: unknown[] = [];
+    const runTask = vi.fn(async (options: RunHarnessTaskOptions) => {
+      snapshots.push(options.session?.snapshot());
+      options.session?.beginTurn(options.task);
+      options.session?.appendAssistant(`回答：${options.task}`);
+      return completed(options.task);
+    });
+    const capture = captureSession(["第一题", "/new", "第二题", "/exit"], runTask);
+
+    await runInteractiveSession(
+      { cwd, configPath: join(cwd, ".ai4se", "config.json") },
+      capture.dependencies
+    );
+
+    expect(snapshots).toEqual([
+      { currentGoal: "", summary: "", messages: [] },
+      { currentGoal: "", summary: "", messages: [] }
+    ]);
+    expect(capture.stdout.join("\n")).toContain("已开始新对话");
+  });
+
+  it("/model 查看当前模型，直接填写合法新模型后原子保存并用于后续任务", async () => {
+    const cwd = await sessionWorkspace();
+    const configPath = join(cwd, ".ai4se", "config.json");
+    const runTask = vi.fn(async () => completed("完成"));
+    const capture = captureSession(["/model", "/model next-model", "检查模型", "/exit"], runTask);
+
+    const exitCode = await runInteractiveSession({ cwd, configPath }, capture.dependencies);
+    const persisted = JSON.parse(await readFile(configPath, "utf8")) as {
+      readonly provider: { readonly model: string };
+    };
+
+    expect(exitCode).toBe(0);
+    expect(capture.stdout.join("\n")).toContain("当前模型：test-model");
+    expect(capture.stdout.join("\n")).toContain("模型已切换：next-model");
+    expect(persisted.provider.model).toBe("next-model");
+    expect(runTask).toHaveBeenCalledWith(expect.objectContaining({
+      provider: expect.objectContaining({ model: "next-model" })
+    }));
+  });
+
+  it("/model 拒绝空白、控制字符或过长名称且不改写配置", async () => {
+    const cwd = await sessionWorkspace();
+    const configPath = join(cwd, ".ai4se", "config.json");
+    const runTask = vi.fn(async () => completed("不应执行"));
+    const capture = captureSession([`/model ${"x".repeat(201)}`, "/exit"], runTask);
+
+    await runInteractiveSession({ cwd, configPath }, capture.dependencies);
+    const persisted = await readFile(configPath, "utf8");
+
+    expect(capture.stderr.join("\n")).toContain("模型名称无效");
+    expect(persisted).toContain('"model":"test-model"');
+    expect(runTask).not.toHaveBeenCalled();
   });
 
   it("本地命令和空输入不调用 Provider", async () => {

@@ -28,6 +28,16 @@ export type ConfigParseResult =
   | { ok: true; value: HarnessConfig }
   | { ok: false; error: { code: ConfigErrorCode; message: string } };
 
+export function validModelName(value: unknown): value is string {
+  return (
+    typeof value === "string" &&
+    value.length > 0 &&
+    value.length <= 200 &&
+    value === value.trim() &&
+    !/\p{C}/u.test(value)
+  );
+}
+
 const CONFIG_FIELDS = new Set([
   "workspace",
   "allowedCommands",
@@ -187,8 +197,7 @@ export function parseHarnessConfig(input: unknown): ConfigParseResult {
     allowedCommands === undefined ||
     !isRecord(input.provider) ||
     !validProviderBaseUrl(input.provider.baseUrl) ||
-    typeof input.provider.model !== "string" ||
-    input.provider.model.trim().length === 0
+    !validModelName(input.provider.model)
   ) {
     return failure("CONFIG_INVALID_VALUE", "workspace、命令规则或 Provider 配置无效");
   }
