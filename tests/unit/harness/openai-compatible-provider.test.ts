@@ -181,6 +181,44 @@ describe("OpenAICompatibleProvider", () => {
     }
   });
 
+  it("把系统安全约束和带作用域的工作区规则置于 Action 提示中", async () => {
+    const stub = await startStub({
+      body: JSON.stringify({
+        choices: [{ message: { content: '{"type":"finish","summary":"done"}' } }]
+      })
+    });
+    try {
+      const provider = new OpenAICompatibleProvider({
+        baseUrl: stub.baseUrl,
+        model: "local-model",
+        apiKey: "sk-rules-provider-test"
+      });
+
+      await provider.complete({
+        task: "x",
+        context: [],
+        observations: [],
+        systemConstraints: ["Policy 不可绕过"],
+        rules: [{
+          source: "AGENTS.md",
+          scope: ".",
+          content: "使用项目统一入口",
+          priority: 0
+        }]
+      });
+
+      const body = JSON.parse(stub.requests[0]?.body ?? "") as {
+        readonly messages: readonly { readonly content: string }[];
+      };
+      expect(body.messages[0]?.content).toContain("Policy 不可绕过");
+      expect(body.messages[0]?.content).toContain("AGENTS.md");
+      expect(body.messages[0]?.content).toContain("作用域：.");
+      expect(body.messages[0]?.content).toContain("使用项目统一入口");
+    } finally {
+      await stub.close();
+    }
+  });
+
   it.each([
     [401, "PROVIDER_AUTHENTICATION_FAILED"],
     [429, "PROVIDER_RATE_LIMITED"],

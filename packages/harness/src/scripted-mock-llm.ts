@@ -14,6 +14,12 @@ function snapshotInput(input: LLMInput): LLMInput {
     observations: Object.freeze([...input.observations]),
     ...(input.currentGoal === undefined ? {} : { currentGoal: input.currentGoal }),
     ...(input.summary === undefined ? {} : { summary: input.summary }),
+    ...(input.systemConstraints === undefined
+      ? {}
+      : { systemConstraints: Object.freeze([...input.systemConstraints]) }),
+    ...(input.rules === undefined
+      ? {}
+      : { rules: Object.freeze(input.rules.map((rule) => Object.freeze({ ...rule }))) }),
     ...(input.messages === undefined
       ? {}
       : {

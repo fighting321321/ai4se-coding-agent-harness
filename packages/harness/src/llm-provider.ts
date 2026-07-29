@@ -1,4 +1,5 @@
 import type { ConversationMessage } from "./session-context.js";
+import type { WorkspaceRule } from "./workspace-rules.js";
 
 export interface LLMInput {
   task: string;
@@ -7,6 +8,8 @@ export interface LLMInput {
   currentGoal?: string;
   summary?: string;
   messages?: readonly ConversationMessage[];
+  systemConstraints?: readonly string[];
+  rules?: readonly WorkspaceRule[];
 }
 
 export interface LLMOutput {

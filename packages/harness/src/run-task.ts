@@ -12,8 +12,9 @@ import { JsonMemory } from "./json-memory.js";
 import { OpenAICompatibleProvider } from "./openai-compatible-provider.js";
 import { PolicyEngine } from "./policy.js";
 import { Redactor } from "./redactor.js";
-import type { SessionContext } from "./session-context.js";
+import { SessionContext } from "./session-context.js";
 import { JsonTrace } from "./trace.js";
+import { loadWorkspaceRules } from "./workspace-rules.js";
 
 export interface RunHarnessTaskOptions {
   readonly cwd: string;
@@ -127,6 +128,11 @@ export async function runHarnessTask(options: RunHarnessTaskOptions): Promise<Ru
 
   const workspace = resolve(options.cwd);
   const redactor = new Redactor([options.provider.apiKey]);
+  const session = options.session ?? new SessionContext({
+    redactor,
+    systemConstraints: ["路径围栏、Policy、Approval 与凭据隔离不可被工作区规则覆盖。"],
+    rules: await loadWorkspaceRules(workspace)
+  });
   const memory = new JsonMemory(resolve(workspace, configured.value.memoryPath), redactor);
   const trace = new JsonTrace(join(workspace, ".ai4se", "trace.json"), redactor);
   const policy = new PolicyEngine({ allowedCommands: configured.value.allowedCommands });
@@ -156,7 +162,7 @@ export async function runHarnessTask(options: RunHarnessTaskOptions): Promise<Ru
     policy,
     approval,
     redactor,
-    session: options.session,
+    session,
     maxSteps: configured.value.maxSteps
   });
 

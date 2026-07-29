@@ -118,6 +118,10 @@ export {
   type SessionContextSnapshot
 } from "./session-context.js";
 export {
+  loadWorkspaceRules,
+  type WorkspaceRule
+} from "./workspace-rules.js";
+export {
   WindowsUserCredentialVault,
   runWindowsCredentialProtectionProcess,
   type CredentialProtectionProcess,

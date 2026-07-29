@@ -1,6 +1,7 @@
 import type { Action } from "./action.js";
 import type { LLMInput } from "./llm-provider.js";
 import { Redactor } from "./redactor.js";
+import type { WorkspaceRule } from "./workspace-rules.js";
 
 export type ConversationMessage =
   | { readonly role: "user"; readonly content: string }
@@ -10,6 +11,8 @@ export type ConversationMessage =
 
 export interface SessionContextOptions {
   readonly redactor?: Redactor;
+  readonly systemConstraints?: readonly string[];
+  readonly rules?: readonly WorkspaceRule[];
 }
 
 export interface SessionContextSnapshot {
@@ -31,11 +34,20 @@ function freezeMessage(message: ConversationMessage): ConversationMessage {
 export class SessionContext {
   readonly #redactor: Redactor;
   readonly #messages: ConversationMessage[] = [];
+  readonly #systemConstraints: readonly string[];
+  readonly #rules: readonly WorkspaceRule[];
   #currentGoal = "";
   #summary = "";
 
   constructor(options: SessionContextOptions = {}) {
     this.#redactor = options.redactor ?? new Redactor();
+    this.#systemConstraints = Object.freeze(
+      (options.systemConstraints ?? []).map((value) => this.#redactor.redactText(value))
+    );
+    this.#rules = Object.freeze((options.rules ?? []).map((rule) => Object.freeze({
+      ...rule,
+      content: this.#redactor.redactText(rule.content)
+    })));
   }
 
   beginTurn(task: string): void {
@@ -77,7 +89,9 @@ export class SessionContext {
       observations,
       currentGoal: snapshot.currentGoal,
       summary: snapshot.summary,
-      messages: snapshot.messages
+      messages: snapshot.messages,
+      systemConstraints: this.#systemConstraints,
+      rules: this.#rules
     };
   }
 }
