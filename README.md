@@ -1,6 +1,6 @@
 # Coding Agent Harness
 
-> **开发状态（T13）：** `v1.1.0` 仍只是安全工具循环与分发基线，完整 Harness Gate 保持打开。T13 已补齐同一终端会话的完整短期上下文、`/new`、`/model`、工作区规则装配与确定性压缩；长期 Memory 生命周期、Skill/MCP/Hooks、子 Agent、传感器和 Checkpoint 仍按路线 B 后续任务实施。完整差距与顺序见 [`FULL_HARNESS_REASSESSMENT.md`](docs/assessments/FULL_HARNESS_REASSESSMENT.md)。
+> **开发状态（T14）：** `v1.1.0` 仍只是安全工具循环与分发基线，完整 Harness Gate 保持打开。T13–T14 已补齐短期会话、规则装配、确定性压缩，以及长期 Memory 的任务前检索、安全候选、会话末固化、重启恢复和 `/memory` 管理；Skill/MCP/Hooks、子 Agent、传感器和 Checkpoint 仍按路线 B 后续任务实施。完整差距与顺序见 [`FULL_HARNESS_REASSESSMENT.md`](docs/assessments/FULL_HARNESS_REASSESSMENT.md)。
 
 一个面向课程学习的、可确定性验证的 Coding Agent Harness。它把可替换的 LLM 补全放进由 TypeScript 代码实现的工具边界、策略、记忆、反馈和 Trace 中，并提供可连续输入任务的终端 Agent；它不是线上多用户平台。
 
@@ -25,7 +25,7 @@ apps/web
   本地模式：一次运行请求
 ```
 
-真实本地运行的数据流为：CLI 从本地配置读取限制并从系统凭据保险库读取 Key，自动装配当前作用域的 `AGENTS.md` / `CLAUDE.md`，再把 user、assistant、Action 与 Observation 的完整短期序列交给 OpenAI-compatible Provider；Action 仍须经过路径围栏、策略、审批与工具执行。达到字符预算时，上下文会确定性保留系统约束、规则、当前目标、脱敏摘要和近期消息。Trace 与会话上下文相互独立；当前主循环仍不会自动写入或固化长期 Memory。
+真实本地运行的数据流为：CLI 从本地配置读取限制并从系统凭据保险库读取 Key，自动装配当前作用域的 `AGENTS.md` / `CLAUDE.md`；每项任务只在首次 Provider 调用前检索相关长期 Memory，再把它与 user、assistant、Action、Observation 的完整短期序列交给 OpenAI-compatible Provider。Action 仍须经过路径围栏、策略、审批与工具执行。达到字符预算时，上下文会确定性保留系统约束、规则、当前目标、脱敏摘要和近期消息；完成结果先成为会话候选，在 `/new`、`/exit`、输入结束或异常收尾时原子固化。Trace、短期上下文和长期 Memory 相互独立。
 
 Harness 的六个维度及其对应实现是：
 
@@ -33,7 +33,7 @@ Harness 的六个维度及其对应实现是：
 | --- | --- |
 | 决策封装 | `AgentLoop` 组织完整会话消息、相关记忆和 Observation，并调用单次 Provider 补全。 |
 | 工具 | 受限文件读写与命令执行；命令使用可执行文件和参数数组，不拼接 Shell 字符串。 |
-| 记忆 | 同一进程内已有完整短期会话与确定性压缩；本地 JSON 长期 Memory 尚未接入主循环写入和会话末固化。 |
+| 记忆 | 完整短期会话与确定性压缩；本地 JSON 长期 Memory 按任务检索，只固化脱敏、限长、去重的明确约定和完成摘要。 |
 | 治理 | `PolicyEngine` 对动作给出 `allow`、`ask` 或 `deny`，审批在副作用前发生。 |
 | 反馈 | 验证结果分类为可供下一轮使用的简短 Observation。 |
 | 配置 | JSON 配置校验工作区、白名单、步数、超时、输出上限、上下文预算、Memory 和 Provider；其中不允许 API Key。 |
@@ -168,7 +168,9 @@ ai4se-harness
 请引用上一题的项目名称，并说明你刚才使用了什么信息。
 /model
 /model 新模型名称
+/memory
 /new
+/memory clear
 /trace
 /exit
 ```
@@ -180,7 +182,9 @@ ai4se-harness
 3. 无参数 `ai4se-harness` 进入会话；只有显式 `ai4se-harness smoke` 才运行离线检查。
 4. 同一会话的第二个问题能引用第一题及其回答；`/new` 后短期历史为空。
 5. `/model` 能查看当前模型，填写新名称后保存并用于后续请求。
-6. 普通任务输出不展开 Action JSON、底层工具名或内部错误码；需要诊断时显式使用 `/trace`。
+6. `/memory` 只显示安全摘要；`/memory clear` 经确认后清空长期 Memory；`/new` 会先固化候选但只重置短期历史。
+7. 退出并重新启动后，相关新任务能检索上次会话的完成摘要，无关任务不会注入该摘要。
+8. 普通任务输出不展开 Action JSON、底层工具名或内部错误码；需要诊断时显式使用 `/trace`。
 
 兼容入口 `ai4se-harness start --config .ai4se/config.json` 和一次性 `--task` 仍然保留，但不属于最终普通用户流程。
 
@@ -260,6 +264,7 @@ scripts/             本地 Web 启动器
 - API Key 不应进入配置、命令行参数、源码、Git、日志、Trace、Memory、URL 或浏览器持久化存储。
 - `AGENTS.md` / `CLAUDE.md` 只作为带来源和作用域的工作区规则注入，不能覆盖路径围栏、Policy、Approval 或凭据隔离。
 - 上下文摘要会脱敏并省略写入正文、命令参数和大段工具输出；字符预算默认 24,000，可在内部配置中设置 `contextBudgetChars`。
+- 长期 Memory 只接受显式“记住约定：…”约定和已完成任务的简短摘要；候选会拒绝凭据与个人标识、限制为 320 字符、稳定提取标签并按确定性 ID 去重。
 - 路径逃逸、敏感路径、Shell 启动器、删除类命令和白名单外命令由策略拒绝；写入需要当前 CLI 会话批准。
 - 本地 API 限制为回环监听并校验本地 Web Origin；它不是线上后端。
 - 静态 mock 与本地 Web 是不同入口：静态内容不连接 API，本地 Web 才能连接本机回环服务。
@@ -270,7 +275,7 @@ scripts/             本地 Web 启动器
 - 仅支持一个 OpenAI-compatible Provider 接口；不提供多 Provider、凭据轮换或线上服务。
 - 不提供数据库、向量检索、Docker、SSE、多用户、RBAC、团队协作或浏览器端到端测试。
 - 自动修正只允许一次，默认最多运行 8 步；复杂或高风险任务应由人工拆分与审核。
-- `/new` 只清除进程内短期上下文；重启检索、会话末固化和 `/memory` 属于后续长期 Memory 任务。
+- 长期 Memory 使用关键词和标签的轻量确定性检索，不提供向量数据库、语义嵌入或跨工作区共享。
 - 旧式兼容凭据依赖主密码质量；普通流程使用 Windows 当前用户保护。两者都无法消除进程内存中的短暂明文暴露风险。
 
 ## 第三方许可证

@@ -1,17 +1,17 @@
 # Coding Agent Harness 课程最小交付规约
 
-> **2026-07-29 T13 增量：** 路线 B 已完成完整短期会话、`/new`、`/model`、工作区规则装配和确定性上下文压缩。长期 Memory 写入、固化和重启检索仍未实现，因此完整 Harness Gate 继续打开；后续范围仍以 [`FULL_HARNESS_REASSESSMENT.md`](docs/assessments/FULL_HARNESS_REASSESSMENT.md) 第 6 节为准。
+> **2026-07-29 T14 增量：** 路线 B 已完成长期 Memory 的任务前检索、安全候选、会话末原子固化、重启恢复和 `/memory` 管理。通用 Hooks、Skill/MCP、子 Agent、传感器和 Checkpoint 仍未实现，因此完整 Harness Gate 继续打开；后续范围仍以 [`FULL_HARNESS_REASSESSMENT.md`](docs/assessments/FULL_HARNESS_REASSESSMENT.md) 第 6 节为准。
 
 ## 0. 文档控制
 
 | 字段 | 值 |
 | --- | --- |
-| 文档版本 | 2.3.0 |
+| 文档版本 | 2.4.0 |
 | 批准日期 | 2026-07-29 |
 | 项目负责人 | 徐黄浩 |
 | 权威需求来源 | 本文件；`guide/AI4SE_Final_Project_通用要求.md` 与 `guide/AI4SE_Final_Project_A_Coding_Agent_Harness.md` 是不可删减的上位要求 |
 | 当前 Gate | `v1.1.0` 基线已交付并通过门禁；完整 Harness Gate 已重新打开，路线 B 及面向用户的 CLI 方向已获批准，延期实施 |
-| 实现范围 | T05–T13；T13 只增加短期会话上下文与规则装配 |
+| 实现范围 | T05–T14；T14 只增加长期 Memory 生命周期与管理 |
 
 本版本取代 SPEC 1.0.0 的实现承诺。旧版本保留为 Git 历史和过程证据，不再要求实现数据库、多用户平台、复杂决策版本、SSE、Docker 或线上后端。任何删减都不得违反上述两份课程原始要求。
 
@@ -131,6 +131,14 @@ JSON 配置通过运行时 schema 校验，至少包含工作区路径、允许�
 - `contextBudgetChars` 达到阈值后执行确定性压缩，保留系统约束、规则、当前目标、脱敏摘要和近期消息；摘要省略写入正文、命令参数及大段工具输出。
 - T13 不写入长期 Memory，不实现 `/memory`、Skill、MCP、Hooks、子 Agent、传感器或 Checkpoint。
 
+### 4.9 T14 长期 Memory 生命周期
+
+- 每项任务在首次 Provider 调用前按当前目标检索一次相关 Memory，后续步骤复用同一检索结果；无关条目不注入。
+- 只有已完成任务的限长摘要生成 `recent_result`；只有用户使用明确“记住约定：…”前缀表达的稳定约定生成 `convention`，不从普通对话推断个人信息。
+- 候选统一拒绝凭据和个人标识，进行脱敏、320 字符限长、稳定标签提取、确定性 ID 去重与排序；不复制完整消息、Action、Observation、命令输出或文件正文。
+- 候选在会话内暂存，由 `/new`、`/exit`、输入结束和可控异常边界调用最小明确收尾；批量合并使用单次原子替换，不引入通用 Hook。
+- 新进程从当前工作区 `.ai4se/memory.json` 恢复检索；`/memory` 只显示安全摘要，`/memory clear` 必须在用户确认后执行。`/new` 先固化候选并只重置短期上下文。
+
 ## 5. 功能规约
 
 ### 5.1 Mock LLM 与动作解析
@@ -150,9 +158,9 @@ JSON 配置通过运行时 schema 校验，至少包含工作区路径、允许�
 ### 5.3 Memory 与配置
 
 - 输入：合法配置、Memory 查询或更新。
-- 行为：schema 校验、原子写入单个 JSON 文件、按标签筛选。
+- 行为：schema 校验、批量候选原子写入单个 JSON 文件、按任务标签与关键词筛选、会话末固化和重启恢复。
 - 输出：相关 MemoryItem 或明确错误。
-- 边界：损坏 JSON 不静默覆盖；敏感内容拒绝写入；缺少配置快速失败。
+- 边界：损坏 JSON 不静默覆盖；凭据、个人标识、完整对话和大段正文拒绝写入；重复固化不增加重复项；缺少配置快速失败。
 
 ### 5.4 Agent Loop 与反馈
 
