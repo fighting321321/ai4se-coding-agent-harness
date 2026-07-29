@@ -48,6 +48,8 @@ describe("MemoryLifecycle", () => {
     expect(lifecycle.collectCompletedTask("修复 TypeScript Vitest 测试", largeBody)).toBe(true);
     expect(lifecycle.collectCompletedTask("修复 TypeScript Vitest 测试", largeBody)).toBe(true);
     expect(lifecycle.collectCompletedTask("泄露检查", `完成 ${secret}`)).toBe(false);
+    expect(lifecycle.collectCompletedTask(`使用 ${secret} 检查`, "检查完成")).toBe(false);
+    expect(lifecycle.collectCompletedTask("联系 alice@example.com", "通知完成")).toBe(false);
 
     const pending = lifecycle.pending();
     expect(pending).toHaveLength(1);
@@ -56,6 +58,20 @@ describe("MemoryLifecycle", () => {
     expect(pending[0]?.tags).toEqual([...pending[0]!.tags].sort());
     expect(JSON.stringify(pending)).not.toContain(secret);
     expect(JSON.stringify(pending)).not.toContain("正文".repeat(200));
+  });
+
+  it("相同摘要的重复候选合并必要标签而不增加条目", async () => {
+    const { lifecycle } = await createLifecycle();
+
+    lifecycle.collectCompletedTask("检查 TypeScript", "检查完成");
+    lifecycle.collectCompletedTask("检查 Vitest", "检查完成");
+
+    expect(lifecycle.pending()).toEqual([
+      expect.objectContaining({
+        content: "检查完成",
+        tags: ["typescript", "vitest", "检查"]
+      })
+    ]);
   });
 
   it("一次原子固化全部候选，重复固化不产生重复项，重启后仅检索相关项", async () => {

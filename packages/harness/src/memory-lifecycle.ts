@@ -30,6 +30,11 @@ function normalizeText(value: string): string {
   return value.replace(/\s+/gu, " ").trim();
 }
 
+function containsPersonalIdentifier(value: string): boolean {
+  return /\b[^\s@]+@[^\s@]+\.[^\s@]+\b/u.test(value) ||
+    /(?:^|\D)(?:\+?\d[\s-]?){7,15}(?:\D|$)/u.test(value);
+}
+
 function bounded(value: string): string {
   if (value.length <= MAX_CONTENT_CHARS) {
     return value;
@@ -123,7 +128,12 @@ export class MemoryLifecycle {
   }
 
   #collect(kind: MemoryItem["kind"], rawContent: string, tagSource: string): boolean {
-    if (this.#redactor.containsSensitive(rawContent)) {
+    if (
+      this.#redactor.containsSensitive(rawContent) ||
+      this.#redactor.containsSensitive(tagSource) ||
+      containsPersonalIdentifier(rawContent) ||
+      containsPersonalIdentifier(tagSource)
+    ) {
       return false;
     }
     const content = bounded(this.#redactor.redactText(normalizeText(rawContent)));
@@ -135,10 +145,14 @@ export class MemoryLifecycle {
       return false;
     }
     const id = candidateId(kind, content);
+    const existing = this.#pending.get(id);
+    const mergedTags = [...new Set([...(existing?.tags ?? []), ...tags])]
+      .sort()
+      .slice(0, MAX_TAGS);
     this.#pending.set(id, {
       id,
       kind,
-      tags,
+      tags: mergedTags,
       content,
       updatedAt: this.#now().toISOString()
     });

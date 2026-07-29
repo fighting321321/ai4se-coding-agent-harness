@@ -211,7 +211,13 @@ export class JsonMemory {
 
     const merged = new Map(current.value.map((item) => [item.id, copyItem(item)]));
     for (const item of items) {
-      merged.set(item.id, copyItem(item));
+      const existing = merged.get(item.id);
+      merged.set(item.id, existing?.kind === item.kind && existing.content === item.content
+        ? {
+            ...copyItem(item),
+            tags: [...new Set([...existing.tags, ...item.tags])].sort().slice(0, 20)
+          }
+        : copyItem(item));
     }
     const next = [...merged.values()].sort((left, right) =>
       left.kind.localeCompare(right.kind) ||
