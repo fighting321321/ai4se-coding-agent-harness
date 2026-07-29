@@ -12,17 +12,20 @@ import {
   JsonTrace,
   PolicyEngine,
   Redactor,
-  ScriptedMockLLM
+  SessionContext,
+  ScriptedMockLLM,
+  type LLMOutput
 } from "../../../packages/harness/src/index.js";
 
 interface HarnessOptions {
   readonly approval?: ApprovalGate;
   readonly maxSteps?: number;
   readonly runCommand?: () => unknown | Promise<unknown>;
+  readonly session?: SessionContext;
 }
 
 async function createHarness(
-  script: readonly { raw: unknown }[],
+  script: readonly LLMOutput[],
   options: HarnessOptions = {}
 ) {
   const directory = await mkdtemp(join(tmpdir(), "ai4se-agent-loop-"));
@@ -64,6 +67,7 @@ async function createHarness(
       trace,
       policy,
       approval: options.approval,
+      session: options.session,
       maxSteps: options.maxSteps
     }),
     handlerCalls,
@@ -93,6 +97,57 @@ describe("AgentLoop", () => {
       "pass: tool completed: read:README.md"
     ]);
     expect(result.trace[0]?.observation).toBe("pass: tool completed: read:README.md");
+    expect(harness.provider.calls[1]?.messages?.map((message) => message.role)).toEqual([
+      "user",
+      "assistant",
+      "action",
+      "observation"
+    ]);
+  });
+
+  it("同一 SessionContext 的后续任务会收到前一轮完整对话", async () => {
+    const session = new SessionContext();
+    const harness = await createHarness(
+      [
+        { raw: { type: "finish", summary: "第一题答案" }, assistantText: "回答第一题" },
+        { raw: { type: "finish", summary: "引用第一题答案" }, assistantText: "回答第二题" }
+      ],
+      { session }
+    );
+
+    await harness.loop.run("第一题");
+    const result = await harness.loop.run("第二题，请引用前文");
+
+    expect(result.summary).toBe("引用第一题答案");
+    expect(harness.provider.calls[1]?.messages).toEqual([
+      { role: "user", content: "第一题" },
+      { role: "assistant", content: "回答第一题" },
+      { role: "action", action: { type: "finish", summary: "第一题答案" } },
+      { role: "observation", content: "pass: finish" },
+      { role: "user", content: "第二题，请引用前文" }
+    ]);
+  });
+
+  it("上下文压缩后仍保留近期 Action/Observation 并继续调用工具直至 finish", async () => {
+    const session = new SessionContext({ maxContextChars: 260, recentMessageCount: 2 });
+    const harness = await createHarness(
+      [
+        { raw: { type: "read_file", path: "one.txt" }, assistantText: "先读取第一个文件" },
+        { raw: { type: "read_file", path: "two.txt" }, assistantText: "再读取第二个文件" },
+        { raw: { type: "finish", summary: "压缩后完成" }, assistantText: "完成" }
+      ],
+      { session }
+    );
+
+    const result = await harness.loop.run("读取两个文件并总结");
+
+    expect(result).toMatchObject({ status: "completed", summary: "压缩后完成", steps: 3 });
+    expect(harness.handlerCalls.readFile).toBe(2);
+    expect(harness.provider.calls[1]?.summary).not.toBe("");
+    expect(harness.provider.calls[1]?.messages?.map((message) => message.role)).toEqual([
+      "action",
+      "observation"
+    ]);
   });
 
   it("首次业务失败后将脱敏反馈带入下一次调用，改用新动作并 finish", async () => {

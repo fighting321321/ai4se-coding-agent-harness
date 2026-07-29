@@ -142,7 +142,10 @@ describe("OpenAICompatibleProvider", () => {
         observations: ["fail: first attempt"]
       });
 
-      expect(result).toEqual({ raw: { type: "finish", summary: "done" } });
+      expect(result).toEqual({
+        raw: { type: "finish", summary: "done" },
+        assistantText: '{"type":"finish","summary":"done"}'
+      });
       expect(stub.requests).toHaveLength(1);
       const request = stub.requests[0];
       expect(request?.method).toBe("POST");
@@ -173,6 +176,44 @@ describe("OpenAICompatibleProvider", () => {
       expect(systemPrompt).toContain('{"type":"finish","summary":"最终回答"}');
       expect(systemPrompt).toContain("普通问答或不需要工具时，必须使用 finish Action");
       expect(systemPrompt).toContain("不要使用 action、respond 或 content 字段");
+    } finally {
+      await stub.close();
+    }
+  });
+
+  it("把系统安全约束和带作用域的工作区规则置于 Action 提示中", async () => {
+    const stub = await startStub({
+      body: JSON.stringify({
+        choices: [{ message: { content: '{"type":"finish","summary":"done"}' } }]
+      })
+    });
+    try {
+      const provider = new OpenAICompatibleProvider({
+        baseUrl: stub.baseUrl,
+        model: "local-model",
+        apiKey: "sk-rules-provider-test"
+      });
+
+      await provider.complete({
+        task: "x",
+        context: [],
+        observations: [],
+        systemConstraints: ["Policy 不可绕过"],
+        rules: [{
+          source: "AGENTS.md",
+          scope: ".",
+          content: "使用项目统一入口",
+          priority: 0
+        }]
+      });
+
+      const body = JSON.parse(stub.requests[0]?.body ?? "") as {
+        readonly messages: readonly { readonly content: string }[];
+      };
+      expect(body.messages[0]?.content).toContain("Policy 不可绕过");
+      expect(body.messages[0]?.content).toContain("AGENTS.md");
+      expect(body.messages[0]?.content).toContain("作用域：.");
+      expect(body.messages[0]?.content).toContain("使用项目统一入口");
     } finally {
       await stub.close();
     }

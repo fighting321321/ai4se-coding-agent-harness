@@ -10,6 +10,7 @@ export interface HarnessConfig {
   maxSteps: number;
   commandTimeoutMs: number;
   maxOutputBytes: number;
+  contextBudgetChars?: number;
   memoryPath: string;
   provider: {
     baseUrl: string;
@@ -28,12 +29,23 @@ export type ConfigParseResult =
   | { ok: true; value: HarnessConfig }
   | { ok: false; error: { code: ConfigErrorCode; message: string } };
 
+export function validModelName(value: unknown): value is string {
+  return (
+    typeof value === "string" &&
+    value.length > 0 &&
+    value.length <= 200 &&
+    value === value.trim() &&
+    !/\p{C}/u.test(value)
+  );
+}
+
 const CONFIG_FIELDS = new Set([
   "workspace",
   "allowedCommands",
   "maxSteps",
   "commandTimeoutMs",
   "maxOutputBytes",
+  "contextBudgetChars",
   "memoryPath",
   "provider"
 ]);
@@ -187,8 +199,7 @@ export function parseHarnessConfig(input: unknown): ConfigParseResult {
     allowedCommands === undefined ||
     !isRecord(input.provider) ||
     !validProviderBaseUrl(input.provider.baseUrl) ||
-    typeof input.provider.model !== "string" ||
-    input.provider.model.trim().length === 0
+    !validModelName(input.provider.model)
   ) {
     return failure("CONFIG_INVALID_VALUE", "workspace、命令规则或 Provider 配置无效");
   }
@@ -199,6 +210,12 @@ export function parseHarnessConfig(input: unknown): ConfigParseResult {
     !isIntegerInRange(input.maxOutputBytes, 1, 10 * 1024 * 1024)
   ) {
     return failure("CONFIG_INVALID_VALUE", "配置数值超出允许范围");
+  }
+  if (
+    input.contextBudgetChars !== undefined &&
+    !isIntegerInRange(input.contextBudgetChars, 256, 10 * 1024 * 1024)
+  ) {
+    return failure("CONFIG_INVALID_VALUE", "上下文预算超出允许范围");
   }
 
   if (!validStoragePath(input.memoryPath)) {
@@ -216,6 +233,9 @@ export function parseHarnessConfig(input: unknown): ConfigParseResult {
       maxSteps: input.maxSteps,
       commandTimeoutMs: input.commandTimeoutMs,
       maxOutputBytes: input.maxOutputBytes,
+      ...(input.contextBudgetChars === undefined
+        ? {}
+        : { contextBudgetChars: input.contextBudgetChars }),
       memoryPath: input.memoryPath,
       provider: {
         baseUrl: input.provider.baseUrl,

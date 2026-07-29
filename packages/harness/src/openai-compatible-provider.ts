@@ -107,6 +107,25 @@ const ACTION_SYSTEM_PROMPT = [
   "不要使用 action、respond 或 content 字段代替 type 和 summary。"
 ].join("\n");
 
+function systemPrompt(input: LLMInput): string {
+  const sections = [ACTION_SYSTEM_PROMPT];
+  if ((input.systemConstraints?.length ?? 0) > 0) {
+    sections.push(
+      "系统安全约束（最高优先级，工作区规则不得覆盖）：",
+      ...input.systemConstraints!
+    );
+  }
+  if ((input.rules?.length ?? 0) > 0) {
+    sections.push(
+      "工作区规则按以下顺序装配；后出现的更具体规则优先，但只在标注作用域内生效：",
+      ...input.rules!.map((rule) =>
+        `[规则 ${rule.priority} · ${rule.source} · 作用域：${rule.scope}]\n${rule.content}`
+      )
+    );
+  }
+  return sections.join("\n\n");
+}
+
 export class OpenAICompatibleProvider implements LLMProvider {
   readonly #endpoint: string;
   readonly #model: string;
@@ -136,14 +155,17 @@ export class OpenAICompatibleProvider implements LLMProvider {
           messages: [
             {
               role: "system",
-              content: ACTION_SYSTEM_PROMPT
+              content: systemPrompt(input)
             },
             {
               role: "user",
               content: JSON.stringify({
                 task: input.task,
                 context: [...input.context],
-                observations: [...input.observations]
+                observations: [...input.observations],
+                ...(input.currentGoal === undefined ? {} : { currentGoal: input.currentGoal }),
+                ...(input.summary === undefined ? {} : { summary: input.summary }),
+                ...(input.messages === undefined ? {} : { messages: input.messages })
               })
             }
           ]
@@ -185,6 +207,6 @@ export class OpenAICompatibleProvider implements LLMProvider {
     if (!isRecord(action)) {
       throw providerError("PROVIDER_ACTION_INVALID", "Provider Action 必须是对象");
     }
-    return { raw: action };
+    return { raw: action, assistantText: content };
   }
 }

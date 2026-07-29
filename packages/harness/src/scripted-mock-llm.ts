@@ -11,7 +11,30 @@ function snapshotInput(input: LLMInput): LLMInput {
   return Object.freeze({
     task: input.task,
     context: Object.freeze([...input.context]),
-    observations: Object.freeze([...input.observations])
+    observations: Object.freeze([...input.observations]),
+    ...(input.currentGoal === undefined ? {} : { currentGoal: input.currentGoal }),
+    ...(input.summary === undefined ? {} : { summary: input.summary }),
+    ...(input.systemConstraints === undefined
+      ? {}
+      : { systemConstraints: Object.freeze([...input.systemConstraints]) }),
+    ...(input.rules === undefined
+      ? {}
+      : { rules: Object.freeze(input.rules.map((rule) => Object.freeze({ ...rule }))) }),
+    ...(input.messages === undefined
+      ? {}
+      : {
+          messages: Object.freeze(input.messages.map((message) => {
+            if (message.role !== "action") {
+              return Object.freeze({ ...message });
+            }
+            return Object.freeze({
+              role: "action" as const,
+              action: Object.freeze(message.action.type === "run_command"
+                ? { ...message.action, args: Object.freeze([...message.action.args]) }
+                : { ...message.action })
+            });
+          }))
+        })
   });
 }
 
