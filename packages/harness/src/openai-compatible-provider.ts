@@ -143,7 +143,10 @@ export class OpenAICompatibleProvider implements LLMProvider {
               content: JSON.stringify({
                 task: input.task,
                 context: [...input.context],
-                observations: [...input.observations]
+                observations: [...input.observations],
+                ...(input.currentGoal === undefined ? {} : { currentGoal: input.currentGoal }),
+                ...(input.summary === undefined ? {} : { summary: input.summary }),
+                ...(input.messages === undefined ? {} : { messages: input.messages })
               })
             }
           ]
@@ -185,6 +188,6 @@ export class OpenAICompatibleProvider implements LLMProvider {
     if (!isRecord(action)) {
       throw providerError("PROVIDER_ACTION_INVALID", "Provider Action 必须是对象");
     }
-    return { raw: action };
+    return { raw: action, assistantText: content };
   }
 }

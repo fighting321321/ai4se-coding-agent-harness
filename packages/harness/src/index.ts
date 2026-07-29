@@ -109,6 +109,12 @@ export {
 } from "./run-task.js";
 export { ScriptedMockExhaustedError, ScriptedMockLLM } from "./scripted-mock-llm.js";
 export {
+  SessionContext,
+  type ConversationMessage,
+  type SessionContextOptions,
+  type SessionContextSnapshot
+} from "./session-context.js";
+export {
   WindowsUserCredentialVault,
   runWindowsCredentialProtectionProcess,
   type CredentialProtectionProcess,

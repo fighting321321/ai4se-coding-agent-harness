@@ -3,9 +3,10 @@ import { ApprovalGate } from "./approval.js";
 import type { Dispatcher } from "./dispatcher.js";
 import { classifyFeedback } from "./feedback.js";
 import type { JsonMemory } from "./json-memory.js";
-import type { LLMProvider } from "./llm-provider.js";
+import type { LLMOutput, LLMProvider } from "./llm-provider.js";
 import type { PolicyEngine } from "./policy.js";
 import { Redactor } from "./redactor.js";
+import { SessionContext } from "./session-context.js";
 import type { JsonTrace, TraceEntry } from "./trace.js";
 
 export type RunStatus = "completed" | "blocked" | "failed" | "max_steps";
@@ -25,6 +26,7 @@ export interface AgentLoopOptions {
   policy: PolicyEngine;
   approval?: ApprovalGate;
   redactor?: Redactor;
+  session?: SessionContext;
   maxSteps?: number;
 }
 
@@ -66,6 +68,7 @@ export class AgentLoop {
   readonly #approval: ApprovalGate;
   readonly #maxSteps: number;
   readonly #redactor: Redactor;
+  readonly #session: SessionContext;
 
   constructor(options: AgentLoopOptions) {
     this.#provider = options.provider;
@@ -75,6 +78,7 @@ export class AgentLoop {
     this.#policy = options.policy;
     this.#approval = options.approval ?? new ApprovalGate();
     this.#redactor = options.redactor ?? new Redactor();
+    this.#session = options.session ?? new SessionContext({ redactor: this.#redactor });
     this.#maxSteps = options.maxSteps ?? DEFAULT_MAX_STEPS;
     if (!Number.isInteger(this.#maxSteps) || this.#maxSteps < 1) {
       throw new Error("maxSteps 必须是正整数");
@@ -118,6 +122,7 @@ export class AgentLoop {
       (next, entry) => Math.max(next, entry.step + 1),
       1
     );
+    this.#session.beginTurn(task);
     let observations: readonly string[] = [];
     let businessFailures = 0;
 
@@ -125,6 +130,7 @@ export class AgentLoop {
       const step = traceStartStep + iteration - 1;
       const memory = await this.#memory.search({ keywords: taskKeywords(task), limit: 5 });
       if (!memory.ok) {
+        this.#session.appendObservation("environment_error: Memory search failed");
         const appended = await this.#append({
           step,
           policy: "allow",
@@ -137,14 +143,15 @@ export class AgentLoop {
           : await this.#result("failed", "Trace 写入失败", iteration, traceStartStep);
       }
 
-      let output: { raw: unknown };
+      let output: LLMOutput;
       try {
-        output = await this.#provider.complete({
+        output = await this.#provider.complete(this.#session.toLLMInput(
           task,
-          context: memory.value.map((item) => item.content),
+          memory.value.map((item) => item.content),
           observations
-        });
+        ));
       } catch (error) {
+        this.#session.appendObservation("environment_error: Provider failed");
         const appended = await this.#append({
           step,
           policy: "allow",
@@ -157,8 +164,13 @@ export class AgentLoop {
           : await this.#result("failed", "Trace 写入失败", iteration, traceStartStep);
       }
 
+      this.#session.appendAssistant(
+        typeof output.assistantText === "string" ? output.assistantText : JSON.stringify(output.raw)
+      );
+
       const parsed = parseAction(output.raw);
       if (!parsed.ok) {
+        this.#session.appendObservation("environment_error: Action parse failed");
         const appended = await this.#append({
           step,
           policy: "allow",
@@ -172,7 +184,9 @@ export class AgentLoop {
       }
 
       const action = parsed.value;
+      this.#session.appendAction(action);
       if (action.type !== "finish" && this.#redactor.containsSensitive(action)) {
+        this.#session.appendObservation("blocked: SENSITIVE_ACTION");
         const appended = await this.#append({
           step,
           action,
@@ -187,6 +201,7 @@ export class AgentLoop {
       }
       const decision = this.#policy.evaluate(action);
       if (decision === "deny") {
+        this.#session.appendObservation("blocked: POLICY_DENIED");
         const appended = await this.#append({
           step,
           action,
@@ -201,6 +216,7 @@ export class AgentLoop {
       }
 
       if (action.type === "finish") {
+        this.#session.appendObservation("pass: finish");
         const appended = await this.#trace.append({
           step,
           action,
@@ -224,6 +240,7 @@ export class AgentLoop {
         ? approval.value
         : { ok: false as const, error: approval.error };
       if (!dispatched.ok && isApprovalBlock(dispatched.error.code)) {
+        this.#session.appendObservation(`blocked: ${dispatched.error.code}`);
         const appended = await this.#append({
           step,
           action,
@@ -238,6 +255,7 @@ export class AgentLoop {
       }
 
       const feedback = classifyFeedback(dispatched, this.#redactor);
+      this.#session.appendObservation(feedback.observation);
       if (feedback.category === "fail") {
         businessFailures += 1;
       }

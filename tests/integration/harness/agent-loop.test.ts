@@ -12,6 +12,7 @@ import {
   JsonTrace,
   PolicyEngine,
   Redactor,
+  SessionContext,
   ScriptedMockLLM
 } from "../../../packages/harness/src/index.js";
 
@@ -19,6 +20,7 @@ interface HarnessOptions {
   readonly approval?: ApprovalGate;
   readonly maxSteps?: number;
   readonly runCommand?: () => unknown | Promise<unknown>;
+  readonly session?: SessionContext;
 }
 
 async function createHarness(
@@ -64,6 +66,7 @@ async function createHarness(
       trace,
       policy,
       approval: options.approval,
+      session: options.session,
       maxSteps: options.maxSteps
     }),
     handlerCalls,
@@ -93,6 +96,35 @@ describe("AgentLoop", () => {
       "pass: tool completed: read:README.md"
     ]);
     expect(result.trace[0]?.observation).toBe("pass: tool completed: read:README.md");
+    expect(harness.provider.calls[1]?.messages?.map((message) => message.role)).toEqual([
+      "user",
+      "assistant",
+      "action",
+      "observation"
+    ]);
+  });
+
+  it("同一 SessionContext 的后续任务会收到前一轮完整对话", async () => {
+    const session = new SessionContext();
+    const harness = await createHarness(
+      [
+        { raw: { type: "finish", summary: "第一题答案" }, assistantText: "回答第一题" },
+        { raw: { type: "finish", summary: "引用第一题答案" }, assistantText: "回答第二题" }
+      ],
+      { session }
+    );
+
+    await harness.loop.run("第一题");
+    const result = await harness.loop.run("第二题，请引用前文");
+
+    expect(result.summary).toBe("引用第一题答案");
+    expect(harness.provider.calls[1]?.messages).toEqual([
+      { role: "user", content: "第一题" },
+      { role: "assistant", content: "回答第一题" },
+      { role: "action", action: { type: "finish", summary: "第一题答案" } },
+      { role: "observation", content: "pass: finish" },
+      { role: "user", content: "第二题，请引用前文" }
+    ]);
   });
 
   it("首次业务失败后将脱敏反馈带入下一次调用，改用新动作并 finish", async () => {

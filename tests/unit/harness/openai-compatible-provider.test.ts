@@ -142,7 +142,10 @@ describe("OpenAICompatibleProvider", () => {
         observations: ["fail: first attempt"]
       });
 
-      expect(result).toEqual({ raw: { type: "finish", summary: "done" } });
+      expect(result).toEqual({
+        raw: { type: "finish", summary: "done" },
+        assistantText: '{"type":"finish","summary":"done"}'
+      });
       expect(stub.requests).toHaveLength(1);
       const request = stub.requests[0];
       expect(request?.method).toBe("POST");
