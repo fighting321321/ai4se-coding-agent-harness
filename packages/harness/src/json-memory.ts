@@ -193,6 +193,46 @@ export class JsonMemory {
     }
   }
 
+  async consolidate(items: readonly MemoryItem[]): Promise<MemoryResult<readonly MemoryItem[]>> {
+    if (!Array.isArray(items) || !items.every(isMemoryItem)) {
+      return failure("MEMORY_INVALID_ITEM", "MemoryItem 格式无效");
+    }
+    if (this.#redactor.containsSensitive(items)) {
+      return failure("MEMORY_SENSITIVE_CONTENT", "MemoryItem 包含敏感内容");
+    }
+
+    const current = await this.read();
+    if (!current.ok) {
+      return current;
+    }
+    if (items.length === 0) {
+      return { ok: true, value: current.value.map(copyItem) };
+    }
+
+    const merged = new Map(current.value.map((item) => [item.id, copyItem(item)]));
+    for (const item of items) {
+      const existing = merged.get(item.id);
+      merged.set(item.id, existing?.kind === item.kind && existing.content === item.content
+        ? {
+            ...copyItem(item),
+            tags: [...new Set([...existing.tags, ...item.tags])].sort().slice(0, 20)
+          }
+        : copyItem(item));
+    }
+    const next = [...merged.values()].sort((left, right) =>
+      left.kind.localeCompare(right.kind) ||
+      left.content.localeCompare(right.content) ||
+      left.id.localeCompare(right.id)
+    );
+
+    try {
+      await atomicWrite(this.#path, { version: 1, items: next });
+      return { ok: true, value: next.map(copyItem) };
+    } catch {
+      return failure("MEMORY_IO_ERROR", "无法写入 Memory 文件");
+    }
+  }
+
   async search(query: MemorySearchQuery): Promise<MemoryResult<readonly MemoryItem[]>> {
     if (
       !validTerms(query.tags) ||

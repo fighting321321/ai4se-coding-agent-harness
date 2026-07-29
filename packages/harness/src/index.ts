@@ -88,6 +88,11 @@ export {
   type MemorySearchQuery
 } from "./json-memory.js";
 export {
+  MemoryLifecycle,
+  type MemoryConsolidateSummary,
+  type MemoryLifecycleOptions
+} from "./memory-lifecycle.js";
+export {
   PathGuard,
   type PathAccess,
   type PathGuardErrorCode,

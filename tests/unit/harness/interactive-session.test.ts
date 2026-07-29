@@ -6,6 +6,8 @@ import { describe, expect, it, vi } from "vitest";
 
 import {
   CredentialStore,
+  JsonMemory,
+  Redactor,
   runInteractiveSession,
   type CredentialStoreBoundary,
   type InteractiveSessionDependencies,
@@ -40,7 +42,7 @@ async function sessionWorkspace(): Promise<string> {
 }
 
 function captureSession(
-  lines: readonly string[],
+  lines: readonly (string | undefined)[],
   runTask: (options: RunHarnessTaskOptions) => Promise<RunTaskResult>,
   askApproval?: InteractiveSessionDependencies["askApproval"]
 ) {
@@ -90,6 +92,135 @@ function completed(summary: string): RunTaskResult {
 }
 
 describe("runInteractiveSession", () => {
+  it("在 /exit 固化完成候选，并让同一工作区的新进程检索相关记忆", async () => {
+    const cwd = await sessionWorkspace();
+    const configPath = join(cwd, ".ai4se", "config.json");
+    const firstRun = vi.fn(async (options: RunHarnessTaskOptions) => {
+      options.memoryLifecycle?.collectCompletedTask(options.task, "Vitest 测试全部通过");
+      return completed("Vitest 测试全部通过");
+    });
+    const first = captureSession(["修复 Vitest 测试", "/exit"], firstRun);
+
+    expect(await runInteractiveSession({ cwd, configPath }, first.dependencies)).toBe(0);
+
+    const retrieved: string[][] = [];
+    const secondRun = vi.fn(async (options: RunHarnessTaskOptions) => {
+      const result = await options.memoryLifecycle!.retrieve(options.task);
+      retrieved.push(result.ok ? result.value.map((item) => item.content) : []);
+      return completed("继续完成");
+    });
+    const second = captureSession(["继续检查 Vitest", "/exit"], secondRun);
+
+    expect(await runInteractiveSession({ cwd, configPath }, second.dependencies)).toBe(0);
+    expect(retrieved).toEqual([["Vitest 测试全部通过"]]);
+  });
+
+  it("/new 先固化候选并只重置短期上下文，不清除长期 Memory", async () => {
+    const cwd = await sessionWorkspace();
+    const configPath = join(cwd, ".ai4se", "config.json");
+    const runTask = vi.fn(async (options: RunHarnessTaskOptions) => {
+      options.memoryLifecycle?.collectCompletedTask(options.task, "TypeScript 检查完成");
+      return completed("TypeScript 检查完成");
+    });
+    const capture = captureSession(["检查 TypeScript", "/new", "/memory", "/exit"], runTask);
+
+    expect(await runInteractiveSession({ cwd, configPath }, capture.dependencies)).toBe(0);
+
+    expect(capture.stdout.join("\n")).toContain("TypeScript 检查完成");
+    const persisted = await new JsonMemory(
+      join(cwd, ".ai4se", "memory.json"),
+      new Redactor()
+    ).read();
+    expect(persisted.ok && persisted.value).toHaveLength(1);
+  });
+
+  it("/memory 显示安全摘要，clear 只有确认后才清空", async () => {
+    const cwd = await sessionWorkspace();
+    const configPath = join(cwd, ".ai4se", "config.json");
+    const memory = new JsonMemory(join(cwd, ".ai4se", "memory.json"), new Redactor());
+    await memory.upsert({
+      id: "safe-convention",
+      kind: "convention",
+      tags: ["vitest"],
+      content: "测试使用 Vitest",
+      updatedAt: "2026-07-29T08:00:00.000Z"
+    });
+    const confirmMemoryClear = vi.fn(async () => true);
+    const capture = captureSession(
+      ["/memory", "/memory clear", "/memory", "/exit"],
+      vi.fn(async () => completed("不应执行"))
+    );
+
+    const exitCode = await runInteractiveSession(
+      { cwd, configPath },
+      { ...capture.dependencies, confirmMemoryClear }
+    );
+
+    expect(exitCode).toBe(0);
+    expect(confirmMemoryClear).toHaveBeenCalledTimes(1);
+    expect(capture.stdout.join("\n")).toContain("[约定] 测试使用 Vitest");
+    expect(capture.stdout.join("\n")).toContain("Memory 为空");
+    expect(capture.stdout.join("\n")).not.toContain("updatedAt");
+    await expect(memory.read()).resolves.toEqual({ ok: true, value: [] });
+  });
+
+  it("拒绝清空时保留 Memory", async () => {
+    const cwd = await sessionWorkspace();
+    const configPath = join(cwd, ".ai4se", "config.json");
+    const memory = new JsonMemory(join(cwd, ".ai4se", "memory.json"), new Redactor());
+    await memory.upsert({
+      id: "safe-result",
+      kind: "recent_result",
+      tags: ["build"],
+      content: "构建通过",
+      updatedAt: "2026-07-29T08:00:00.000Z"
+    });
+    const capture = captureSession(
+      ["/memory clear", "/exit"],
+      vi.fn(async () => completed("不应执行"))
+    );
+
+    await runInteractiveSession(
+      { cwd, configPath },
+      { ...capture.dependencies, confirmMemoryClear: async () => false }
+    );
+
+    expect(capture.stdout.join("\n")).toContain("已取消清空 Memory");
+    const persisted = await memory.read();
+    expect(persisted.ok && persisted.value).toHaveLength(1);
+  });
+
+  it("输入 EOF 和可控异常都会尝试固化，异常输出不包含原始错误", async () => {
+    const eofCwd = await sessionWorkspace();
+    const eofConfig = join(eofCwd, ".ai4se", "config.json");
+    const eofRun = vi.fn(async (options: RunHarnessTaskOptions) => {
+      options.memoryLifecycle?.collectCompletedTask(options.task, "EOF 前完成");
+      return completed("EOF 前完成");
+    });
+    const eofCapture = captureSession(["检查 EOF", undefined], eofRun);
+    expect(await runInteractiveSession({ cwd: eofCwd, configPath: eofConfig }, eofCapture.dependencies))
+      .toBe(0);
+
+    const errorCwd = await sessionWorkspace();
+    const errorConfig = join(errorCwd, ".ai4se", "config.json");
+    const errorRun = vi.fn(async (options: RunHarnessTaskOptions): Promise<RunTaskResult> => {
+      options.memoryLifecycle?.collectCompletedTask(options.task, "异常前完成");
+      throw new Error("sk-raw-exception-secret");
+    });
+    const errorCapture = captureSession(["检查异常"], errorRun);
+    expect(await runInteractiveSession(
+      { cwd: errorCwd, configPath: errorConfig },
+      errorCapture.dependencies
+    )).toBe(1);
+
+    const eofMemory = await new JsonMemory(join(eofCwd, ".ai4se", "memory.json"), new Redactor()).read();
+    const errorMemory = await new JsonMemory(join(errorCwd, ".ai4se", "memory.json"), new Redactor()).read();
+    expect(eofMemory.ok && eofMemory.value[0]?.content).toBe("EOF 前完成");
+    expect(errorMemory.ok && errorMemory.value[0]?.content).toBe("异常前完成");
+    expect(errorCapture.stderr.join("\n")).toContain("会话运行失败");
+    expect(errorCapture.stderr.join("\n")).not.toContain("sk-raw-exception-secret");
+  });
+
   it("通过可替换的凭据存储边界读取 API Key", async () => {
     const cwd = await sessionWorkspace();
     const read = vi.fn(async () => ({

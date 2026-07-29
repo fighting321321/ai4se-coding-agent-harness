@@ -1,5 +1,7 @@
 # 完整 Coding Agent Harness 重新评估
 
+> **进度更新（2026-07-29）：** 顺序 1（T13 会话上下文与规则）和顺序 2（T14 长期 Memory 生命周期）已完成；当前缺口从顺序 3 的 Skill/MCP/Hooks 开始。本文的路线选择和最低验收场景保持不变。
+
 ## 1. 结论与文档地位
 
 本文件记录 2026-07-22 对项目范围的重新评估，依据以下三份课程原始材料：
@@ -32,8 +34,8 @@
 | Action 解析与分发 | `parseAction`、`Dispatcher` | 已有 | 扩展记忆、Skill、MCP、子 Agent 动作 |
 | 工具 Observation 回灌 | 单项任务内只保留最近 Observation | 部分 | 保存完整 assistant/action/observation 消息序列 |
 | 会话对话历史 | 每个终端输入重新创建独立任务 | 缺失 | 同一会话后续任务可引用前文 |
-| 跨会话 Memory | `JsonMemory` 类存在，主循环不调用 `upsert` | 缺失 | 循环内读写、会话末 consolidate、重启恢复 |
-| RAG / Select | 仅对空 Memory 做关键词查找 | 缺失 | 从规则、记忆和项目知识中选择相关上下文 |
+| 跨会话 Memory | 主循环任务前检索；会话候选在明确收尾边界原子 consolidate；CLI 可重启恢复 | 已有 | 保留并在完整生命周期 Hook 中统一编排 |
+| RAG / Select | 规则按作用域装配；Memory 按任务关键词和标签有限检索 | 部分 | 扩展到 Skill 与项目知识选择 |
 | Context Compress | 无 | 缺失 | 达到预算阈值时确定性裁剪并保留摘要与近期消息 |
 | 规则文件 | 不自动读取 `AGENTS.md` / `CLAUDE.md` | 缺失 | 启动装配时按作用域加载并注入 |
 | Skill | 无注册与渐进式披露 | 缺失 | 平时只提供描述，命中后加载完整指令 |
@@ -45,9 +47,9 @@
 | 反馈传感器 | 工具结果分类存在 | 部分 | 代码变更后自动运行配置的 test/lint/typecheck 传感器 |
 | Checkpoint / 回滚 | 无 | 缺失 | 副作用前状态快照，工具或传感器失败时可恢复 |
 | Trace | Action、策略、Observation、停机原因 | 部分 | 补全 assistant 文本、会话、Hook、传感器和父子关系 |
-| 会话收尾 | 无 consolidate / SessionEnd | 缺失 | 统一完成、预算耗尽、阻断和异常收尾 |
+| 会话收尾 | `/new`、`/exit`、EOF 与异常边界执行 Memory consolidate | 部分 | T15 纳入统一 SessionEnd Hook |
 | 配置与凭据 | 首次三项向导、Windows 当前用户保险库、严格配置、脱敏 | 已有 | 随新模块扩展配置并保持秘密隔离 |
-| CLI 分发 | 无参数启动、当前目录工作区、三项初始化、0.2.0 tarball | 部分 | 补全上下文会话、`/model`、`/memory` 和扩展状态命令 |
+| CLI 分发 | 无参数启动、当前目录工作区、三项初始化、短期会话、`/model` 与 `/memory` | 部分 | 随后续机制补全扩展状态命令 |
 
 ## 4. 三种后续路线
 
@@ -121,7 +123,7 @@
 
 截至 2026-07-24，CLI 产品化部分已经完成：无参数运行进入交互会话，显式 `smoke` 才运行离线验证；当前目录强制作为工作区；首次只填写服务地址、隐藏 API Key 和模型名称；Windows 使用当前用户 DPAPI 保险库，后续启动不再要求本地保护密码或重复 Key。旧 `credentials`、`start --config` 和 `--task` 只保留为高级兼容入口。
 
-CLI 外壳完成不等于 Harness 完成。当前最关键的缺口仍是：每条终端输入创建独立任务，缺少完整会话上下文；Memory 没有主循环写入、会话末固化和重启检索；Skill、MCP、Hooks、子 Agent、自动传感器与 Checkpoint 尚未实现。
+CLI 外壳、短期会话和长期 Memory 已接通，但仍不等于 Harness 完成。当前最关键的缺口是 Skill、MCP、通用 Hooks、子 Agent、自动传感器与 Checkpoint 尚未实现。
 
 ## 6. 后续实施顺序
 
@@ -129,8 +131,8 @@ CLI 外壳完成不等于 Harness 完成。当前最关键的缺口仍是：每�
 
 | 顺序 | 下一提交方向 | 最小完成边界 |
 | ---: | --- | --- |
-| 1 | `feat: 建立完整会话上下文与规则装配` | 同一会话保留 user/assistant/action/observation；支持 `/new`、直接填写模型名的 `/model`；自动加载项目规则；确定性上下文压缩 |
-| 2 | `feat: 接入长期记忆生命周期` | 主循环读写 Memory、SessionEnd consolidate、重启检索、`/memory`；秘密与大段正文不得固化 |
+| 1（已完成） | `feat: 建立完整会话上下文与规则装配` | 同一会话保留 user/assistant/action/observation；支持 `/new`、直接填写模型名的 `/model`；自动加载项目规则；确定性上下文压缩 |
+| 2（已完成） | `feat: 接入长期记忆生命周期` | 主循环读写 Memory、明确会话收尾 consolidate、重启检索、`/memory`；秘密与大段正文不得固化；通用 SessionEnd Hook 留到顺序 3 |
 | 3 | `feat: 加入Skill、MCP与生命周期Hooks` | Skill 渐进加载、mock MCP 适配、SessionStart/PreToolUse/PostToolUse/SessionEnd；全部可离线测试 |
 | 4 | `feat: 实现受限子Agent、传感器与Checkpoint` | 独立子上下文和总预算；代码变更后自动反馈；副作用前快照及失败恢复 |
 | 5 | `release: 验收并发布完整Harness v2.0.0` | 完整 Trace、真实 Provider 人工验收、全新目录 tarball、README、提交材料和 GitLab Release |

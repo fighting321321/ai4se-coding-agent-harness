@@ -43,6 +43,17 @@ export class Redactor {
       /\b((?:x[-_])?api[-_ ]?key)\s*([:=])\s*(?:"[^"]*"|'[^']*'|[^\s,;]+)/giu,
       (_match, label: string, separator: string) => `${label}${separator} ${REDACTED}`
     );
+    redacted = redacted.replace(
+      /\b(password|passwd|pwd|token|secret)\s*(is|[:=])\s*(?:"[^"]*"|'[^']*'|[^\s,;]+)/giu,
+      (_match, label: string, separator: string) =>
+        separator.toLocaleLowerCase() === "is"
+          ? `${label} is ${REDACTED}`
+          : `${label}${separator}${REDACTED}`
+    );
+    redacted = redacted.replace(
+      /(密码|口令|令牌|密钥)\s*(是|[:：=])\s*(?:"[^"]*"|'[^']*'|[^\s，,；;]+)/gu,
+      (_match, label: string, separator: string) => `${label}${separator}${REDACTED}`
+    );
     redacted = redacted.replace(/\bsk-(?:proj-)?[a-z0-9_-]{8,}\b/giu, REDACTED);
 
     return redacted;

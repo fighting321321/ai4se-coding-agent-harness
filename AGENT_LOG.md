@@ -554,3 +554,13 @@
 - 压缩：配置新增可选 `contextBudgetChars`，首次初始化默认 24,000 字符。超限时确定性保留系统约束、规则、当前目标、脱敏摘要和近期消息；摘要省略写入正文、命令参数与大段工具输出，重复调用结果稳定，压缩后循环仍能继续调用工具并完成。
 - 最终统一门禁：仅通过 `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\project-env.ps1 all` 运行；33/33 测试文件、355/355 用例通过，lint、typecheck、Harness/API/Web build、4/4 机制演示和最终审计全部退出 0。Vite 静态构建为 17 modules；审计确认当前受控文件、完整 Git 历史和静态 Web artifact 无凭据命中。
 - 交付状态：`guiding.md` 已清空，分支保持 `feat/t13-session-context-rules`，不合并 `dev`、不创建或合并 MR、不发布版本，等待项目负责人手动合并。
+
+### 2026-07-29 · T14 长期 Memory 生命周期
+
+- 范围与提交：严格停留在安全候选、任务前检索、会话末 consolidate、重启恢复和 `/memory`；没有实现通用 Hooks、Skill、MCP、子 Agent、传感器或 Checkpoint。分支以指导提交 `7ffa1c4` 开始，随后按候选模型、主循环接入、CLI 收尾/管理和审查修复推进，最终收尾后总提交数为 6，未超过 7。
+- TDD：`MemoryLifecycle` 缺失时 4 项候选/固化用例 RED；主循环重复检索且不收集候选时 1 项 RED；交互会话缺少收尾与管理时 5 项 RED；审查阶段又以密码候选、任务标签隐私和重复标签覆盖得到 3 项 RED。全部由 `ScriptedMockLLM`、本地临时文件、注入式任务 runner 与确认边界离线验证，不访问真实 Provider。
+- 生命周期：每项任务仅在首次 Provider 调用前检索一次相关 Memory，后续步骤复用同一结果；只有 `completed` 任务生成 `recent_result`。用户只有使用明确“记住约定：…”前缀才会生成 `convention`，普通对话不会被推断为稳定约定。
+- 安全与一致性：候选拒绝 API Key、password/token/secret、中文密码/令牌形态、邮箱和电话号码；内容统一脱敏、折叠空白、限制为 320 字符，标签稳定排序，ID 由种类和安全内容确定性生成。重复候选合并必要标签；批量 consolidate 只执行一次原子替换，失败保留原文件与待固化集合，不回显原始异常。
+- CLI 与恢复：`/new`、`/exit`、EOF 和可控异常使用最小明确收尾边界，不抽象为 Hook；`/new` 只重置短期上下文。`/memory` 只显示约定/最近结果摘要，不显示底层 JSON；`/memory clear` 必须通过可注入确认。相同工作区的新会话可从 `.ai4se/memory.json` 检索上一会话结果，无关任务不注入。
+- 最终统一门禁：仅通过 `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\project-env.ps1 all` 运行；34/34 测试文件、367/367 用例通过，lint、typecheck、Harness/API/Web build、4/4 机制演示和最终审计全部退出 0，Vite 静态构建为 17 modules。
+- 交付状态：`guiding.md` 已清空，分支保持 `feat/t14-memory-lifecycle`，不合并 `dev`、不创建或合并 MR、不发布版本，等待项目负责人手动合并。未读取 `.ai4se/temp-api-key.txt`，未读取、记录或提交任何真实凭据。

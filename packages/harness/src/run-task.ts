@@ -9,6 +9,7 @@ import { parseHarnessConfig, validModelName, type HarnessConfig } from "./config
 import { Dispatcher } from "./dispatcher.js";
 import { FileTools } from "./file-tools.js";
 import { JsonMemory } from "./json-memory.js";
+import { MemoryLifecycle } from "./memory-lifecycle.js";
 import { OpenAICompatibleProvider } from "./openai-compatible-provider.js";
 import { PolicyEngine } from "./policy.js";
 import { Redactor } from "./redactor.js";
@@ -27,6 +28,7 @@ export interface RunHarnessTaskOptions {
   };
   readonly approval?: ApprovalHandler;
   readonly session?: SessionContext;
+  readonly memoryLifecycle?: MemoryLifecycle;
 }
 
 export type RunTaskErrorCode = "RUN_CONFIG_READ_FAILED" | "RUN_CONFIG_INVALID";
@@ -135,6 +137,7 @@ export async function runHarnessTask(options: RunHarnessTaskOptions): Promise<Ru
     rules: await loadWorkspaceRules(workspace)
   });
   const memory = new JsonMemory(resolve(workspace, configured.value.memoryPath), redactor);
+  const memoryLifecycle = options.memoryLifecycle ?? new MemoryLifecycle({ memory, redactor });
   const trace = new JsonTrace(join(workspace, ".ai4se", "trace.json"), redactor);
   const policy = new PolicyEngine({ allowedCommands: configured.value.allowedCommands });
   const approval = new ApprovalGate(options.approval);
@@ -158,6 +161,7 @@ export async function runHarnessTask(options: RunHarnessTaskOptions): Promise<Ru
   const loop = new AgentLoop({
     provider,
     memory,
+    memoryLifecycle,
     dispatcher,
     trace,
     policy,
