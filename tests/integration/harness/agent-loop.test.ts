@@ -10,6 +10,7 @@ import {
   Dispatcher,
   JsonMemory,
   JsonTrace,
+  MemoryLifecycle,
   PolicyEngine,
   Redactor,
   SessionContext,
@@ -33,6 +34,11 @@ async function createHarness(
   const tracePath = join(directory, "trace.json");
   const redactor = new Redactor(["sk-fake-agent-key"]);
   const memory = new JsonMemory(memoryPath, redactor);
+  const memoryLifecycle = new MemoryLifecycle({
+    memory,
+    redactor,
+    now: () => new Date("2026-07-29T09:00:00.000Z")
+  });
   const trace = new JsonTrace(tracePath, redactor);
   const policy = new PolicyEngine({
     allowedCommands: [{ executable: "safe-tool", args: ["run"] }]
@@ -63,6 +69,7 @@ async function createHarness(
     loop: new AgentLoop({
       provider,
       memory,
+      memoryLifecycle,
       dispatcher,
       trace,
       policy,
@@ -72,6 +79,7 @@ async function createHarness(
     }),
     handlerCalls,
     memory,
+    memoryLifecycle,
     memoryPath,
     provider,
     trace,
@@ -80,6 +88,41 @@ async function createHarness(
 }
 
 describe("AgentLoop", () => {
+  it("每项任务仅在首次 Provider 调用前检索一次，并在完成后收集安全候选", async () => {
+    const harness = await createHarness([
+      { raw: { type: "read_file", path: "README.md" } },
+      { raw: { type: "finish", summary: "Vitest 检查完成" } }
+    ]);
+    await harness.memory.upsert({
+      id: "vitest-convention",
+      kind: "convention",
+      tags: ["vitest"],
+      content: "测试使用 Vitest",
+      updatedAt: "2026-07-29T08:00:00.000Z"
+    });
+    const search = vi.spyOn(harness.memory, "search");
+
+    const result = await harness.loop.run("检查 Vitest 配置");
+
+    expect(result.status).toBe("completed");
+    expect(search).toHaveBeenCalledTimes(1);
+    expect(harness.provider.calls[0]?.context).toEqual(["测试使用 Vitest"]);
+    expect(harness.provider.calls[1]?.context).toEqual(["测试使用 Vitest"]);
+    expect(harness.memoryLifecycle.pending()).toEqual([
+      expect.objectContaining({ kind: "recent_result", content: "Vitest 检查完成" })
+    ]);
+  });
+
+  it("失败或阻断的任务不会生成 recent_result", async () => {
+    const harness = await createHarness([
+      { raw: { type: "read_file", path: "../secret.txt" } }
+    ]);
+
+    await harness.loop.run("读取越界文件");
+
+    expect(harness.memoryLifecycle.pending()).toEqual([]);
+  });
+
   it("成功读取结果会回灌给下一轮 Provider 并允许 finish", async () => {
     const harness = await createHarness([
       { raw: { type: "read_file", path: "README.md" } },

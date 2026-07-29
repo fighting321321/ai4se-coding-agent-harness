@@ -4,6 +4,7 @@ import type { Dispatcher } from "./dispatcher.js";
 import { classifyFeedback } from "./feedback.js";
 import type { JsonMemory } from "./json-memory.js";
 import type { LLMOutput, LLMProvider } from "./llm-provider.js";
+import { MemoryLifecycle } from "./memory-lifecycle.js";
 import type { PolicyEngine } from "./policy.js";
 import { Redactor } from "./redactor.js";
 import { SessionContext } from "./session-context.js";
@@ -21,6 +22,7 @@ export interface RunResult {
 export interface AgentLoopOptions {
   provider: LLMProvider;
   memory: JsonMemory;
+  memoryLifecycle?: MemoryLifecycle;
   dispatcher: Dispatcher;
   trace: JsonTrace;
   policy: PolicyEngine;
@@ -51,17 +53,13 @@ function providerStopReason(error: unknown): string {
     : "provider_error";
 }
 
-function taskKeywords(task: string): readonly string[] {
-  return (task.match(/[\p{L}\p{N}_-]+/gu) ?? []).slice(0, 20);
-}
-
 function isApprovalBlock(code: string): boolean {
   return code === "POLICY_DENIED" || code === "APPROVAL_REQUIRED" || code === "APPROVAL_DENIED";
 }
 
 export class AgentLoop {
   readonly #provider: LLMProvider;
-  readonly #memory: JsonMemory;
+  readonly #memoryLifecycle: MemoryLifecycle;
   readonly #dispatcher: Dispatcher;
   readonly #trace: JsonTrace;
   readonly #policy: PolicyEngine;
@@ -72,12 +70,15 @@ export class AgentLoop {
 
   constructor(options: AgentLoopOptions) {
     this.#provider = options.provider;
-    this.#memory = options.memory;
     this.#dispatcher = options.dispatcher;
     this.#trace = options.trace;
     this.#policy = options.policy;
     this.#approval = options.approval ?? new ApprovalGate();
     this.#redactor = options.redactor ?? new Redactor();
+    this.#memoryLifecycle = options.memoryLifecycle ?? new MemoryLifecycle({
+      memory: options.memory,
+      redactor: this.#redactor
+    });
     this.#session = options.session ?? new SessionContext({ redactor: this.#redactor });
     this.#maxSteps = options.maxSteps ?? DEFAULT_MAX_STEPS;
     if (!Number.isInteger(this.#maxSteps) || this.#maxSteps < 1) {
@@ -123,31 +124,33 @@ export class AgentLoop {
       1
     );
     this.#session.beginTurn(task);
+    this.#memoryLifecycle.collectExplicitConvention(task);
     let observations: readonly string[] = [];
     let businessFailures = 0;
 
+    const memory = await this.#memoryLifecycle.retrieve(task);
+    if (!memory.ok) {
+      this.#session.appendObservation("environment_error: Memory search failed");
+      const appended = await this.#append({
+        step: traceStartStep,
+        policy: "allow",
+        observation: "environment_error: Memory search failed",
+        status: "failed",
+        stopReason: "memory_error"
+      });
+      return appended
+        ? await this.#result("failed", "Memory 检索失败", 1, traceStartStep)
+        : await this.#result("failed", "Trace 写入失败", 1, traceStartStep);
+    }
+    const memoryContext = memory.value.map((item) => item.content);
+
     for (let iteration = 1; iteration <= this.#maxSteps; iteration += 1) {
       const step = traceStartStep + iteration - 1;
-      const memory = await this.#memory.search({ keywords: taskKeywords(task), limit: 5 });
-      if (!memory.ok) {
-        this.#session.appendObservation("environment_error: Memory search failed");
-        const appended = await this.#append({
-          step,
-          policy: "allow",
-          observation: "environment_error: Memory search failed",
-          status: "failed",
-          stopReason: "memory_error"
-        });
-        return appended
-          ? await this.#result("failed", "Memory 检索失败", iteration, traceStartStep)
-          : await this.#result("failed", "Trace 写入失败", iteration, traceStartStep);
-      }
-
       let output: LLMOutput;
       try {
         output = await this.#provider.complete(this.#session.toLLMInput(
           task,
-          memory.value.map((item) => item.content),
+          memoryContext,
           observations
         ));
       } catch (error) {
@@ -230,6 +233,7 @@ export class AgentLoop {
         }
         const summary =
           appended.value.action?.type === "finish" ? appended.value.action.summary : action.summary;
+        this.#memoryLifecycle.collectCompletedTask(task, summary);
         return await this.#result("completed", summary, iteration, traceStartStep);
       }
 
