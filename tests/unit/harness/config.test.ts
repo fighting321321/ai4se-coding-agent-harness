@@ -24,6 +24,12 @@ describe("parseHarnessConfig", () => {
     expect(result).toEqual({ ok: true, value: validConfig });
   });
 
+  it("接受可选的确定性上下文字符预算", () => {
+    const input = { ...validConfig, contextBudgetChars: 24_000 };
+
+    expect(parseHarnessConfig(input)).toEqual({ ok: true, value: input });
+  });
+
   it.each([
     "https://provider.example/v1",
     "http://localhost:11434/v1",
@@ -103,6 +109,11 @@ describe("parseHarnessConfig", () => {
     {
       name: "越界的最大步数",
       input: { ...validConfig, maxSteps: 0 },
+      code: "CONFIG_INVALID_VALUE"
+    },
+    {
+      name: "过小的上下文预算",
+      input: { ...validConfig, contextBudgetChars: 255 },
       code: "CONFIG_INVALID_VALUE"
     },
     {

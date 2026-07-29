@@ -10,6 +10,7 @@ export interface HarnessConfig {
   maxSteps: number;
   commandTimeoutMs: number;
   maxOutputBytes: number;
+  contextBudgetChars?: number;
   memoryPath: string;
   provider: {
     baseUrl: string;
@@ -44,6 +45,7 @@ const CONFIG_FIELDS = new Set([
   "maxSteps",
   "commandTimeoutMs",
   "maxOutputBytes",
+  "contextBudgetChars",
   "memoryPath",
   "provider"
 ]);
@@ -209,6 +211,12 @@ export function parseHarnessConfig(input: unknown): ConfigParseResult {
   ) {
     return failure("CONFIG_INVALID_VALUE", "配置数值超出允许范围");
   }
+  if (
+    input.contextBudgetChars !== undefined &&
+    !isIntegerInRange(input.contextBudgetChars, 256, 10 * 1024 * 1024)
+  ) {
+    return failure("CONFIG_INVALID_VALUE", "上下文预算超出允许范围");
+  }
 
   if (!validStoragePath(input.memoryPath)) {
     return failure(
@@ -225,6 +233,9 @@ export function parseHarnessConfig(input: unknown): ConfigParseResult {
       maxSteps: input.maxSteps,
       commandTimeoutMs: input.commandTimeoutMs,
       maxOutputBytes: input.maxOutputBytes,
+      ...(input.contextBudgetChars === undefined
+        ? {}
+        : { contextBudgetChars: input.contextBudgetChars }),
       memoryPath: input.memoryPath,
       provider: {
         baseUrl: input.provider.baseUrl,

@@ -128,6 +128,28 @@ describe("AgentLoop", () => {
     ]);
   });
 
+  it("上下文压缩后仍保留近期 Action/Observation 并继续调用工具直至 finish", async () => {
+    const session = new SessionContext({ maxContextChars: 260, recentMessageCount: 2 });
+    const harness = await createHarness(
+      [
+        { raw: { type: "read_file", path: "one.txt" }, assistantText: "先读取第一个文件" },
+        { raw: { type: "read_file", path: "two.txt" }, assistantText: "再读取第二个文件" },
+        { raw: { type: "finish", summary: "压缩后完成" }, assistantText: "完成" }
+      ],
+      { session }
+    );
+
+    const result = await harness.loop.run("读取两个文件并总结");
+
+    expect(result).toMatchObject({ status: "completed", summary: "压缩后完成", steps: 3 });
+    expect(harness.handlerCalls.readFile).toBe(2);
+    expect(harness.provider.calls[1]?.summary).not.toBe("");
+    expect(harness.provider.calls[1]?.messages?.map((message) => message.role)).toEqual([
+      "action",
+      "observation"
+    ]);
+  });
+
   it("首次业务失败后将脱敏反馈带入下一次调用，改用新动作并 finish", async () => {
     let commandCalls = 0;
     const harness = await createHarness(

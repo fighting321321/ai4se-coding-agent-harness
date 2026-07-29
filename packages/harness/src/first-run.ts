@@ -61,6 +61,7 @@ const DEFAULT_CONFIG = {
   maxSteps: 8,
   commandTimeoutMs: 60_000,
   maxOutputBytes: 32_768,
+  contextBudgetChars: 24_000,
   memoryPath: ".ai4se/memory.json"
 } as const;
 
