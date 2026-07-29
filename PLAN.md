@@ -1,6 +1,6 @@
 # Coding Agent Harness 课程最小实现计划
 
-> **状态修正（2026-07-24）：** T01–T12 和 `v1.1.0` 只完成课程最小基线，不代表《Agent 的一生》中的完整 Harness 已完成。路线 B 已恢复开发；面向用户的无参数 CLI、当前目录工作区、首次三项初始化和 Windows 无密码凭据保险库已经完成。不同终端任务仍不共享完整对话历史，主循环也没有 Memory 写入与 consolidate；下一步以 [`FULL_HARNESS_REASSESSMENT.md`](FULL_HARNESS_REASSESSMENT.md) 第 6 节为准。
+> **状态修正（2026-07-24）：** T01–T12 和 `v1.1.0` 只完成课程最小基线，不代表《Agent 的一生》中的完整 Harness 已完成。路线 B 已恢复开发；面向用户的无参数 CLI、当前目录工作区、首次三项初始化和 Windows 无密码凭据保险库已经完成。不同终端任务仍不共享完整对话历史，主循环也没有 Memory 写入与 consolidate；下一步以 [`FULL_HARNESS_REASSESSMENT.md`](docs/assessments/FULL_HARNESS_REASSESSMENT.md) 第 6 节为准。
 
 > **路线 B 初始化边界（2026-07-24）：** 首次运行只允许向用户收集服务地址、隐藏 API Key 和模型名称；三项均由用户直接填写。当前目录自动成为工作区，其余配置全部由程序内部生成。普通流程不得要求选择 Provider、选择预设模型、编辑 JSON、指定路径或设置本地保护密码；`v1.1.0` 的主密码流程仅作为历史兼容实现。
 

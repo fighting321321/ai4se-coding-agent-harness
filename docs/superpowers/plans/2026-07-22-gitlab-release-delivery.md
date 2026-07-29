@@ -91,7 +91,7 @@ git commit -m "ci: 改用Release交付CLI产物"
 - Modify: `SPEC_PROCESS.md`
 - Modify: `AGENT_LOG.md`
 - Modify: `REFLECTION.md`
-- Modify: `COLD_START_VALIDATION.md`
+- Modify: `docs/assessments/COLD_START_VALIDATION.md`
 - Modify: `AGENTS.md`
 - Modify: `packages/harness/README.md`
 - Modify: `docs/superpowers/specs/2026-07-20-t11-dual-mode-web-design.md`
@@ -158,7 +158,7 @@ WebUI 仍可通过仓库统一入口在本地运行；静态页面只用于脱�
 - `PLAN.md`：标记 T01–T12 和最终本地/远端流水线完成，将 T11/T12 的当前交付结论改为 Release；历史执行证据保持原文。
 - `SPEC_PROCESS.md`、`AGENT_LOG.md`：追加 2026-07-22 最终迭代，记录 Pages 失败证据、人工选择方案 A、Release 决策与流水线结果。
 - `REFLECTION.md`：保留学生本人观点，补充“真实部署环境迫使方案从 Pages 收缩到 Release”的经验，并保留 AI 仅辅助整理润色的声明。
-- `COLD_START_VALIDATION.md`：在标题后标明这是实现前的历史验证记录，未完成步骤不代表当前项目缺口。
+- `docs/assessments/COLD_START_VALIDATION.md`：在标题后标明这是实现前的历史验证记录，未完成步骤不代表当前项目缺口。
 - `AGENTS.md`：当前状态改为 T01–T12 完成、最终交付采用 Release、后续只在 `dev` 收尾。
 - `packages/harness/README.md`：增加 Release 获取、Node 24 安装和 `ai4se-harness smoke`。
 - T11 的旧设计与计划：标题后增加“历史方案，已由 2026-07-22 Release 方案取代”的醒目标记，不删除历史内容。
@@ -177,7 +177,7 @@ Expected: 全部测试通过，关键交付文档无 Pages 占位或过期待核
 - [ ] **Step 5: 提交交付文档**
 
 ```powershell
-git add -- README.md SPEC.md PLAN.md SPEC_PROCESS.md AGENT_LOG.md REFLECTION.md COLD_START_VALIDATION.md AGENTS.md packages/harness/README.md docs/superpowers/specs/2026-07-20-t11-dual-mode-web-design.md docs/superpowers/plans/2026-07-20-t11-dual-mode-web.md tests/unit/audit/final-audit.test.ts
+git add -- README.md SPEC.md PLAN.md SPEC_PROCESS.md AGENT_LOG.md REFLECTION.md docs/assessments/COLD_START_VALIDATION.md AGENTS.md packages/harness/README.md docs/superpowers/specs/2026-07-20-t11-dual-mode-web-design.md docs/superpowers/plans/2026-07-20-t11-dual-mode-web.md tests/unit/audit/final-audit.test.ts
 git commit -m "docs: 统一最终作业交付文档"
 ```
 

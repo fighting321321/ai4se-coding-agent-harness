@@ -1,6 +1,6 @@
 # Coding Agent Harness
 
-> **开发状态（dev 重新评估）：** `v1.1.0` 是安全工具循环与分发基线，不是《Agent 的一生》所描述的最终 Harness。它不能让后一项终端任务读取前一项任务的对话内容，`JsonMemory` 也尚未接入主循环的写入与固化。项目负责人已批准路线 B（教学级完整 Harness）；面向普通用户的首次三项向导、Windows 当前用户凭据保护和当前目录工作区已经完成。完整差距、CLI 决策、提交上限和成本估计见 [`FULL_HARNESS_REASSESSMENT.md`](FULL_HARNESS_REASSESSMENT.md)。当前版本仍不应作为完整 Harness 最终提交。
+> **开发状态（dev 重新评估）：** `v1.1.0` 是安全工具循环与分发基线，不是《Agent 的一生》所描述的最终 Harness。它不能让后一项终端任务读取前一项任务的对话内容，`JsonMemory` 也尚未接入主循环的写入与固化。项目负责人已批准路线 B（教学级完整 Harness）；面向普通用户的首次三项向导、Windows 当前用户凭据保护和当前目录工作区已经完成。完整差距、CLI 决策、提交上限和成本估计见 [`FULL_HARNESS_REASSESSMENT.md`](docs/assessments/FULL_HARNESS_REASSESSMENT.md)。当前版本仍不应作为完整 Harness 最终提交。
 
 一个面向课程学习的、可确定性验证的 Coding Agent Harness。它把可替换的 LLM 补全放进由 TypeScript 代码实现的工具边界、策略、记忆、反馈和 Trace 中，并提供可连续输入任务的终端 Agent；它不是线上多用户平台。
 
@@ -43,7 +43,7 @@ Harness 的六个维度及其对应实现是：
 ## 作业交付清单
 
 - 设计与计划：[`SPEC.md`](SPEC.md)、[`PLAN.md`](PLAN.md)、[`SPEC_PROCESS.md`](SPEC_PROCESS.md)。
-- 过程与反思：[`AGENT_LOG.md`](AGENT_LOG.md)、[`COLD_START_VALIDATION.md`](COLD_START_VALIDATION.md)、[`REFLECTION.md`](REFLECTION.md)。
+- 过程与反思：[`AGENT_LOG.md`](AGENT_LOG.md)、[`COLD_START_VALIDATION.md`](docs/assessments/COLD_START_VALIDATION.md)、[`REFLECTION.md`](REFLECTION.md)。
 - 实现与测试：`packages/harness` 自研内核、`apps/api` CLI/本地 API、`apps/web` 本地 WebUI，以及 mock LLM 单元测试和三项机制演示。
 - 持续集成：`.gitlab-ci.yml` 中精确名为 `unit-test` 的作业，执行测试、lint、类型检查、构建、演示、打包和凭据审计。
 - 托管分发：[GitLab v1.1.0 Release](https://git.nju.edu.cn/HuanghaoXu/ai4se-coding-agent-harness/-/releases/v1.1.0) 与 `ai4se-harness-0.2.0.tgz`；原 v1.0.0 Release 保留为首版交付记录。
