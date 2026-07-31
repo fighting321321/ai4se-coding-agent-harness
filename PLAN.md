@@ -1,18 +1,18 @@
 # Coding Agent Harness 课程最小实现计划
 
-> **状态修正（2026-07-29）：** T15 已完成 Skill 渐进加载、最小 MCP 适配/mock 和四类生命周期 Hooks。下一步仍以 [`FULL_HARNESS_REASSESSMENT.md`](docs/assessments/FULL_HARNESS_REASSESSMENT.md) 第 6 节为准，进入受限子 Agent、自动传感器与 Checkpoint 单项。
+> **状态修正（2026-07-31）：** T16 已完成串行受限子 Agent、写后自动传感器与教学级 Checkpoint。下一步仍以 [`FULL_HARNESS_REASSESSMENT.md`](docs/assessments/FULL_HARNESS_REASSESSMENT.md) 第 6 节为准，只进入 T17 完整 Trace、真实 Provider、tarball 与 `v2.0.0` Release 验收。
 
 > **路线 B 初始化边界（2026-07-24）：** 首次运行只允许向用户收集服务地址、隐藏 API Key 和模型名称；三项均由用户直接填写。当前目录自动成为工作区，其余配置全部由程序内部生成。普通流程不得要求选择 Provider、选择预设模型、编辑 JSON、指定路径或设置本地保护密码；`v1.1.0` 的主密码流程仅作为历史兼容实现。
 
 > **For agentic workers:** 按 T06–T12 串行执行；每个 Task 使用独立 branch/worktree、一次新鲜 subagent、TDD、Spec 检查、质量检查和 MR Pipeline。步骤用 `guiding.md` 细化，不扩展本计划范围。
 
-**版本：** 2.7.0
+**版本：** 2.8.0
 
-**SPEC 基线：** `SPEC.md` 2.5.0
+**SPEC 基线：** `SPEC.md` 2.6.0
 
 **目标日期：** 2026-07-25
 
-**当前状态：** G1–G3、T01–T15 已完成；T15 分支等待负责人手动合并。完整 Harness Gate 仍打开，后续完成子 Agent/传感器/Checkpoint，再发布 `v2.0.0`。
+**当前状态：** G1–G3、T01–T16 已完成；T16 分支等待负责人手动合并。完整 Harness Gate 仍打开，后续只执行 T17 验收与 `v2.0.0` 发布。
 
 ### 路线 B 剩余任务（简化）
 
@@ -88,7 +88,8 @@ pnpm build
 | T12 | npm 分发、README、反思与最终审计 | `docs/t12-final-delivery` | 已合入 `dev`（MR !14，merge `6f8b5d6`） | 7 |
 | T13 | 完整短期会话、命令、规则与压缩 | `feat/t13-session-context-rules` | 已合入 `dev`（merge `32006ec`） | 7 |
 | T14 | 长期 Memory 生命周期、重启恢复与管理 | `feat/t14-memory-lifecycle` | 已合入 `dev`（merge `e9a6e2a`） | 7 |
-| T15 | Skill、MCP 与生命周期 Hooks | `feat/t15-skills-mcp-hooks` | 已完成，等待负责人手动合并 | 7 |
+| T15 | Skill、MCP 与生命周期 Hooks | `feat/t15-skills-mcp-hooks` | 已合入 `dev`（merge `77e9e78`） | 7 |
+| T16 | 受限子 Agent、Sensor 与 Checkpoint | `feat/t16-subagent-feedback-checkpoint` | 已完成，等待负责人手动合并 | 7 |
 
 ## 5. T05：工程骨架与最小 CI（已完成）
 
@@ -382,3 +383,13 @@ pnpm pack
 - `McpRegistry` 和 `MockMcpConnection` 只提供自研适配边界、稳定发现和离线调用；`call_mcp` 固定视为外部信任边界并逐次审批，不连接真实服务。
 - `AgentLoop` 每轮提供限长统一能力菜单，Skill/MCP/Hook 接入脱敏上下文、Observation 与 Trace；T13 会话和 T14 Memory 收尾保持兼容。
 - TDD 从 9 个缺失边界用例 RED 开始；最终统一 test、lint、typecheck、build、demo 和 audit 均退出 0，demo 4/4，Vite 构建 17 modules。未使用真实 Provider、网络或凭据。
+
+## 17. T16：受限子 Agent、Sensor 与 Checkpoint（已完成）
+
+- `delegate_agent` 由 `SubagentManager` 串行执行；子 Harness 使用独立 `SessionContext`、父级最小工具授权、最大深度、单子步骤上限和 `SharedStepBudget`。父会话只接收脱敏限长摘要。
+- `FeedbackSensorSuite` 严格接收 `executable`/`args`，生产装配复用 `CommandTool` 安全边界；成功写入后按 test、lint、typecheck 稳定顺序运行，结果回灌 Observation。
+- `WorkspaceCheckpoint` 只快照明确的受限 UTF-8 单文件；工具/Sensor/Post Hook 失败时逐个恢复。新文件只删除本次创建的单个已确认文件，恢复目标变成目录或符号链接时固定失败且不递归清理。
+- Trace 记录父子关系、共享预算、Sensor、Checkpoint 和外部副作用不可快照限制；命令/MCP 不会被虚假描述为已回滚。
+- TDD 从缺失构造器的 8 项有效 RED 开始；完整离线测试最终覆盖写后通过、Sensor/工具失败恢复、恢复失败、Pre Hook 零快照、工具越权、深度/预算和外部限制。未使用真实 Provider、网络或凭据。
+- 收尾审查发现真实 Provider 的系统提示仍只列出 T15 六类 Action；新增契约测试得到 404 项中单一 RED，补入第七类 `delegate_agent` 精确 JSON schema 后恢复 404/404 GREEN。
+- 最终统一 `all` 门禁为 42/42 测试文件、404/404 用例；lint、typecheck、Harness/API/Web build、4/4 demo 和 audit 全部退出 0，Vite 构建 17 modules。分支核心提交为 `db82a78`，提示契约修复为 `0c5204a`。

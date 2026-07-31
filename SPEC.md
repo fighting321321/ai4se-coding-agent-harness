@@ -1,17 +1,17 @@
 # Coding Agent Harness 课程最小交付规约
 
-> **2026-07-29 T15 增量：** 路线 B 已完成本地 Skill 渐进加载、最小 MCP 适配/mock，以及 `SessionStart`、`PreToolUse`、`PostToolUse`、`SessionEnd` 四类 Hooks。子 Agent、自动传感器和 Checkpoint 仍未实现，因此完整 Harness Gate 继续打开；后续范围仍以 [`FULL_HARNESS_REASSESSMENT.md`](docs/assessments/FULL_HARNESS_REASSESSMENT.md) 第 6 节为准。
+> **2026-07-31 T16 增量：** 路线 B 已完成串行受限子 Agent、写后结构化反馈传感器和教学级单文件 Checkpoint。完整 Harness Gate 仍等待 T17 的真实 Provider、完整 Trace、tarball 与 `v2.0.0` Release 验收；后续范围仍以 [`FULL_HARNESS_REASSESSMENT.md`](docs/assessments/FULL_HARNESS_REASSESSMENT.md) 第 6 节为准。
 
 ## 0. 文档控制
 
 | 字段 | 值 |
 | --- | --- |
-| 文档版本 | 2.5.0 |
-| 批准日期 | 2026-07-29 |
+| 文档版本 | 2.6.0 |
+| 批准日期 | 2026-07-31 |
 | 项目负责人 | 徐黄浩 |
 | 权威需求来源 | 本文件；`guide/AI4SE_Final_Project_通用要求.md` 与 `guide/AI4SE_Final_Project_A_Coding_Agent_Harness.md` 是不可删减的上位要求 |
 | 当前 Gate | `v1.1.0` 基线已交付并通过门禁；完整 Harness Gate 已重新打开，路线 B 及面向用户的 CLI 方向已获批准，延期实施 |
-| 实现范围 | T05–T15；T15 只增加 Skill、最小 MCP 与四类生命周期 Hooks |
+| 实现范围 | T05–T16；T16 只增加串行受限子 Agent、自动 Sensor 与受控 Checkpoint |
 
 本版本取代 SPEC 1.0.0 的实现承诺。旧版本保留为 Git 历史和过程证据，不再要求实现数据库、多用户平台、复杂决策版本、SSE、Docker 或线上后端。任何删减都不得违反上述两份课程原始要求。
 
@@ -41,6 +41,7 @@
 7. 作为评审者，我希望一条命令运行全部离线测试和三项机制演示，并能从 README 理解静态 mock 运行轨迹。
 8. 作为新用户，我希望从 GitLab `v1.0.0` Release 下载 npm tarball，在全新目录安装并按照 README 完成配置与运行。
 9. 作为 CLI 用户，我希望后一题能引用前文，并能用 `/new` 重置短期对话、用 `/model` 查看或保存模型；超出预算时仍保留安全约束、规则、目标、摘要和近期消息。
+10. 作为复杂任务使用者，我希望父 Agent 能串行委派受限子 Agent，并在写入后自动验证；若工具或 Sensor 失败，只恢复明确快照的单文件且不伪称回滚外部副作用。
 
 这些故事可独立验收，均有明确用户、价值和可观察结果。
 
@@ -89,6 +90,7 @@ type Action =
   | { type: "run_command"; executable: string; args: readonly string[] }
   | { type: "load_skill"; name: string }
   | { type: "call_mcp"; server: string; tool: string; arguments: Readonly<Record<string, unknown>> }
+  | { type: "delegate_agent"; task: string; allowedTools: readonly string[] }
   | { type: "finish"; summary: string };
 ```
 
@@ -150,6 +152,15 @@ JSON 配置通过运行时 schema 校验，至少包含工作区路径、允许�
 - Hook 固定为 `SessionStart`、`PreToolUse`、`PostToolUse`、`SessionEnd`，按注册顺序串行执行。Pre 可在副作用前阻断；Post 只接收脱敏结果；异常统一映射为固定错误。
 - Hook 事件使用会话 ID 写入 Trace 的独立有序事件列表；`SessionEnd` 在 `/new`、`/exit`、EOF 和可控异常边界至多执行一次，并先于 Memory consolidate。
 
+### 4.11 T16 受限子 Agent、Sensor 与 Checkpoint
+
+- `delegate_agent` 只串行启动子 Harness；子 Agent 使用新建的 `SessionContext`，只接收任务、规则/Skill 名片和父级允许的最小工具集，不复用父会话历史。
+- 深度、每个子 Agent 步骤数和父子共享总步骤预算由代码强制；耗尽时确定性停止。子 Agent 只返回脱敏、限长摘要，不回灌完整内部消息或大段输出。
+- Sensor 配置只包含稳定名称、`executable`、`args` 和可选启用状态，复用既有 `CommandTool` 的无 Shell、白名单、超时与输出边界；只有成功的 `write_file` 自动触发。
+- `WorkspaceCheckpoint` 只快照明确写入目标的受限 UTF-8 单文件。目录、符号链接、敏感路径、凭据正文和超限文件均拒绝；失败时逐个恢复原文件，或只删除本次创建的一个已确认普通文件。
+- 命令与 MCP 的任意外部副作用不在教学级 Checkpoint 能力内；Trace 明确记录不可快照限制，不声称已经回滚。
+- Trace 条目补充父子会话关系、共享预算、Sensor 分类、Checkpoint 创建/恢复和外部回滚限制，全部经过统一 Redactor。
+
 ## 5. 功能规约
 
 ### 5.1 Mock LLM 与动作解析
@@ -210,6 +221,13 @@ JSON 配置通过运行时 schema 校验，至少包含工作区路径、允许�
 - 在全新临时目录安装 tarball并运行离线 smoke。
 - README 必须包含项目简介、架构/主要贡献、安装、运行、测试、三项演示、本地 WebUI、GitLab Release URL、凭据录入/状态/更新/清除、目录、安全边界、分发和已知限制、第三方许可证。
 - `REFLECTION.md` 1500–2500 字，由项目负责人本人撰写；AI 仅可润色并标注。
+
+### 5.9 T16 扩展闭环
+
+- 输入：委派动作、结构化 Sensor 配置和明确单文件写入目标。
+- 行为：父 Agent 串行委派 → 子上下文受限执行 → 摘要回灌；写前快照 → 写入 → Sensor → 成功提交或失败恢复。
+- 输出：脱敏 Observation，以及包含父子、预算、Sensor、Checkpoint 和回滚限制的 Trace 细节。
+- 边界：不并行、不使用 worktree/操作系统快照；不递归复制或删除工作区；不回滚未声明的外部副作用。
 
 ## 6. 架构与数据流
 

@@ -575,3 +575,14 @@
 - 会话与兼容：`/new`、`/exit`、EOF 和可控异常先运行一次 SessionEnd，再 consolidate T14 Memory；T13 的完整消息上下文、压缩与真实 Provider 提示均能携带能力菜单和已命中 Skill。秘密不会进入普通输出、上下文、Trace 或 Memory。
 - 最终门禁：PowerShell 执行策略要求仅对子进程使用 `ExecutionPolicy Bypass`，所有命令仍通过 `scripts/project-env.ps1`。统一 test、lint、typecheck、build、demo 和 audit 均退出 0；demo 4/4，Vite 静态构建 17 modules，最终审计确认当前受控文件、完整 Git 历史与静态 Web artifact 无凭据命中。
 - 交付状态：分支保持 `feat/t15-skills-mcp-hooks`，不合并 `dev`、不创建或合并 MR、不发布版本，等待项目负责人检查与手动合并。未读取 `.ai4se/temp-api-key.txt`，未使用真实 Provider，未读取、记录或提交任何真实凭据。
+
+### 2026-07-31 · T16 受限子 Agent、反馈传感器与 Checkpoint
+
+- 范围与提交：严格只实现串行受限子 Harness、写后结构化 Sensor 和教学级单文件 Checkpoint；没有实现并行 Agent、Git worktree、网络/操作系统沙箱、生产调度器、版本发布或 T17 提交材料。首提交为 `a5659c2`，核心实现与离线测试为 `db82a78`，Provider 提示契约审查修复为 `0c5204a`，分支总提交数保持在 7 条上限内。
+- TDD：新增 Checkpoint、Sensor、Subagent 三组单元测试时，9 个用例中 8 个因构造器/导出缺失得到有效 RED，既有 383 项全部通过；最小实现转为 GREEN。端到端再用 `ScriptedMockLLM`、mock Sensor 与隔离临时工作区覆盖写后通过、Sensor 失败恢复、工具失败恢复、恢复失败、Pre Hook 零快照、只读委派、工具越权和父子预算。收尾审查新增 Provider 委派 schema 契约，得到 404 项中单一 RED 后修复为 GREEN。
+- 子 Agent：`delegate_agent` 只串行进入 `SubagentManager`。每个子 Agent 新建 `SessionContext`，只获得请求任务和父级允许的最小工具集；最大深度、单子步骤上限和 `SharedStepBudget` 由代码强制。父会话只接收统一 Redactor 处理并限长的状态摘要，不接收内部消息或大段输出；子模型请求未授权写入时 handler 调用保持为零。
+- Sensor：`FeedbackSensorSuite` 只接受稳定名称、`executable`、`args` 与可选启用状态，拒绝 Shell、删除类命令、NUL 和重复名称。生产装配复用既有 `CommandTool` 白名单、超时与输出上限；只有成功 `write_file` 触发，按 test、lint、typecheck 稳定顺序运行，分类、截断和脱敏结果回灌 Observation 与 Trace。
+- Checkpoint：`WorkspaceCheckpoint` 只保存明确目标的存在状态、受限 UTF-8 正文和必要元数据；拒绝目录、符号链接、敏感路径、敏感正文和超限文件。工具、Sensor 或 Post Hook 失败时逐个恢复既有文件；原文件不存在时只删除本次创建的那个已确认普通文件。目标被替换为目录时固定返回 `CHECKPOINT_RESTORE_UNSAFE`，不递归清理；成功写入后立即丢弃内存快照正文。
+- 外部边界与 Trace：命令和 MCP 的任意外部副作用不在单文件快照能力内，Trace 写入 `external_side_effect_not_snapshot_capable`，不声称已回滚。Trace 同时记录父子 session、深度、步骤/共享预算、Sensor 分类、Checkpoint 创建/恢复及恢复失败，所有内容统一脱敏。
+- 最终统一门禁：仅通过 `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\project-env.ps1 all` 运行；42/42 测试文件、404/404 用例通过，lint、typecheck、Harness/API/Web build、4/4 demo 和最终 audit 全部退出 0，Vite 静态构建为 17 modules。审计确认当前受控文件、完整 Git 历史和可用静态 Web artifact 未发现凭据命中。
+- 交付状态：分支保持 `feat/t16-subagent-feedback-checkpoint`，不合并 `dev`、不创建或合并 MR、不发布版本，等待项目负责人检查与手动合并。未读取 `.ai4se/temp-api-key.txt`，未使用真实 Provider，未读取、记录或提交任何真实凭据。
