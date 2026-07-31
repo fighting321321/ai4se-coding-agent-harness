@@ -1,6 +1,6 @@
 {
   "name": "@ai4se/harness",
-  "version": "0.2.0",
+  "version": "2.0.0",
   "description": "可确定性验证的教学型 Coding Agent Harness 内核",
   "license": "UNLICENSED",
   "type": "module",
