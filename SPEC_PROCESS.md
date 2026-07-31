@@ -572,3 +572,11 @@
 - 人工决策：项目负责人在“继续尝试 Pages、自动 Release、CLI + 手工 GitLab Release、迁移 GitHub”之间明确选择方案 A：保留本地 WebUI，停止无效 Pages 部署，以 `v1.0.0` GitLab Release 和 `ai4se-harness-0.1.0.tgz` 交付。
 - 需求依据：助教后续补充说明允许只提供 CLI 的 Agent Harness 使用托管平台 Release 链接；该具体部署口径取代通用要求中必须提供 WebUI URL 的原表述，其余 Guide 硬性要求保持不变。
 - 范围控制：不新增数据库、线上后端、GitHub 迁移或自动发布系统；只收缩 CI、统一交付文档、验证 tarball 并创建 Release。
+
+### 2026-07-31 · T17 v2.0.0 候选收尾
+
+- 需求收敛：不继续扩展 Harness，只补完整 Trace 审计、最终离线验收、2.0.0 tarball 与助教可独立执行的 Release 说明。
+- Trace 决策：沿用 entries 与 Hook events 的简单 JSON 结构，升级为 v3 并增加最小会话/摘要/审批字段；不引入数据库、时间线服务或生产级追踪后端。为避免秘密和无界增长，所有新增摘要继续经过统一 Redactor，且文件、字段、条目数均设置硬上限。
+- 测试决策：核心机制正确性只由 `ScriptedMockLLM`、Mock MCP、内存保险库、本地临时目录和注入式 Hook/Sensor 证明；真实 Provider 留给总控人工补充验收。
+- 分发决策：包版本直接升级为 2.0.0，与最终完整 Harness Release 对齐；正式附件必须来自最终标签所指提交的成功 CI artifact，不提交工作分支本地生成的 tgz。
+- 发布边界：学校 GitLab 无公开 Pages，继续采用 CLI + Release。URL 和校验和只有在真实 Release/CI artifact 存在后才能填写，本分支不创建标签、推送或公开发布。

@@ -9,7 +9,7 @@
 
 ## 当前开发状态
 
-- T01–T12 单项任务均已结束，`guiding.md` 在 `dev` 中保持为空。
-- 后续修复和最终交付收尾直接在 `dev` 分支提交，不再创建新的 Txx 分支；除非用户另有明确要求。
-- 学校 GitLab 未提供可用的公开 Pages 地址；最终托管交付采用助教允许的“CLI + GitLab `v1.0.0` Release”，WebUI 仅保留本地模式与静态 mock 源码。
+- T01–T16 单项任务均已结束；T17 按负责人明确要求在 `release/t17-harness-v2` 完成最终验收与 v2.0.0 Release 材料准备。
+- T17 只准备代码、测试、文档和 Release 材料；合并 `dev`、真实 Provider 验收、标签、推送和公开发布由总控执行。
+- 学校 GitLab 未提供可用的公开 Pages 地址；最终托管交付采用助教允许的“CLI + GitLab `v2.0.0` Release”，WebUI 仅保留本地模式与静态 mock 源码。
 - 不得把真实 API Key、密码、token 或其他凭据写入聊天、命令参数、源码、日志、测试输出或 Git。

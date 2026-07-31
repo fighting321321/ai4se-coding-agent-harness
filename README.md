@@ -1,6 +1,6 @@
 # Coding Agent Harness
 
-> **开发状态（T16）：** `v1.1.0` 仍只是已发布基线，完整 Harness Gate 保持打开。T13–T16 已补齐短期会话、长期 Memory、Skill/MCP/Hooks、串行受限子 Agent、写后反馈传感器和教学级 Checkpoint；后续仍需由 T17 完成真实 Provider、完整 Trace、tarball 与 `v2.0.0` Release 验收。完整差距与顺序见 [`FULL_HARNESS_REASSESSMENT.md`](docs/assessments/FULL_HARNESS_REASSESSMENT.md)。
+> **v2.0.0 候选状态（T17）：** 教学级完整 Harness、Trace v3、最终离线验收矩阵与全新目录 tarball smoke 已准备；本分支尚未合并、打标签或公开发布。真实 Provider 最终验收和 GitLab v2.0.0 Release 由总控完成。离线证据见 [`T17_OFFLINE_ACCEPTANCE_MATRIX.md`](docs/assessments/T17_OFFLINE_ACCEPTANCE_MATRIX.md)。
 
 一个面向课程学习的、可确定性验证的 Coding Agent Harness。它把可替换的 LLM 补全放进由 TypeScript 代码实现的工具边界、策略、记忆、反馈和 Trace 中，并提供可连续输入任务的终端 Agent；它不是线上多用户平台。
 
@@ -48,7 +48,7 @@ Harness 的六个维度及其对应实现是：
 - 过程与反思：[`AGENT_LOG.md`](AGENT_LOG.md)、[`COLD_START_VALIDATION.md`](docs/assessments/COLD_START_VALIDATION.md)、[`REFLECTION.md`](REFLECTION.md)。
 - 实现与测试：`packages/harness` 自研内核、`apps/api` CLI/本地 API、`apps/web` 本地 WebUI，以及 mock LLM 单元测试和三项机制演示。
 - 持续集成：`.gitlab-ci.yml` 中精确名为 `unit-test` 的作业，执行测试、lint、类型检查、构建、演示、打包和凭据审计。
-- 托管分发：[GitLab v1.1.0 Release](https://git.nju.edu.cn/HuanghaoXu/ai4se-coding-agent-harness/-/releases/v1.1.0) 与 `ai4se-harness-0.2.0.tgz`；原 v1.0.0 Release 保留为首版交付记录。
+- 托管分发：GitLab `v2.0.0` Release（公开地址由总控发布后填写）与 `ai4se-harness-2.0.0.tgz`。旧 v1.x Release 只作为历史基线保留。
 
 ## 前提与源码安装
 
@@ -101,7 +101,7 @@ ai4se-harness
 
 以下流程只用于维护和验证旧式配置、主密码凭据及显式命令，不是普通用户的启动方式。
 
-### 1. 打包、安装与离线检查
+### 1. 仓库内打包、安装与离线检查
 
 在仓库根目录运行：
 
@@ -190,6 +190,22 @@ ai4se-harness
 
 兼容入口 `ai4se-harness start --config .ai4se/config.json` 和一次性 `--task` 仍然保留，但不属于最终普通用户流程。
 
+## v2.0.0 能力验收速查
+
+| 能力 | 助教可验证方式 | 教学级限制 |
+| --- | --- | --- |
+| 连续会话 | 连续提两项相关任务，后一题应能引用前文；`/new` 后短期上下文重置 | 单进程、单用户 |
+| Memory | 完成任务后 `/exit`，重新启动并对相关主题提问；`/memory` 只显示脱敏摘要 | 关键词/标签检索，不是向量库 |
+| Skill | 在测试仓库运行统一 `test`，查看渐进加载用例；运行时未命中只暴露名片，明确 `load_skill` 后才读正文 | 仅工作区本地 Skill，无远程市场 |
+| MCP | 运行统一 `test` 的 `extensions.test.ts` 场景，观察 Mock MCP 发现、逐次审批和结果回灌 | 只有适配接口与离线 mock，无生产协议客户端 |
+| Hook | `/trace` 查看生命周期结果；离线测试证明 Pre 在副作用前阻断、Post/SessionEnd 稳定执行 | 固定四类串行 Hook |
+| 子 Agent | 离线测试证明独立上下文、最小工具授权、深度和共享预算停止 | 只串行，不使用 worktree 或生产调度 |
+| Sensor | 允许写入动作后，配置的 test/lint/typecheck 结果进入下一轮 Observation | 只在成功写入后运行结构化命令 |
+| Checkpoint | 离线失败场景验证原文件恢复；Trace 显示创建/恢复结果 | 只处理明确 UTF-8 单文件，不回滚外部副作用 |
+| Trace | `/trace` 查看本次轮次；离线 `JsonTrace.replay()` 验证完整 v3、v1/v2 迁移、脱敏和大小边界 | 文件上限 1 MiB，摘要限长，不保存凭据或不必要正文 |
+
+仓库内所有上述测试统一通过 `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\project-env.ps1 test` 运行；Release 用户无需仓库源码即可完成普通 CLI、Memory 与 Trace 验收。
+
 ## 本地 Web：一次运行的临时 Key
 
 本地模式会一起启动仅监听回环地址的 API 和 Vite 开发服务器：
@@ -202,24 +218,22 @@ pnpm web:local
 
 本地表单一次提交任务、Provider Base URL、模型和 Key 到相对 `/api/runs`。Key 使用 password 输入框，只用于这一次请求：前端无论成功或失败都会清空它，后端不落盘、不回显、不记录，也不重试。页面不会使用浏览器持久化存储。该模式默认没有人工审批，因此 `ask` 写入动作会被阻断；需要持久化加密凭据或逐项审批时，请改用 CLI。
 
-## 托管交付：GitLab Release
+## 托管交付：GitLab v2.0.0 Release
 
-课程检查入口：[v1.1.0 Release](https://git.nju.edu.cn/HuanghaoXu/ai4se-coding-agent-harness/-/releases/v1.1.0)。学校 GitLab 当前没有为本项目提供可用的公开 Pages 地址，因此依据助教补充说明，本项目采用“CLI + 托管平台 Release”方式交付，不迁移到 GitHub。
+课程检查入口：**【总控发布后填写 GitLab v2.0.0 Release URL】**。学校 GitLab 当前没有为本项目提供可用的公开 Pages 地址，因此依据助教补充说明，本项目采用“CLI + 托管平台 Release”方式交付，不迁移到 GitHub，也不伪造尚不存在的公开 URL。
 
-从 Release 下载 `ai4se-harness-0.2.0.tgz` 后，在 Node.js 24 与 pnpm 11.14.0 环境中安装并验证：
+从 Release 下载 `ai4se-harness-2.0.0.tgz` 后，在 Node.js 24 与 pnpm 11.14.0 环境中全局安装：
 
 ```powershell
-pnpm add --global .\ai4se-harness-0.2.0.tgz
+pnpm add --global .\ai4se-harness-2.0.0.tgz
 ai4se-harness smoke
-ai4se-harness credentials init
-ai4se-harness start --config .ai4se/config.json
 ```
 
-`smoke` 成功时输出 `AI4SE Harness 离线 smoke：completed`。`start` 会打开持续运行的 `ai4se>` 终端会话。WebUI 仍可通过仓库统一入口在本地运行；`apps/web` 的静态页面只用于脱敏架构演示，不接收 API Key，也不连接线上后端。
+`smoke` 成功时输出 `AI4SE Harness 离线 smoke：completed`，且不会读取配置或凭据。随后进入任意待检查项目目录，直接运行 `ai4se-harness`；首次只填写服务地址、隐藏 API Key 和模型名称。连续输入两项任务验证上下文，用 `/exit` 安全退出，再次在同一目录运行 `ai4se-harness` 验证无需重复填写 Key，并用 `/memory` 检查脱敏长期记忆。普通验收不需要 `credentials`、`start --config`、手工 JSON 或本地保护密码。WebUI 仍可通过仓库统一入口在本地运行；静态页面只用于脱敏架构演示。
 
 ## npm tarball 分发 smoke
 
-`@ai4se/harness` 0.2.0 是可安装的 ESM 包，提供类型入口、共享任务运行器、会话运行器、`runOfflineSmoke` 和 `ai4se-harness` CLI。以下 PowerShell 命令会构建 tarball，在新目录离线安装，然后分别验证 ESM 导入和已安装 CLI：
+`@ai4se/harness` 2.0.0 是可安装的 ESM 包，提供类型入口、共享任务运行器、会话运行器、`runOfflineSmoke` 和 `ai4se-harness` CLI。以下 PowerShell 命令会构建 tarball，在新目录离线安装，然后分别验证 ESM 导入和已安装 CLI：
 
 ```powershell
 pnpm --filter @ai4se/harness build
