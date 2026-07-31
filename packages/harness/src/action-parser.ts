@@ -101,6 +101,28 @@ export function parseAction(raw: unknown): ActionParseResult {
       };
     }
 
+    case "delegate_agent": {
+      const allowed = new Set(["read_file", "write_file", "run_command", "load_skill", "call_mcp"]);
+      if (
+        !hasExactKeys(raw, ["type", "task", "allowedTools"]) ||
+        typeof raw.task !== "string" || raw.task.trim().length === 0 || raw.task.length > 4_096 ||
+        !Array.isArray(raw.allowedTools) ||
+        raw.allowedTools.length > 5 ||
+        !raw.allowedTools.every((tool) => typeof tool === "string" && allowed.has(tool)) ||
+        new Set(raw.allowedTools).size !== raw.allowedTools.length
+      ) {
+        return failure("delegate_agent 动作必须且只能包含非空 task 和不重复的受限 allowedTools");
+      }
+      return {
+        ok: true,
+        value: {
+          type: "delegate_agent",
+          task: raw.task,
+          allowedTools: [...raw.allowedTools] as Extract<Action, { type: "delegate_agent" }>["allowedTools"]
+        }
+      };
+    }
+
     case "finish":
       if (!hasExactKeys(raw, ["type", "summary"]) || typeof raw.summary !== "string") {
         return failure("finish 动作必须且只能包含字符串 summary 字段");

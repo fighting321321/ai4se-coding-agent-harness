@@ -208,5 +208,8 @@ function summarizeMessage(message: ConversationMessage): string {
   if (action.type === "call_mcp") {
     return `action: call_mcp server=${truncate(action.server, 80)} tool=${truncate(action.tool, 80)} arguments=[OMITTED]`;
   }
+  if (action.type === "delegate_agent") {
+    return `action: delegate_agent task=${truncate(action.task, 160)} allowedTools=${action.allowedTools.join(",")}`;
+  }
   return `action: finish summary=${truncate(action.summary, 240)}`;
 }

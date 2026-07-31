@@ -24,6 +24,13 @@ describe("parseAction", () => {
     });
   });
 
+  it("严格解析受限串行委派动作", () => {
+    const action = { type: "delegate_agent" as const, task: "只读分析", allowedTools: ["read_file" as const] };
+    expect(parseAction(action)).toEqual({ ok: true, value: action });
+    expect(parseAction({ ...action, allowedTools: ["read_file", "read_file"] }).ok).toBe(false);
+    expect(parseAction({ ...action, allowedTools: ["finish"] }).ok).toBe(false);
+  });
+
   it("拒绝非对象、循环或超大 MCP arguments", () => {
     const circular: Record<string, unknown> = {};
     circular.self = circular;

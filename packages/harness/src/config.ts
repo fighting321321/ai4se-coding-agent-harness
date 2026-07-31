@@ -1,8 +1,9 @@
 import { isAbsolute } from "node:path";
 
-import type { CommandRule } from "./command-rule.js";
+import { isDestructiveCommand, isShellExecutable, type CommandRule } from "./command-rule.js";
 import { validProviderBaseUrl } from "./openai-compatible-provider.js";
 import { Redactor } from "./redactor.js";
+import type { SensorConfig } from "./sensor.js";
 
 export interface HarnessConfig {
   workspace: string;
@@ -11,6 +12,7 @@ export interface HarnessConfig {
   commandTimeoutMs: number;
   maxOutputBytes: number;
   contextBudgetChars?: number;
+  sensors?: readonly SensorConfig[];
   memoryPath: string;
   provider: {
     baseUrl: string;
@@ -46,12 +48,14 @@ const CONFIG_FIELDS = new Set([
   "commandTimeoutMs",
   "maxOutputBytes",
   "contextBudgetChars",
+  "sensors",
   "memoryPath",
   "provider"
 ]);
 
 const COMMAND_FIELDS = new Set(["executable", "args"]);
 const PROVIDER_FIELDS = new Set(["baseUrl", "model"]);
+const SENSOR_FIELDS = new Set(["name", "executable", "args", "enabled"]);
 
 function failure(code: ConfigErrorCode, message: string): ConfigParseResult {
   return { ok: false, error: { code, message } };
@@ -149,6 +153,30 @@ function parseCommandRules(value: unknown): readonly CommandRule[] | undefined {
   return rules;
 }
 
+function parseSensors(value: unknown): readonly SensorConfig[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  const names = new Set<string>();
+  const sensors: SensorConfig[] = [];
+  for (const sensor of value) {
+    if (!isRecord(sensor) || unknownField(sensor, SENSOR_FIELDS) !== undefined ||
+        typeof sensor.name !== "string" || !/^[a-z0-9][a-z0-9._-]{0,63}$/u.test(sensor.name) || names.has(sensor.name) ||
+        typeof sensor.executable !== "string" || sensor.executable.length === 0 || sensor.executable.includes("\0") ||
+        !Array.isArray(sensor.args) || !sensor.args.every((arg) => typeof arg === "string" && !arg.includes("\0")) ||
+        isShellExecutable(sensor.executable) || isDestructiveCommand(sensor.executable, sensor.args as string[]) ||
+        (sensor.enabled !== undefined && typeof sensor.enabled !== "boolean")) {
+      return undefined;
+    }
+    names.add(sensor.name);
+    sensors.push({
+      name: sensor.name,
+      executable: sensor.executable,
+      args: [...sensor.args] as string[],
+      ...(sensor.enabled === undefined ? {} : { enabled: sensor.enabled })
+    });
+  }
+  return sensors;
+}
+
 export function parseHarnessConfig(input: unknown): ConfigParseResult {
   const secretField = findSecretField(input);
   if (secretField !== undefined) {
@@ -191,7 +219,19 @@ export function parseHarnessConfig(input: unknown): ConfigParseResult {
     }
   }
 
+  if (Array.isArray(input.sensors)) {
+    for (const sensor of input.sensors) {
+      if (isRecord(sensor)) {
+        const extraSensorField = unknownField(sensor, SENSOR_FIELDS);
+        if (extraSensorField !== undefined) {
+          return failure("CONFIG_UNKNOWN_FIELD", `Sensor 配置包含未知字段：${extraSensorField}`);
+        }
+      }
+    }
+  }
+
   const allowedCommands = parseCommandRules(input.allowedCommands);
+  const sensors = input.sensors === undefined ? undefined : parseSensors(input.sensors);
   if (
     typeof input.workspace !== "string" ||
     input.workspace.trim().length === 0 ||
@@ -199,7 +239,8 @@ export function parseHarnessConfig(input: unknown): ConfigParseResult {
     allowedCommands === undefined ||
     !isRecord(input.provider) ||
     !validProviderBaseUrl(input.provider.baseUrl) ||
-    !validModelName(input.provider.model)
+    !validModelName(input.provider.model) ||
+    (input.sensors !== undefined && sensors === undefined)
   ) {
     return failure("CONFIG_INVALID_VALUE", "workspace、命令规则或 Provider 配置无效");
   }
@@ -236,6 +277,7 @@ export function parseHarnessConfig(input: unknown): ConfigParseResult {
       ...(input.contextBudgetChars === undefined
         ? {}
         : { contextBudgetChars: input.contextBudgetChars }),
+      ...(sensors === undefined ? {} : { sensors }),
       memoryPath: input.memoryPath,
       provider: {
         baseUrl: input.provider.baseUrl,

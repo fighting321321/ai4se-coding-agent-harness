@@ -12,6 +12,12 @@ import type { JsonTrace, TraceEntry } from "./trace.js";
 import { HookManager } from "./hooks.js";
 import type { McpRegistry } from "./mcp-adapter.js";
 import type { SkillRegistry } from "./skill-registry.js";
+import type { Action } from "./action.js";
+import type { WorkspaceCheckpoint, CheckpointSnapshot } from "./checkpoint.js";
+import type { FeedbackSensorSuite, SensorObservation } from "./sensor.js";
+import { SharedStepBudget, type SubagentManager } from "./subagent.js";
+import type { FeedbackResult } from "./feedback.js";
+import type { TraceDetail } from "./trace.js";
 
 export type RunStatus = "completed" | "blocked" | "failed" | "max_steps";
 
@@ -36,6 +42,12 @@ export interface AgentLoopOptions {
   skills?: SkillRegistry;
   mcp?: McpRegistry;
   maxSteps?: number;
+  checkpoint?: WorkspaceCheckpoint;
+  sensors?: FeedbackSensorSuite;
+  subagents?: SubagentManager;
+  budget?: SharedStepBudget;
+  depth?: number;
+  allowedActions?: readonly Action["type"][];
 }
 
 const DEFAULT_MAX_STEPS = 8;
@@ -76,6 +88,12 @@ export class AgentLoop {
   readonly #hooks: HookManager;
   readonly #skills: SkillRegistry | undefined;
   readonly #mcp: McpRegistry | undefined;
+  readonly #checkpoint: WorkspaceCheckpoint | undefined;
+  readonly #sensors: FeedbackSensorSuite | undefined;
+  readonly #subagents: SubagentManager | undefined;
+  readonly #budget: SharedStepBudget;
+  readonly #depth: number;
+  readonly #allowedActions: ReadonlySet<Action["type"]> | undefined;
 
   constructor(options: AgentLoopOptions) {
     this.#provider = options.provider;
@@ -95,6 +113,17 @@ export class AgentLoop {
     this.#maxSteps = options.maxSteps ?? DEFAULT_MAX_STEPS;
     if (!Number.isInteger(this.#maxSteps) || this.#maxSteps < 1) {
       throw new Error("maxSteps 必须是正整数");
+    }
+    this.#checkpoint = options.checkpoint;
+    this.#sensors = options.sensors;
+    this.#subagents = options.subagents;
+    this.#budget = options.budget ?? new SharedStepBudget(this.#maxSteps);
+    this.#depth = options.depth ?? 0;
+    this.#allowedActions = options.allowedActions === undefined
+      ? undefined
+      : new Set([...options.allowedActions, "finish"]);
+    if (!Number.isInteger(this.#depth) || this.#depth < 0) {
+      throw new Error("depth 必须是非负整数");
     }
   }
 
@@ -197,6 +226,17 @@ export class AgentLoop {
 
     for (let iteration = 1; iteration <= this.#maxSteps; iteration += 1) {
       const step = traceStartStep + iteration - 1;
+      if (!this.#budget.consume()) {
+        await this.#append({
+          step,
+          policy: "allow",
+          observation: "blocked: SHARED_BUDGET_EXHAUSTED",
+          status: "failed",
+          stopReason: "shared_budget_exhausted",
+          details: [{ type: "budget", used: this.#budget.used, remaining: this.#budget.remaining }]
+        });
+        return await this.#result("max_steps", "父子共享步骤预算已耗尽", iteration - 1, traceStartStep);
+      }
       let output: LLMOutput;
       try {
         output = await this.#provider.complete(this.#session.toExtendedLLMInput(
@@ -205,7 +245,9 @@ export class AgentLoop {
           observations,
           {
             capabilities: {
-              builtins: ["read_file", "write_file", "run_command", "load_skill", "call_mcp", "finish"],
+              builtins: ["read_file", "write_file", "run_command", "load_skill", "call_mcp", "delegate_agent", "finish"]
+                .filter((type) => type !== "delegate_agent" || this.#subagents !== undefined)
+                .filter((type) => this.#allowedActions === undefined || this.#allowedActions.has(type as Action["type"])),
               skills: skillCards.value,
               mcp: mcpCards.value
             },
@@ -247,6 +289,19 @@ export class AgentLoop {
 
       const action = parsed.value;
       this.#session.appendAction(action);
+      if (this.#allowedActions !== undefined && !this.#allowedActions.has(action.type)) {
+        this.#session.appendObservation("blocked: SUBAGENT_TOOL_DENIED");
+        await this.#append({
+          step,
+          action,
+          policy: "deny",
+          observation: "blocked: SUBAGENT_TOOL_DENIED",
+          status: "blocked",
+          stopReason: "subagent_tool_denied",
+          details: [{ type: "budget", used: this.#budget.used, remaining: this.#budget.remaining }]
+        });
+        return await this.#result("blocked", "子 Agent 工具未获授权", iteration, traceStartStep);
+      }
       if (action.type !== "finish" && this.#redactor.containsSensitive(action)) {
         this.#session.appendObservation("blocked: SENSITIVE_ACTION");
         const appended = await this.#append({
@@ -285,7 +340,8 @@ export class AgentLoop {
           policy: decision,
           observation: "pass: finish",
           status: "completed",
-          stopReason: "finish"
+          stopReason: "finish",
+          details: [{ type: "budget", used: this.#budget.used, remaining: this.#budget.remaining }]
         });
         if (!appended.ok) {
           return await this.#result("failed", "Trace 写入失败", iteration, traceStartStep);
@@ -296,10 +352,40 @@ export class AgentLoop {
         return await this.#result("completed", summary, iteration, traceStartStep);
       }
 
+      const details: TraceDetail[] = [];
+      let snapshot: CheckpointSnapshot | undefined;
       const approval = await this.#approval.execute(decision, { action }, async () => {
         const hooked = await this.#hooks.aroundTool(action, async () => {
+          if (action.type === "run_command" || action.type === "call_mcp") {
+            details.push({
+              type: "rollback_limit",
+              actionType: action.type,
+              reason: "external_side_effect_not_snapshot_capable"
+            });
+          }
+          if (action.type === "write_file" && this.#checkpoint !== undefined) {
+            const captured = await this.#checkpoint.capture(action.path);
+            if (!captured.ok) return { ok: false as const, error: captured.error };
+            snapshot = captured.value;
+            details.push({ type: "checkpoint_created", path: captured.value.path });
+          }
           if (action.type === "load_skill" && this.#skills !== undefined) {
             return await this.#skills.load(action.name);
+          }
+          if (action.type === "delegate_agent") {
+            details.push({
+              type: "subagent",
+              phase: "started",
+              parentSessionId: this.#hooks.sessionId,
+              depth: this.#depth + 1
+            });
+            if (this.#subagents === undefined) {
+              return { ok: false as const, error: { code: "SUBAGENT_FAILED", message: "子 Agent 未配置" } };
+            }
+            return await this.#subagents.delegate(
+              { task: action.task, allowedTools: action.allowedTools },
+              { depth: this.#depth, budget: this.#budget }
+            );
           }
           return await this.#dispatcher.execute(action);
         });
@@ -310,6 +396,14 @@ export class AgentLoop {
       const dispatched = approval.ok
         ? approval.value
         : { ok: false as const, error: approval.error };
+      const restoreCheckpoint = async (): Promise<string | undefined> => {
+        if (snapshot === undefined || this.#checkpoint === undefined) return undefined;
+        const restored = await this.#checkpoint.restore(snapshot);
+        details.push(restored.ok
+          ? { type: "checkpoint_restored", path: snapshot.path, ok: true }
+          : { type: "checkpoint_restored", path: snapshot.path, ok: false, code: restored.error.code });
+        return restored.ok ? undefined : restored.error.code;
+      };
       if (!dispatched.ok && isApprovalBlock(dispatched.error.code)) {
         this.#session.appendObservation(`blocked: ${dispatched.error.code}`);
         const appended = await this.#append({
@@ -337,19 +431,72 @@ export class AgentLoop {
         return await this.#result("blocked", "生命周期 Hook 阻断该动作", iteration, traceStartStep);
       }
       if (!dispatched.ok && dispatched.error.code === "HOOK_FAILED") {
-        this.#session.appendObservation("environment_error: HOOK_FAILED");
+        const restoreError = await restoreCheckpoint();
+        const hookObservation = restoreError === undefined
+          ? "environment_error: HOOK_FAILED"
+          : `environment_error: ${restoreError}`;
+        this.#session.appendObservation(hookObservation);
         await this.#append({
           step,
           action,
           policy: decision,
-          observation: "environment_error: HOOK_FAILED",
+          observation: hookObservation,
           status: "failed",
-          stopReason: "hook_failed"
+          stopReason: restoreError === undefined ? "hook_failed" : "checkpoint_restore_failed",
+          details
         });
         return await this.#result("failed", "生命周期 Hook 执行失败", iteration, traceStartStep);
       }
 
-      const feedback = classifyFeedback(dispatched, this.#redactor);
+      let feedback = classifyFeedback(dispatched, this.#redactor);
+
+      const restore = async (): Promise<boolean> => {
+        const restoreError = await restoreCheckpoint();
+        if (restoreError !== undefined) {
+          feedback = { category: "environment_error", observation: `environment_error: ${restoreError}` };
+        }
+        return restoreError === undefined;
+      };
+
+      if (action.type === "delegate_agent" && dispatched.ok && dispatched.value !== undefined && dispatched.value !== null &&
+          typeof dispatched.value === "object" && "childId" in dispatched.value &&
+          "status" in dispatched.value && "steps" in dispatched.value && "summary" in dispatched.value) {
+        const child = dispatched.value as { childId: string; status: string; steps: number; summary: string };
+        details.push({
+          type: "subagent", phase: "completed", parentSessionId: this.#hooks.sessionId,
+          childSessionId: child.childId, depth: this.#depth + 1, steps: child.steps, status: child.status
+        });
+        feedback = { category: child.status === "completed" ? "pass" : "fail", observation: `${child.status}: subagent: ${child.summary}` };
+      }
+
+      if (feedback.category !== "pass") {
+        await restore();
+      } else if (action.type === "write_file" && this.#sensors !== undefined) {
+        const sensorResults: readonly SensorObservation[] = await this.#sensors.run();
+        details.push(...sensorResults.map((result): TraceDetail => ({ type: "sensor", ...result })));
+        const failedSensor = sensorResults.find((result) => result.category !== "pass");
+        if (failedSensor === undefined) {
+          feedback = {
+            category: "pass",
+            observation: sensorResults.length === 0
+              ? "pass: write completed; no sensors enabled"
+              : `pass: sensors ${sensorResults.map((result) => result.name).join(", ")}`
+          };
+        } else {
+          feedback = { category: failedSensor.category, observation: failedSensor.observation } as FeedbackResult;
+          await restore();
+        }
+      }
+      if (feedback.category === "pass" && snapshot !== undefined && this.#checkpoint !== undefined) {
+        const discarded = this.#checkpoint.discard(snapshot);
+        if (!discarded.ok) {
+          feedback = {
+            category: "environment_error",
+            observation: `environment_error: ${discarded.error.code}`
+          };
+        }
+      }
+      details.push({ type: "budget", used: this.#budget.used, remaining: this.#budget.remaining });
       this.#session.appendObservation(feedback.observation);
       if (feedback.category === "fail") {
         businessFailures += 1;
@@ -379,7 +526,8 @@ export class AgentLoop {
         policy: decision,
         observation: feedback.observation,
         status: traceStatus,
-        ...(stopReason === undefined ? {} : { stopReason })
+        ...(stopReason === undefined ? {} : { stopReason }),
+        details
       });
       if (!appended) {
         return await this.#result("failed", "Trace 写入失败", iteration, traceStartStep);

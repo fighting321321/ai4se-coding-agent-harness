@@ -1,6 +1,6 @@
 # 完整 Coding Agent Harness 重新评估
 
-> **进度更新（2026-07-29）：** 顺序 1–3（T13 会话上下文与规则、T14 长期 Memory、T15 Skill/MCP/Hooks）已完成；当前缺口从顺序 4 的子 Agent/传感器/Checkpoint 开始。本文的路线选择和最低验收场景保持不变。
+> **进度更新（2026-07-31）：** 顺序 1–4（T13 会话上下文与规则、T14 长期 Memory、T15 Skill/MCP/Hooks、T16 子 Agent/Sensor/Checkpoint）已完成；当前只剩顺序 5 的完整验收与 `v2.0.0` 发布。本文的路线选择和最低验收场景保持不变。
 
 ## 1. 结论与文档地位
 
@@ -40,13 +40,13 @@
 | 规则文件 | 不自动读取 `AGENTS.md` / `CLAUDE.md` | 缺失 | 启动装配时按作用域加载并注入 |
 | Skill | 工作区安全发现、名片与显式 `load_skill` | 已有 | 平时只提供描述，命中后加载完整指令 |
 | MCP | 自研适配接口、外部边界标记、离线 mock | 已有 | 自研 MCP 工具适配接口、连接配置与 mock 测试 |
-| 子 Agent / Isolate | 无 | 缺失 | 受限子 Harness、独立上下文、深度与总预算守卫 |
+| 子 Agent / Isolate | 串行子 Harness、独立上下文、最小工具集、深度/单子步骤/共享预算守卫 | 已有 | 保留教学级边界，不扩展并行或 worktree |
 | Hooks | 四类串行 Hook、Pre 阻断、脱敏事件 Trace | 已有 | SessionStart、PreToolUse、PostToolUse、SessionEnd |
 | Guardrail / HITL | `PolicyEngine`、`ApprovalGate` | 已有 | 纳入统一生命周期，逐动作审批 |
 | Sandbox / 边界 | 路径围栏、命令白名单、超时、输出上限 | 部分 | 明确能力边界；外部 MCP 不伪称受本地沙箱保护 |
-| 反馈传感器 | 工具结果分类存在 | 部分 | 代码变更后自动运行配置的 test/lint/typecheck 传感器 |
-| Checkpoint / 回滚 | 无 | 缺失 | 副作用前状态快照，工具或传感器失败时可恢复 |
-| Trace | Action、策略、Observation、停机原因 | 部分 | 补全 assistant 文本、会话、Hook、传感器和父子关系 |
+| 反馈传感器 | 写入后按配置运行结构化 test/lint/typecheck Sensor，脱敏限长并回灌 | 已有 | T17 只做最终验收，不扩展生产调度 |
+| Checkpoint / 回滚 | 明确单文件写前快照，工具/Sensor/Post Hook 失败逐个恢复 | 已有 | 外部命令/MCP 只记录不可回滚限制 |
+| Trace | Action、策略、Observation、Hook、Sensor、Checkpoint、父子关系与预算 | 部分 | T17 完成最终统一回放验收 |
 | 会话收尾 | 四类边界执行一次 SessionEnd，再 consolidate Memory | 已有 | T15 纳入统一 SessionEnd Hook |
 | 配置与凭据 | 首次三项向导、Windows 当前用户保险库、严格配置、脱敏 | 已有 | 随新模块扩展配置并保持秘密隔离 |
 | CLI 分发 | 无参数启动、当前目录工作区、三项初始化、短期会话、`/model` 与 `/memory` | 部分 | 随后续机制补全扩展状态命令 |
@@ -123,7 +123,7 @@
 
 截至 2026-07-24，CLI 产品化部分已经完成：无参数运行进入交互会话，显式 `smoke` 才运行离线验证；当前目录强制作为工作区；首次只填写服务地址、隐藏 API Key 和模型名称；Windows 使用当前用户 DPAPI 保险库，后续启动不再要求本地保护密码或重复 Key。旧 `credentials`、`start --config` 和 `--task` 只保留为高级兼容入口。
 
-CLI 外壳、短期会话、长期 Memory、Skill、最小 MCP 和通用 Hooks 已接通，但仍不等于 Harness 完成。当前最关键的缺口是子 Agent、自动传感器与 Checkpoint 尚未实现。
+CLI 外壳、短期会话、长期 Memory、Skill、最小 MCP、通用 Hooks、串行受限子 Agent、自动 Sensor 和教学级 Checkpoint 已接通。当前只剩 T17 的完整 Trace 回放、真实 Provider、全新 tarball 与 `v2.0.0` Release 验收；在这些外部与交付证据完成前仍不宣称完整 Harness 已发布。
 
 ## 6. 后续实施顺序
 
@@ -134,7 +134,7 @@ CLI 外壳、短期会话、长期 Memory、Skill、最小 MCP 和通用 Hooks �
 | 1（已完成） | `feat: 建立完整会话上下文与规则装配` | 同一会话保留 user/assistant/action/observation；支持 `/new`、直接填写模型名的 `/model`；自动加载项目规则；确定性上下文压缩 |
 | 2（已完成） | `feat: 接入长期记忆生命周期` | 主循环读写 Memory、明确会话收尾 consolidate、重启检索、`/memory`；秘密与大段正文不得固化；通用 SessionEnd Hook 留到顺序 3 |
 | 3（已完成） | `feat: 加入Skill、MCP与生命周期Hooks` | Skill 渐进加载、mock MCP 适配、SessionStart/PreToolUse/PostToolUse/SessionEnd；全部可离线测试 |
-| 4 | `feat: 实现受限子Agent、传感器与Checkpoint` | 独立子上下文和总预算；代码变更后自动反馈；副作用前快照及失败恢复 |
+| 4（已完成） | `feat: 实现受限子Agent、传感器与Checkpoint` | 独立子上下文和总预算；代码变更后自动反馈；副作用前快照及失败恢复 |
 | 5 | `release: 验收并发布完整Harness v2.0.0` | 完整 Trace、真实 Provider 人工验收、全新目录 tarball、README、提交材料和 GitLab Release |
 
 顺序 1 和 2 是“像正常 Agent 一样连续使用”以及满足作业上下文/记忆维度的首要缺口，必须优先；顺序 3 和 4 才补齐路线 B 的完整扩展机制。任何单项如果无法在一个提交内安全完成，必须停下来重新拆分并由负责人确认，不得静默扩大范围。

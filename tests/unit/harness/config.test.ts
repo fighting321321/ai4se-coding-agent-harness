@@ -30,6 +30,18 @@ describe("parseHarnessConfig", () => {
     expect(parseHarnessConfig(input)).toEqual({ ok: true, value: input });
   });
 
+  it("接受严格的结构化 Sensor executable/args 配置", () => {
+    const input = {
+      ...validConfig,
+      sensors: [
+        { name: "test", executable: "pnpm", args: ["test"] },
+        { name: "lint", executable: "pnpm", args: ["lint"], enabled: false }
+      ]
+    };
+
+    expect(parseHarnessConfig(input)).toEqual({ ok: true, value: input });
+  });
+
   it.each([
     "https://provider.example/v1",
     "http://localhost:11434/v1",
@@ -81,6 +93,25 @@ describe("parseHarnessConfig", () => {
         provider: { ...validConfig.provider, organization: "example" }
       },
       code: "CONFIG_UNKNOWN_FIELD"
+    },
+    {
+      name: "Sensor 中的未知字段",
+      input: {
+        ...validConfig,
+        sensors: [{ name: "test", executable: "pnpm", args: ["test"], command: "pnpm test" }]
+      },
+      code: "CONFIG_UNKNOWN_FIELD"
+    },
+    {
+      name: "重复 Sensor 名称",
+      input: {
+        ...validConfig,
+        sensors: [
+          { name: "test", executable: "pnpm", args: ["test"] },
+          { name: "test", executable: "pnpm", args: ["lint"] }
+        ]
+      },
+      code: "CONFIG_INVALID_VALUE"
     },
     {
       name: "相对 Provider base URL",

@@ -45,6 +45,8 @@ function snapshotInput(input: LLMInput): LLMInput {
                 ? { ...message.action, args: Object.freeze([...message.action.args]) }
                 : message.action.type === "call_mcp"
                   ? { ...message.action, arguments: Object.freeze(structuredClone(message.action.arguments)) }
+                  : message.action.type === "delegate_agent"
+                    ? { ...message.action, allowedTools: Object.freeze([...message.action.allowedTools]) }
                   : { ...message.action })
             });
           }))
