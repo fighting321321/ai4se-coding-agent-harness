@@ -173,6 +173,9 @@ describe("OpenAICompatibleProvider", () => {
       expect(systemPrompt).toContain(
         '{"type":"run_command","executable":"命令","args":["参数"]}'
       );
+      expect(systemPrompt).toContain(
+        '{"type":"delegate_agent","task":"子任务","allowedTools":["read_file"]}'
+      );
       expect(systemPrompt).toContain('{"type":"finish","summary":"最终回答"}');
       expect(systemPrompt).toContain("普通问答或不需要工具时，必须使用 finish Action");
       expect(systemPrompt).toContain("不要使用 action、respond 或 content 字段");
