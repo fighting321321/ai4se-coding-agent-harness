@@ -94,6 +94,10 @@ export class AgentLoop {
   readonly #budget: SharedStepBudget;
   readonly #depth: number;
   readonly #allowedActions: ReadonlySet<Action["type"]> | undefined;
+  #traceUserInput: string | undefined;
+  #traceAssistantOutput: string | undefined;
+  #traceApproval: TraceEntry["approval"];
+  #traceMemoryRetrieved: number | undefined;
 
   constructor(options: AgentLoopOptions) {
     this.#provider = options.provider;
@@ -151,11 +155,28 @@ export class AgentLoop {
   }
 
   async #append(entry: TraceEntry): Promise<boolean> {
-    const appended = await this.#trace.append(entry);
+    const details = [
+      ...(entry.details ?? []),
+      ...(this.#traceMemoryRetrieved === undefined || entry.details?.some((detail) => detail.type === "memory")
+        ? []
+        : [{ type: "memory" as const, phase: "retrieved" as const, count: this.#traceMemoryRetrieved }])
+    ];
+    const appended = await this.#trace.append({
+      ...entry,
+      sessionId: this.#hooks.sessionId,
+      ...(this.#traceUserInput === undefined ? {} : { userInputSummary: this.#traceUserInput }),
+      ...(this.#traceAssistantOutput === undefined ? {} : { assistantOutputSummary: this.#traceAssistantOutput }),
+      approval: entry.approval ?? this.#traceApproval ?? approvalFromPolicy(entry.policy),
+      ...(details.length === 0 ? {} : { details })
+    });
     return appended.ok;
   }
 
   async run(task: string): Promise<RunResult> {
+    this.#traceUserInput = this.#redactor.redactText(task);
+    this.#traceAssistantOutput = undefined;
+    this.#traceApproval = undefined;
+    this.#traceMemoryRetrieved = undefined;
     const currentTrace = await this.#trace.read();
     if (!currentTrace.ok) {
       return { status: "failed", summary: "Trace 读取失败", steps: 1, trace: [] };
@@ -195,6 +216,7 @@ export class AgentLoop {
         : await this.#result("failed", "Trace 写入失败", 1, traceStartStep);
     }
     const memoryContext = memory.value.map((item) => item.content);
+    this.#traceMemoryRetrieved = memory.value.length;
     const skillCards = this.#skills === undefined
       ? { ok: true as const, value: [] }
       : await this.#skills.discover();
@@ -268,6 +290,10 @@ export class AgentLoop {
           : await this.#result("failed", "Trace 写入失败", iteration, traceStartStep);
       }
 
+      this.#traceAssistantOutput = this.#redactor.redactText(
+        typeof output.assistantText === "string" ? output.assistantText : JSON.stringify(output.raw)
+      );
+
       this.#session.appendAssistant(
         typeof output.assistantText === "string" ? output.assistantText : JSON.stringify(output.raw)
       );
@@ -317,6 +343,7 @@ export class AgentLoop {
           : await this.#result("failed", "Trace 写入失败", iteration, traceStartStep);
       }
       const decision = this.#policy.evaluate(action);
+      this.#traceApproval = approvalFromPolicy(decision);
       if (decision === "deny") {
         this.#session.appendObservation("blocked: POLICY_DENIED");
         const appended = await this.#append({
@@ -334,21 +361,29 @@ export class AgentLoop {
 
       if (action.type === "finish") {
         this.#session.appendObservation("pass: finish");
+        this.#memoryLifecycle.collectCompletedTask(task, action.summary);
         const appended = await this.#trace.append({
           step,
+          sessionId: this.#hooks.sessionId,
+          userInputSummary: this.#traceUserInput,
+          assistantOutputSummary: this.#traceAssistantOutput,
           action,
           policy: decision,
+          approval: "not_required",
           observation: "pass: finish",
           status: "completed",
           stopReason: "finish",
-          details: [{ type: "budget", used: this.#budget.used, remaining: this.#budget.remaining }]
+          details: [
+            { type: "memory", phase: "retrieved", count: this.#traceMemoryRetrieved ?? 0 },
+            { type: "memory", phase: "candidate_collected", count: this.#memoryLifecycle.pending().length },
+            { type: "budget", used: this.#budget.used, remaining: this.#budget.remaining }
+          ]
         });
         if (!appended.ok) {
           return await this.#result("failed", "Trace 写入失败", iteration, traceStartStep);
         }
         const summary =
           appended.value.action?.type === "finish" ? appended.value.action.summary : action.summary;
-        this.#memoryLifecycle.collectCompletedTask(task, summary);
         return await this.#result("completed", summary, iteration, traceStartStep);
       }
 
@@ -393,6 +428,15 @@ export class AgentLoop {
           ? hooked.value
           : { ok: false as const, error: hooked.error };
       });
+      this.#traceApproval = decision !== "ask"
+        ? "not_required"
+        : approval.ok
+          ? "approved"
+          : approval.error.code === "APPROVAL_FAILED"
+            ? "failed"
+            : approval.error.code === "APPROVAL_REQUIRED"
+              ? "required"
+              : "denied";
       const dispatched = approval.ok
         ? approval.value
         : { ok: false as const, error: approval.error };
@@ -555,4 +599,8 @@ export class AgentLoop {
       traceStartStep
     );
   }
+}
+
+function approvalFromPolicy(policy: TraceEntry["policy"]): TraceEntry["approval"] {
+  return policy === "allow" ? "not_required" : policy === "ask" ? "required" : "denied";
 }

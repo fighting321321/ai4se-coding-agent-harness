@@ -25,6 +25,7 @@ describe("项目统一环境入口", () => {
     expect(instructions).toContain(".\\scripts\\project-env.ps1 <task>");
     expect(instructions).toContain("Node 24.14.0");
     expect(instructions).toContain("pnpm 11.14.0");
-    expect(instructions).toContain("直接在 `dev` 分支提交");
+    expect(instructions).toContain("`release/t17-harness-v2`");
+    expect(instructions).toContain("合并 `dev`");
   });
 });

@@ -204,6 +204,7 @@ export {
   type TraceEntry,
   type TraceDetail,
   type TraceErrorCode,
+  type TraceReplay,
   type TraceResult,
   type TraceStatus
 } from "./trace.js";

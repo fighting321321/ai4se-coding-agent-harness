@@ -10,6 +10,7 @@ import {
   Dispatcher,
   JsonMemory,
   JsonTrace,
+  HookManager,
   MemoryLifecycle,
   PolicyEngine,
   Redactor,
@@ -23,6 +24,7 @@ interface HarnessOptions {
   readonly maxSteps?: number;
   readonly runCommand?: () => unknown | Promise<unknown>;
   readonly session?: SessionContext;
+  readonly createHooks?: (trace: JsonTrace) => HookManager;
 }
 
 async function createHarness(
@@ -75,6 +77,7 @@ async function createHarness(
       policy,
       approval: options.approval,
       session: options.session,
+      hooks: options.createHooks?.(trace),
       maxSteps: options.maxSteps
     }),
     handlerCalls,
@@ -88,6 +91,61 @@ async function createHarness(
 }
 
 describe("AgentLoop", () => {
+  it("完整 Trace 串联会话、模型摘要、审批、Hook、Memory 与停止原因", async () => {
+    const harness = await createHarness(
+      [
+        { raw: { type: "write_file", path: "result.txt", content: "safe" }, assistantText: "准备写入结果" },
+        { raw: { type: "finish", summary: "写入完成" }, assistantText: "任务结束" }
+      ],
+      {
+        approval: new ApprovalGate(async () => true),
+        createHooks: (trace) => new HookManager({
+          sessionId: "session-replay",
+          hooks: [{ name: "audit", preToolUse: () => undefined, postToolUse: () => undefined }],
+          record: async (event) => { await trace.appendHookEvent(event); }
+        })
+      }
+    );
+    await harness.memory.upsert({
+      id: "write-rule",
+      kind: "convention",
+      tags: ["write"],
+      content: "写入后验证",
+      updatedAt: "2026-07-31T00:00:00.000Z"
+    });
+
+    const result = await harness.loop.run("write result");
+    const replay = await harness.trace.replay();
+
+    expect(result).toMatchObject({ status: "completed", summary: "写入完成" });
+    expect(replay).toMatchObject({
+      ok: true,
+      value: {
+        version: 3,
+        entries: [
+          {
+            sessionId: "session-replay",
+            userInputSummary: "write result",
+            assistantOutputSummary: "准备写入结果",
+            approval: "approved",
+            policy: "ask"
+          },
+          {
+            sessionId: "session-replay",
+            assistantOutputSummary: "任务结束",
+            stopReason: "finish"
+          }
+        ],
+        hookEvents: [
+          { kind: "PreToolUse", status: "completed" },
+          { kind: "PostToolUse", status: "completed" }
+        ]
+      }
+    });
+    expect(result.trace[0]?.details).toContainEqual({ type: "memory", phase: "retrieved", count: 1 });
+    expect(result.trace[1]?.details).toContainEqual({ type: "memory", phase: "candidate_collected", count: 1 });
+  });
+
   it("每项任务仅在首次 Provider 调用前检索一次，并在完成后收集安全候选", async () => {
     const harness = await createHarness([
       { raw: { type: "read_file", path: "README.md" } },

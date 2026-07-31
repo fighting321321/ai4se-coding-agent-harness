@@ -1,17 +1,17 @@
 # Coding Agent Harness 课程最小交付规约
 
-> **2026-07-31 T16 增量：** 路线 B 已完成串行受限子 Agent、写后结构化反馈传感器和教学级单文件 Checkpoint。完整 Harness Gate 仍等待 T17 的真实 Provider、完整 Trace、tarball 与 `v2.0.0` Release 验收；后续范围仍以 [`FULL_HARNESS_REASSESSMENT.md`](docs/assessments/FULL_HARNESS_REASSESSMENT.md) 第 6 节为准。
+> **2026-07-31 T17 候选：** 路线 B 已完成 Trace v3、最终离线验收矩阵与 `@ai4se/harness` 2.0.0 全新目录 tarball smoke。真实 Provider 最终验收、合并、标签、推送与公开 Release 仍由总控完成。
 
 ## 0. 文档控制
 
 | 字段 | 值 |
 | --- | --- |
-| 文档版本 | 2.6.0 |
+| 文档版本 | 2.7.0 |
 | 批准日期 | 2026-07-31 |
 | 项目负责人 | 徐黄浩 |
 | 权威需求来源 | 本文件；`guide/AI4SE_Final_Project_通用要求.md` 与 `guide/AI4SE_Final_Project_A_Coding_Agent_Harness.md` 是不可删减的上位要求 |
-| 当前 Gate | `v1.1.0` 基线已交付并通过门禁；完整 Harness Gate 已重新打开，路线 B 及面向用户的 CLI 方向已获批准，延期实施 |
-| 实现范围 | T05–T16；T16 只增加串行受限子 Agent、自动 Sensor 与受控 Checkpoint |
+| 当前 Gate | v2.0.0 离线候选已准备；等待总控真实 Provider 验收与公开发布 |
+| 实现范围 | T05–T17；T17 只补完整 Trace、离线验收、分发与 Release 材料 |
 
 本版本取代 SPEC 1.0.0 的实现承诺。旧版本保留为 Git 历史和过程证据，不再要求实现数据库、多用户平台、复杂决策版本、SSE、Docker 或线上后端。任何删减都不得违反上述两份课程原始要求。
 
@@ -39,7 +39,7 @@
 5. 作为重复使用者，我希望项目约定和最近结果写入本地记忆，并只把相关条目加入上下文。
 6. 作为真实模型使用者，我希望安全录入、查看状态、更新和清除学校 OpenAI-compatible API Key；本地 WebUI 可为单次运行临时接收 Key，但明文不得进入源码、Git、日志、Trace、Memory、URL 或浏览器持久化存储。
 7. 作为评审者，我希望一条命令运行全部离线测试和三项机制演示，并能从 README 理解静态 mock 运行轨迹。
-8. 作为新用户，我希望从 GitLab `v1.0.0` Release 下载 npm tarball，在全新目录安装并按照 README 完成配置与运行。
+8. 作为新用户，我希望从 GitLab `v2.0.0` Release 下载 npm tarball，在全新目录安装并按照 README 完成配置与运行。
 9. 作为 CLI 用户，我希望后一题能引用前文，并能用 `/new` 重置短期对话、用 `/model` 查看或保存模型；超出预算时仍保留安全约束、规则、目标、摘要和近期消息。
 10. 作为复杂任务使用者，我希望父 Agent 能串行委派受限子 Agent，并在写入后自动验证；若工具或 Sensor 失败，只恢复明确快照的单文件且不伪称回滚外部副作用。
 
@@ -217,7 +217,7 @@ JSON 配置通过运行时 schema 校验，至少包含工作区路径、允许�
 
 ### 5.8 分发与文档
 
-- `pnpm pack` 生成 Harness/CLI npm tarball。
+- `pnpm pack` 生成 `ai4se-harness-2.0.0.tgz` Harness/CLI npm tarball。
 - 在全新临时目录安装 tarball并运行离线 smoke。
 - README 必须包含项目简介、架构/主要贡献、安装、运行、测试、三项演示、本地 WebUI、GitLab Release URL、凭据录入/状态/更新/清除、目录、安全边界、分发和已知限制、第三方许可证。
 - `REFLECTION.md` 1500–2500 字，由项目负责人本人撰写；AI 仅可润色并标注。
@@ -308,7 +308,7 @@ Memory 和 Trace 使用本地 JSON；加密凭据单独存储，三者不得混�
 | 3 个以上模块 | API、Web、Harness、tests | T05 |
 | CI | `.gitlab-ci.yml` 精确 `unit-test`，最后 Pipeline passed | T05/T12 |
 | 分发 | npm tarball 全新目录安装 smoke | T12 |
-| 托管部署 | 助教补充说明允许 CLI 项目提供托管平台 Release；使用 GitLab `v1.0.0` Release | T12/最终收尾 |
+| 托管部署 | 助教补充说明允许 CLI 项目提供托管平台 Release；使用 GitLab `v2.0.0` Release | T17/总控发布 |
 | 过程证据 | SPEC/PLAN/SPEC_PROCESS/AGENT_LOG、分支/MR/评审记录 | 全程 |
 | README | 必需章节完整 | T12 |
 | 反思 | 本人撰写 1500–2500 字 | T12 |
@@ -325,6 +325,6 @@ Memory 和 Trace 使用本地 JSON；加密凭据单独存储，三者不得混�
 
 - 学校 API 的实际模型名、配额和兼容差异在 T10 由负责人本地验证；失败不允许伪造成功。
 - 学校 GitLab 的 Pages 作业能够构建静态产物，但实例没有生成可访问地址；依据助教部署补充说明，最终采用 CLI + GitLab Release。真实 Web 模式必须由用户在本机显式启动，且 Key 仍会短暂存在于浏览器和 Node 进程内存。
-- 加密文件安全依赖主密码强度；README 必须说明遗忘主密码无法恢复、进程内存仍可能暴露明文。
+- 普通 Windows 流程使用当前用户系统保护，不询问主密码；旧式兼容加密文件仍依赖主密码强度，两种方式都无法消除进程内存中的短暂明文暴露。
 - npm tarball 首版只承诺 Node 24 和文档列出的主要平台。
 - 项目负责人已接受功能广度和企业级扩展性下降，以换取在课程截止前形成完整、可运行、可解释的交付物。

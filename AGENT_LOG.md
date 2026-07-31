@@ -586,3 +586,12 @@
 - 外部边界与 Trace：命令和 MCP 的任意外部副作用不在单文件快照能力内，Trace 写入 `external_side_effect_not_snapshot_capable`，不声称已回滚。Trace 同时记录父子 session、深度、步骤/共享预算、Sensor 分类、Checkpoint 创建/恢复及恢复失败，所有内容统一脱敏。
 - 最终统一门禁：仅通过 `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\project-env.ps1 all` 运行；42/42 测试文件、404/404 用例通过，lint、typecheck、Harness/API/Web build、4/4 demo 和最终 audit 全部退出 0，Vite 静态构建为 17 modules。审计确认当前受控文件、完整 Git 历史和可用静态 Web artifact 未发现凭据命中。
 - 交付状态：分支保持 `feat/t16-subagent-feedback-checkpoint`，不合并 `dev`、不创建或合并 MR、不发布版本，等待项目负责人检查与手动合并。未读取 `.ai4se/temp-api-key.txt`，未使用真实 Provider，未读取、记录或提交任何真实凭据。
+
+### 2026-07-31 · T17 Trace、最终离线验收与 v2.0.0 候选
+
+- Trace：文档版本升级为 v3，新增会话 ID、脱敏限长的用户输入/模型输出摘要和审批结果；完整回放同时返回轮次与 Hook 事件。v1/v2 保持兼容读取并在下一次写入迁移；文件上限 1 MiB、摘要上限 512 字符、轮次与 Hook 数量均有界。
+- 验收矩阵：新增从空工作区三项初始化、连续会话、Memory 固化与新实例恢复的端到端用例；并将 Skill、Mock MCP、Hook、子 Agent、Sensor、Checkpoint、Trace 与失败停机映射到既有确定性测试。阶段结果为 43/43 测试文件、409/409 用例通过。
+- 分发：`@ai4se/harness` 升级为 2.0.0；统一 `pack` 生成 `ai4se-harness-2.0.0.tgz`。分发测试在新临时目录离线安装、导入并运行 CLI smoke，且断言包内无 `src`、`.ai4se`、凭据、Memory、Trace 或 TypeScript 源文件。
+- 文档：README、SPEC、PLAN、包说明和 Release 材料统一到 v2.0.0；公开 Release URL 与最终 CI artifact SHA-256 保持“总控发布后填写”，未伪造地址。
+- 边界：全程未读取 `.ai4se/temp-api-key.txt`，未使用真实 Provider 或真实凭据，未合并、打标签、推送或创建 Release。
+- 最终门禁：严格依次运行统一入口 `all`、`pack`、`test`、`audit`；两次完整测试均为 43/43 文件、409/409 用例，lint、typecheck、三模块 build、4/4 demo 和审计全部退出 0。工作分支本地候选包为 55,001 bytes，SHA-256 `7A336954FE20B74B8A5F544C215DF2F9C119B1D18A8354BB197E276D0A37A252`，只作本地证据，不替代最终 CI artifact。
