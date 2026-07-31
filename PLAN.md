@@ -385,6 +385,10 @@ pnpm pack
 - Release 标题、说明、附件名、校验说明和助教验收步骤见 `docs/releases/v2.0.0-release-notes.md`；公开 URL 保持待总控发布后填写，不伪造地址。
 - 本分支不得执行真实 Provider、合并、标签、推送或公开发布。
 
+**最终离线门禁（2026-07-31）：** 严格依次通过统一入口的 `all`、`pack`、包含全新临时目录分发安装/导入/CLI smoke 的 `test` 和末次 `audit`。两次完整测试均为 43/43 文件、409/409 用例；lint、typecheck、Harness/API/Web build、4/4 demo 和两次最终审计均退出 0，Vite 静态构建为 17 modules。包清单只含 `dist`、`bin`、`package.json` 和 `README.md`。本地候选 `ai4se-harness-2.0.0.tgz` 为 55,001 bytes，SHA-256 为 `7A336954FE20B74B8A5F544C215DF2F9C119B1D18A8354BB197E276D0A37A252`；该哈希只记录工作分支本地验收，不得替代最终标签提交的 CI artifact 校验。
+
+**仍待总控：** 在不记录凭据的前提下执行真实 Provider 读取型验收；检查并合并到 `dev`；完成最终目标分支合并与流水线；创建并推送 `v2.0.0` 标签；从该提交成功流水线下载 tarball、计算并回填正式 SHA-256；创建 GitLab Release、上传附件、回填公开 URL，并从 Release 重新下载做最终全新目录 smoke。本任务未执行上述任何外部或远端步骤。
+
 ## 16. T15：Skill、MCP 与生命周期 Hooks（已完成）
 
 - `HookManager` 只实现 `SessionStart`、`PreToolUse`、`PostToolUse`、`SessionEnd`，按注入顺序串行执行；Pre 阻断发生在副作用前，职责不替代 Policy/Approval。

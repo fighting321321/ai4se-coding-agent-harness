@@ -594,3 +594,4 @@
 - 分发：`@ai4se/harness` 升级为 2.0.0；统一 `pack` 生成 `ai4se-harness-2.0.0.tgz`。分发测试在新临时目录离线安装、导入并运行 CLI smoke，且断言包内无 `src`、`.ai4se`、凭据、Memory、Trace 或 TypeScript 源文件。
 - 文档：README、SPEC、PLAN、包说明和 Release 材料统一到 v2.0.0；公开 Release URL 与最终 CI artifact SHA-256 保持“总控发布后填写”，未伪造地址。
 - 边界：全程未读取 `.ai4se/temp-api-key.txt`，未使用真实 Provider 或真实凭据，未合并、打标签、推送或创建 Release。
+- 最终门禁：严格依次运行统一入口 `all`、`pack`、`test`、`audit`；两次完整测试均为 43/43 文件、409/409 用例，lint、typecheck、三模块 build、4/4 demo 和审计全部退出 0。工作分支本地候选包为 55,001 bytes，SHA-256 `7A336954FE20B74B8A5F544C215DF2F9C119B1D18A8354BB197E276D0A37A252`，只作本地证据，不替代最终 CI artifact。
