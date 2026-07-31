@@ -78,6 +78,29 @@ describe("JsonTrace", () => {
     expect(raw).toContain("[REDACTED]");
   });
 
+  it("脱敏保存 Sensor、Checkpoint、父子关系与共享预算细节", async () => {
+    const path = await tracePath();
+    const trace = new JsonTrace(path, new Redactor(["sk-fake-trace-key"]));
+    const entry: TraceEntry = {
+      step: 1,
+      action: { type: "delegate_agent", task: "inspect", allowedTools: ["read_file"] },
+      policy: "allow",
+      status: "running",
+      details: [
+        { type: "checkpoint_created", path: "target.txt" },
+        { type: "sensor", name: "test", category: "fail", observation: "sk-fake-trace-key", truncated: false },
+        { type: "subagent", phase: "completed", parentSessionId: "parent", childSessionId: "child", depth: 1, steps: 2, status: "completed" },
+        { type: "budget", used: 3, remaining: 2 }
+      ]
+    };
+
+    expect(await trace.append(entry)).toMatchObject({ ok: true });
+    const raw = await readFile(path, "utf8");
+    expect(raw).not.toContain("sk-fake-trace-key");
+    expect(raw).toContain("[REDACTED]");
+    await expect(trace.read()).resolves.toMatchObject({ ok: true });
+  });
+
   it("损坏的 Trace 返回稳定错误且不静默覆盖", async () => {
     const path = await tracePath();
     await writeFile(path, "[]", "utf8");

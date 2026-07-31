@@ -57,6 +57,9 @@ export class PolicyEngine {
       case "call_mcp":
         // MCP 位于外部信任边界，最小适配无法证明远端工具无副作用。
         return "ask";
+      case "delegate_agent":
+        // 委派本身不产生外部副作用；子 Harness 仍逐动作经过父级边界。
+        return "allow";
       case "finish":
         return "allow";
     }

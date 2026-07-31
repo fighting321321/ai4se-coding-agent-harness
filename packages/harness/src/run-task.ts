@@ -19,6 +19,9 @@ import { loadWorkspaceRules } from "./workspace-rules.js";
 import { HookManager, type LifecycleHook } from "./hooks.js";
 import { McpRegistry } from "./mcp-adapter.js";
 import { SkillRegistry } from "./skill-registry.js";
+import { WorkspaceCheckpoint } from "./checkpoint.js";
+import { FeedbackSensorSuite, type SensorConfig } from "./sensor.js";
+import { SharedStepBudget, SubagentManager } from "./subagent.js";
 
 export interface RunHarnessTaskOptions {
   readonly cwd: string;
@@ -36,6 +39,7 @@ export interface RunHarnessTaskOptions {
   readonly lifecycleHooks?: readonly LifecycleHook[];
   readonly skills?: SkillRegistry;
   readonly mcp?: McpRegistry;
+  readonly subagents?: SubagentManager;
 }
 
 export type RunTaskErrorCode = "RUN_CONFIG_READ_FAILED" | "RUN_CONFIG_INVALID";
@@ -180,6 +184,54 @@ export async function runHarnessTask(options: RunHarnessTaskOptions): Promise<Ru
     model: options.provider.model ?? configured.value.provider.model,
     apiKey: options.provider.apiKey
   });
+  const checkpoint = new WorkspaceCheckpoint({ workspace, redactor });
+  const sensorConfigs = configuredSensors(configured.value);
+  const sensors = new FeedbackSensorSuite({
+    sensors: sensorConfigs,
+    execute: (executable, args) => command.execute(executable, args),
+    redactor,
+    maxObservationChars: 512
+  });
+  const budget = new SharedStepBudget(configured.value.maxSteps);
+  const subagents: SubagentManager = options.subagents ?? new SubagentManager({
+    maxDepth: 2,
+    maxStepsPerChild: Math.min(4, configured.value.maxSteps),
+    allowedTools: ["read_file", "load_skill"],
+    redactor,
+    createChild: async (request) => {
+      const childTrace = new JsonTrace(
+        join(workspace, ".ai4se", "subagents", `${request.childId}.trace.json`),
+        redactor
+      );
+      const childHooks = new HookManager({
+        hooks: options.lifecycleHooks ?? [coreLifecycleHook],
+        sessionId: request.childId,
+        redactor,
+        record: async (event) => { await childTrace.appendHookEvent(event); }
+      });
+      const childResult = await new AgentLoop({
+        provider,
+        memory,
+        memoryLifecycle: new MemoryLifecycle({ memory, redactor }),
+        dispatcher,
+        trace: childTrace,
+        policy,
+        approval,
+        redactor,
+        session: request.session,
+        hooks: childHooks,
+        skills: new SkillRegistry(workspace),
+        mcp,
+        subagents,
+        budget: request.budget,
+        depth: request.depth,
+        allowedActions: request.allowedTools,
+        maxSteps: request.maxSteps
+      }).run(request.task);
+      await childHooks.end(childResult.status === "completed" ? "exit" : "error");
+      return childResult;
+    }
+  });
   const loop = new AgentLoop({
     provider,
     memory,
@@ -193,6 +245,10 @@ export async function runHarnessTask(options: RunHarnessTaskOptions): Promise<Ru
     hooks,
     skills,
     mcp,
+    checkpoint,
+    sensors,
+    subagents,
+    budget,
     maxSteps: configured.value.maxSteps
   });
 
@@ -210,3 +266,18 @@ const coreLifecycleHook: LifecycleHook = {
   postToolUse: () => undefined,
   sessionEnd: () => undefined
 };
+
+function configuredSensors(config: HarnessConfig): readonly SensorConfig[] {
+  if (config.sensors !== undefined) return config.sensors;
+  const preferred = ["test", "lint", "typecheck"];
+  const selected: SensorConfig[] = [];
+  for (const name of preferred) {
+    const rule = config.allowedCommands.find((candidate) =>
+      candidate.args.some((argument) => argument.toLocaleLowerCase() === name)
+    );
+    if (rule !== undefined) {
+      selected.push({ name, executable: rule.executable, args: [...rule.args] });
+    }
+  }
+  return selected;
+}

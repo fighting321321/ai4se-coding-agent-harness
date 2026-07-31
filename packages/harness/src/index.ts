@@ -1,5 +1,13 @@
 export type { Action } from "./action.js";
 export {
+  WorkspaceCheckpoint,
+  type CheckpointErrorCode,
+  type CheckpointRestore,
+  type CheckpointResult,
+  type CheckpointSnapshot,
+  type WorkspaceCheckpointOptions
+} from "./checkpoint.js";
+export {
   AgentLoop,
   type AgentLoopOptions,
   type RunResult,
@@ -129,6 +137,24 @@ export {
 } from "./policy.js";
 export { Redactor } from "./redactor.js";
 export {
+  FeedbackSensorSuite,
+  type FeedbackSensorSuiteOptions,
+  type SensorConfig,
+  type SensorExecutor,
+  type SensorObservation
+} from "./sensor.js";
+export {
+  SharedStepBudget,
+  SubagentManager,
+  type ChildAgentFactory,
+  type ChildAgentRequest,
+  type DelegateAgentRequest,
+  type DelegatedTool,
+  type SubagentManagerOptions,
+  type SubagentResult,
+  type SubagentSummary
+} from "./subagent.js";
+export {
   preflightHarnessTaskConfig,
   readHarnessTaskConfig,
   runHarnessTask,
@@ -176,6 +202,7 @@ export {
 export {
   JsonTrace,
   type TraceEntry,
+  type TraceDetail,
   type TraceErrorCode,
   type TraceResult,
   type TraceStatus

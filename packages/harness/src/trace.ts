@@ -17,7 +17,16 @@ export interface TraceEntry {
   observation?: string;
   status: TraceStatus;
   stopReason?: string;
+  details?: readonly TraceDetail[];
 }
+
+export type TraceDetail =
+  | { readonly type: "checkpoint_created"; readonly path: string }
+  | { readonly type: "checkpoint_restored"; readonly path: string; readonly ok: boolean; readonly code?: string }
+  | { readonly type: "sensor"; readonly name: string; readonly category: "pass" | "fail" | "timeout" | "environment_error"; readonly observation: string; readonly truncated: boolean }
+  | { readonly type: "subagent"; readonly phase: "started" | "completed"; readonly parentSessionId: string; readonly childSessionId?: string; readonly depth: number; readonly steps?: number; readonly status?: string }
+  | { readonly type: "rollback_limit"; readonly actionType: "run_command" | "call_mcp"; readonly reason: "external_side_effect_not_snapshot_capable" }
+  | { readonly type: "budget"; readonly used: number; readonly remaining: number };
 
 export type TraceErrorCode =
   | "TRACE_CORRUPT"
@@ -57,7 +66,7 @@ function isTraceEntry(value: unknown): value is TraceEntry {
   const fields = Object.keys(value);
   if (
     !fields.every((field) =>
-      ["step", "action", "policy", "observation", "status", "stopReason"].includes(field)
+      ["step", "action", "policy", "observation", "status", "stopReason", "details"].includes(field)
     ) ||
     !fields.includes("step") ||
     !fields.includes("policy") ||
@@ -76,13 +85,25 @@ function isTraceEntry(value: unknown): value is TraceEntry {
       value.status === "blocked" ||
       value.status === "failed") &&
     (value.observation === undefined || typeof value.observation === "string") &&
-    (value.stopReason === undefined || typeof value.stopReason === "string")
+    (value.stopReason === undefined || typeof value.stopReason === "string") &&
+    (value.details === undefined || (Array.isArray(value.details) && value.details.every(isTraceDetail)))
   );
+}
+
+function isTraceDetail(value: unknown): value is TraceDetail {
+  if (!isRecord(value) || typeof value.type !== "string") return false;
+  if (value.type === "checkpoint_created") return typeof value.path === "string";
+  if (value.type === "checkpoint_restored") return typeof value.path === "string" && typeof value.ok === "boolean" && (value.code === undefined || typeof value.code === "string");
+  if (value.type === "sensor") return typeof value.name === "string" && ["pass", "fail", "timeout", "environment_error"].includes(value.category as string) && typeof value.observation === "string" && typeof value.truncated === "boolean";
+  if (value.type === "subagent") return ["started", "completed"].includes(value.phase as string) && typeof value.parentSessionId === "string" && (value.childSessionId === undefined || typeof value.childSessionId === "string") && Number.isInteger(value.depth) && (value.steps === undefined || Number.isInteger(value.steps)) && (value.status === undefined || typeof value.status === "string");
+  if (value.type === "rollback_limit") return ["run_command", "call_mcp"].includes(value.actionType as string) && value.reason === "external_side_effect_not_snapshot_capable";
+  return value.type === "budget" && Number.isInteger(value.used) && Number.isInteger(value.remaining);
 }
 
 function copyEntry(entry: TraceEntry): TraceEntry {
   return {
     ...entry,
+    ...(entry.details === undefined ? {} : { details: entry.details.map((detail) => ({ ...detail })) }),
     ...(entry.action === undefined
       ? {}
       : {
@@ -91,7 +112,9 @@ function copyEntry(entry: TraceEntry): TraceEntry {
               ? { ...entry.action, args: [...entry.action.args] }
               : entry.action.type === "call_mcp"
                 ? { ...entry.action, arguments: structuredClone(entry.action.arguments) }
-              : { ...entry.action }
+                : entry.action.type === "delegate_agent"
+                  ? { ...entry.action, allowedTools: [...entry.action.allowedTools] }
+                : { ...entry.action }
         })
   };
 }
