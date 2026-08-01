@@ -180,7 +180,7 @@ describe("最终交付审计", () => {
     expect(readme).toContain("github.com/fighting321321/ai4se-coding-agent-harness/releases/tag/v2.1.1");
     expect(readme).not.toContain("总控发布后填写");
     expect(readme).not.toContain("真实 Pages URL：**待最终审计核验**");
-    expect(spec).toContain("GitLab Release");
+    expect(spec).toContain("GitHub Release");
     expect(plan).toContain("v2.1.1");
     expect(releaseNotes).toContain("AI4SE Coding Agent Harness v2.1.1");
     expect(releaseNotes).toContain("SHA-256");

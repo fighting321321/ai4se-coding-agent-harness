@@ -48,4 +48,4 @@ import { runInteractiveSession, runOfflineSmoke } from "@ai4se/harness";
 console.log(await runOfflineSmoke());
 ```
 
-该 tarball 通过 GitLab Release 分发，不代表已发布到公共 npm registry；项目暂未授予再分发许可证。
+该 tarball 通过 GitHub Release 分发，不代表已发布到公共 npm registry；项目暂未授予再分发许可证。

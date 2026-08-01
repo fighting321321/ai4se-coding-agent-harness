@@ -297,7 +297,7 @@ scripts/             本地 Web 启动器
 - Checkpoint 只保存明确写入目标的受限 UTF-8 单文件状态；拒绝目录、符号链接、敏感路径、敏感正文和超限文件。恢复逐个覆盖原文件，或只删除本次创建的那个已确认普通文件。
 - 本地 API 限制为回环监听并校验本地 Web Origin；它不是线上后端。
 - 静态 mock 与本地 Web 是不同入口：静态内容不连接 API，本地 Web 才能连接本机回环服务。
-- tarball 仅承诺 Node 24 与本 README 明确的平台范围；它通过 GitLab Release 分发，不是公共 npm registry 发布声明。
+- tarball 仅承诺 Node 24 与本 README 明确的平台范围；它通过 GitHub Release 分发，不是公共 npm registry 发布声明。
 
 ## 已知限制
 
