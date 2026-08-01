@@ -46,7 +46,7 @@ describe("@ai4se/harness 分发包", () => {
 
     expect(manifest).toMatchObject({
       name: "@ai4se/harness",
-      version: "2.0.0",
+      version: "2.0.1",
       type: "module",
       engines: { node: ">=24.0.0 <25.0.0" },
       files: ["dist", "bin", "README.md"],

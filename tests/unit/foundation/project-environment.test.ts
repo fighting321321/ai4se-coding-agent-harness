@@ -25,8 +25,7 @@ describe("项目统一环境入口", () => {
     expect(instructions).toContain(".\\scripts\\project-env.ps1 <task>");
     expect(instructions).toContain("Node 24.14.0");
     expect(instructions).toContain("pnpm 11.14.0");
-    expect(instructions).toContain("`release/t17-harness-v2`");
-    expect(instructions).toContain("合入 `dev`");
-    expect(instructions).toContain("合并 `main`");
+    expect(instructions).toContain("`v2.0.1`");
+    expect(instructions).toContain("CLI 提示符同行与输入输出留白");
   });
 });

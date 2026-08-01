@@ -162,9 +162,9 @@ export async function runInteractiveSession(
 
     let latestTrace: readonly TraceEntry[] = [];
     while (true) {
-      dependencies.writeOut("ai4se>");
-      const input = await dependencies.readLine("");
+      const input = await dependencies.readLine("\nai4se> ");
       if (input === undefined || input.trim() === "/exit") {
+        dependencies.writeOut("");
         if (!(await finalizeSession(input === undefined ? "eof" : "exit"))) {
           return 1;
         }
@@ -176,6 +176,7 @@ export async function runInteractiveSession(
       if (task.length === 0) {
         continue;
       }
+      dependencies.writeOut("");
       if (task === "/help") {
         dependencies.writeOut(HELP);
         continue;

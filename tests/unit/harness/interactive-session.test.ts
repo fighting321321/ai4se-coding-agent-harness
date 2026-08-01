@@ -321,7 +321,12 @@ describe("runInteractiveSession", () => {
       options.provider.apiKey === "sk-session-secret"
     )).toBe(true);
     expect(runTask.mock.calls[0]?.[0].session).toBe(runTask.mock.calls[1]?.[0].session);
-    expect(capture.stdout.join("\n")).toContain("ai4se>");
+    expect(capture.dependencies.readLine).toHaveBeenCalledTimes(3);
+    expect(capture.dependencies.readLine).toHaveBeenNthCalledWith(1, "\nai4se> ");
+    expect(capture.dependencies.readLine).toHaveBeenNthCalledWith(2, "\nai4se> ");
+    expect(capture.dependencies.readLine).toHaveBeenNthCalledWith(3, "\nai4se> ");
+    expect(capture.stdout).toContain("");
+    expect(capture.stdout).not.toContain("ai4se>");
     expect(capture.stdout.join("\n")).toContain("完成：总结 README");
     expect(JSON.stringify([capture.stdout, capture.stderr])).not.toContain(
       "sk-session-secret"

@@ -193,7 +193,7 @@ describe("runCli", () => {
       readLine: firstReadLine,
       systemCredentialVaultFactory: factory
     })).toBe(0);
-    expect(prompts).toEqual(["服务地址：", "模型名称：", ""]);
+    expect(prompts).toEqual(["服务地址：", "模型名称：", "\nai4se> "]);
     expect(first.stdout.join("\n")).toContain(`工作区：${cwd}`);
     const config = await readFile(join(cwd, ".ai4se", "config.json"), "utf8");
     expect(config).not.toContain("test-onboarding-key");
