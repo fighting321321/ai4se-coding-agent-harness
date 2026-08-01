@@ -46,7 +46,7 @@ describe("@ai4se/harness 分发包", () => {
 
     expect(manifest).toMatchObject({
       name: "@ai4se/harness",
-      version: "0.2.0",
+      version: "2.0.0",
       type: "module",
       engines: { node: ">=24.0.0 <25.0.0" },
       files: ["dist", "bin", "README.md"],
@@ -110,8 +110,9 @@ describe("@ai4se/harness 分发包", () => {
     expect(imported.stdout).toBe("AI4SE Harness 离线 smoke：completed\n");
 
     const cli = runPnpm(["exec", "ai4se-harness"], installation);
-    expectSuccess(cli);
-    expect(cli.stdout).toBe("AI4SE Harness 离线 smoke：completed\n");
+    expect(cli.status).toBe(1);
+    expect(cli.stdout).not.toContain("离线 smoke");
+    expect(cli.stderr).toContain("交互会话需要 TTY");
 
     const explicitSmoke = runPnpm(["exec", "ai4se-harness", "smoke"], installation);
     expectSuccess(explicitSmoke);
@@ -119,6 +120,7 @@ describe("@ai4se/harness 分发包", () => {
 
     const help = runPnpm(["exec", "ai4se-harness", "--help"], installation);
     expectSuccess(help);
+    expect(help.stdout).toContain("  ai4se-harness\n");
     expect(help.stdout).toContain("ai4se-harness start");
 
     const installedManifest = JSON.parse(
@@ -126,5 +128,19 @@ describe("@ai4se/harness 分发包", () => {
     ) as { files?: unknown; private?: unknown };
     expect(installedManifest.private).not.toBe(true);
     expect(installedManifest.files).toEqual(["dist", "bin", "README.md"]);
+    const installedFiles = (await readdir(
+      join(installation, "node_modules/@ai4se/harness"),
+      { recursive: true }
+    )).map((path) => path.replaceAll("\\", "/"));
+    expect(installedFiles).toContain("bin/ai4se-harness.mjs");
+    expect(installedFiles).toContain("dist/index.js");
+    expect(installedFiles).toContain("package.json");
+    expect(installedFiles).toContain("README.md");
+    expect(installedFiles).not.toEqual(expect.arrayContaining([
+      expect.stringMatching(/(?:^|\/)src(?:\/|$)/u),
+      expect.stringMatching(/(?:^|\/)\.ai4se(?:\/|$)/u),
+      expect.stringMatching(/(?:^|\/)(?:trace|memory|credentials)(?:\.|\/|$)/iu),
+      expect.stringMatching(/\.ts$/u)
+    ]));
   }, 20_000);
 });

@@ -251,7 +251,7 @@
 
 ### 2026-07-17 · T04 冷启动协议与冻结证据
 
-- 当前动作：创建 `COLD_START_VALIDATION.md`，只记录协议、完整原始 prompt、输入证据和待执行模板；尚未启动 Gemini 全新会话，未伪造模型截图、试做结果、问题、命令或产物。
+- 当前动作：创建 `docs/assessments/COLD_START_VALIDATION.md`，只记录协议、完整原始 prompt、输入证据和待执行模板；尚未启动 Gemini 全新会话，未伪造模型截图、试做结果、问题、命令或产物。
 - 智能体类型：主开发为 OpenAI Codex App；陌生智能体目标为 Google Gemini 网页版。二者供应商及产品类型不同。用户当前称网页界面为“Gemini 3.5 Flash”，但完整模型名称必须在执行当天按网页实际显示核验并留证，当前状态为待验证。
 - 全新会话规则：新建空会话，不使用历史或 memory；执行时记录验证时间、检查方法、实际模型名称和截图。若 memory/个性化无法关闭或确认，则暂停并记为环境缺口。
 - 输入证据：提交 `b337e5ef3decb6f71a5216922f94feee05c3b2d0`；`SPEC.md` blob `5bc380d4bf5854a07d0f65e06c517ffaa81cfd66`、SHA-256 `a22e11b49d489ac81d7dbfa08d8c3746a89669d6fedfaba0d42a2e88f19c2f6f`、1305 行；`PLAN.md` blob `8690e3bd56894fffd7b64d4c5b2ed6c253ac2b38`、SHA-256 `1f88a5f9b36634200ece0198cf9dcae611cc0cd1fef918475b700c498c378a94`、1174 行。
@@ -268,7 +268,7 @@
 - 输入事实并列记录：截图 2 显示附加 `SPEC` 与 `PLAN`；Gemini 原始回复同时称“SPEC.md（未直接上传）”。本提交不判断两项事实何者为准。
 - 原始环境自述：Gemini 回复列出可用工具 `personal_context:retrieve_personal_data`，并称本轮未消费；列出本地文件读写、`bash`/终端命令执行和 Git 仓库操作为不可用。该记录保留为原始环境事实，未独立推定其他能力。
 - 试做选择与暂停：Gemini 选择 T05，理由为依赖序位最前及用于暴露规约缺陷；在 T05 Step 1 记录两个暂停点：G3 闸口与试做冲突、OPEN-03 依赖版本批准。回复报告已完成步骤“无”、未完成 T05 Step 1 至 Step 20、命令“未执行”、停止原因为环境限制和 G3/OPEN-03、产物或 diff 为“无”。
-- 时间边界：真实发送时间、响应开始时间和响应结束时间未直接记录。截图文件元数据及 SHA-256、Codex 收到证据时间（2026-07-17 23:36:36 +08:00）已记录于 `COLD_START_VALIDATION.md`。
+- 时间边界：真实发送时间、响应开始时间和响应结束时间未直接记录。截图文件元数据及 SHA-256、Codex 收到证据时间（2026-07-17 23:36:36 +08:00）已记录于 `docs/assessments/COLD_START_VALIDATION.md`。
 - 人工干预：首次试做结束前没有向陌生智能体提供已知答案或绕过疑问的引导；本提交仅保存原始事实，未进行结果分类或修订 `SPEC.md`、`PLAN.md`。
 
 ### 2026-07-17 · T04 冷启动发现分类
@@ -544,3 +544,54 @@
 - TDD：反馈单测先因成功文本未进入 Observation 得到 1 项预期 RED；最小实现将成功文本经现有 Redactor 和 160 字符上限写入反馈后 GREEN。随后 AgentLoop 集成测试先因下一轮 observations 为空得到 1 项预期 RED；改为传递所有可继续执行的反馈后 GREEN，并同步更新机制演示对成功命令反馈的断言。
 - 真人复验：相同真实 CLI 任务的最新 Trace 为 Step 14 `read_file · allow · running`，Observation 含脱敏且截断的 README 正文；Step 15 为 `finish · allow · completed`。未读取、记录或提交主密码与 API Key。
 - 门禁：完整测试、lint、typecheck、Harness/API/Web build、4/4 机制演示和最终审计均退出 0；静态 Web 构建仍为 17 modules，安全审计未发现受控文件、完整 Git 历史或 Web artifact 凭据命中。
+
+### 2026-07-29 · T13 完整会话上下文与规则装配
+
+- 范围与提交：严格停留在短期会话上下文、`/new`、`/model`、`AGENTS.md` / `CLAUDE.md` 规则装配和确定性压缩；未实现长期 Memory、Skill、MCP、Hooks、子 Agent、传感器或 Checkpoint。分支以指导提交 `c764894` 开始，产品实现按消息模型、CLI 命令、规则装配、压缩四个原子提交推进，最终收尾后总提交数为 6，未超过 7。
+- TDD：会话消息模型、跨任务引用、CLI 重置/模型保存、缺失与嵌套规则、冲突顺序、压缩触发/不触发/幂等、摘要脱敏及压缩后继续工具调用均先得到预期 RED，再由最小实现转 GREEN。全部机制使用 `ScriptedMockLLM`、本地文件和 HTTP stub 离线验证。
+- 会话与 CLI：`SessionContext` 独立于 Trace，按顺序保存 user、assistant、Action、Observation；同一终端会话复用同一实例。`/new` 只清空短期上下文；`/model` 可查看模型，合法新名称使用临时文件加原子替换保存并立即生效。普通任务输出不再默认展开 Trace 或底层工具动作。
+- 规则与安全：规则按作用域祖先链从浅到深加载，同层 `CLAUDE.md` 后 `AGENTS.md`；每条规则携带来源、作用域和稳定优先级。规则处于系统安全约束之下，不能覆盖路径围栏、Policy、Approval 或凭据隔离；越界作用域、工作区外符号链接、缺失或不可读文件不会被注入。
+- 压缩：配置新增可选 `contextBudgetChars`，首次初始化默认 24,000 字符。超限时确定性保留系统约束、规则、当前目标、脱敏摘要和近期消息；摘要省略写入正文、命令参数与大段工具输出，重复调用结果稳定，压缩后循环仍能继续调用工具并完成。
+- 最终统一门禁：仅通过 `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\project-env.ps1 all` 运行；33/33 测试文件、355/355 用例通过，lint、typecheck、Harness/API/Web build、4/4 机制演示和最终审计全部退出 0。Vite 静态构建为 17 modules；审计确认当前受控文件、完整 Git 历史和静态 Web artifact 无凭据命中。
+- 交付状态：`guiding.md` 已清空，分支保持 `feat/t13-session-context-rules`，不合并 `dev`、不创建或合并 MR、不发布版本，等待项目负责人手动合并。
+
+### 2026-07-29 · T14 长期 Memory 生命周期
+
+- 范围与提交：严格停留在安全候选、任务前检索、会话末 consolidate、重启恢复和 `/memory`；没有实现通用 Hooks、Skill、MCP、子 Agent、传感器或 Checkpoint。分支以指导提交 `7ffa1c4` 开始，随后按候选模型、主循环接入、CLI 收尾/管理和审查修复推进，最终收尾后总提交数为 6，未超过 7。
+- TDD：`MemoryLifecycle` 缺失时 4 项候选/固化用例 RED；主循环重复检索且不收集候选时 1 项 RED；交互会话缺少收尾与管理时 5 项 RED；审查阶段又以密码候选、任务标签隐私和重复标签覆盖得到 3 项 RED。全部由 `ScriptedMockLLM`、本地临时文件、注入式任务 runner 与确认边界离线验证，不访问真实 Provider。
+- 生命周期：每项任务仅在首次 Provider 调用前检索一次相关 Memory，后续步骤复用同一结果；只有 `completed` 任务生成 `recent_result`。用户只有使用明确“记住约定：…”前缀才会生成 `convention`，普通对话不会被推断为稳定约定。
+- 安全与一致性：候选拒绝 API Key、password/token/secret、中文密码/令牌形态、邮箱和电话号码；内容统一脱敏、折叠空白、限制为 320 字符，标签稳定排序，ID 由种类和安全内容确定性生成。重复候选合并必要标签；批量 consolidate 只执行一次原子替换，失败保留原文件与待固化集合，不回显原始异常。
+- CLI 与恢复：`/new`、`/exit`、EOF 和可控异常使用最小明确收尾边界，不抽象为 Hook；`/new` 只重置短期上下文。`/memory` 只显示约定/最近结果摘要，不显示底层 JSON；`/memory clear` 必须通过可注入确认。相同工作区的新会话可从 `.ai4se/memory.json` 检索上一会话结果，无关任务不注入。
+- 最终统一门禁：仅通过 `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\project-env.ps1 all` 运行；34/34 测试文件、367/367 用例通过，lint、typecheck、Harness/API/Web build、4/4 机制演示和最终审计全部退出 0，Vite 静态构建为 17 modules。
+- 交付状态：`guiding.md` 已清空，分支保持 `feat/t14-memory-lifecycle`，不合并 `dev`、不创建或合并 MR、不发布版本，等待项目负责人手动合并。未读取 `.ai4se/temp-api-key.txt`，未读取、记录或提交任何真实凭据。
+
+### 2026-07-29 · T15 Skill、MCP 与生命周期 Hooks
+
+- 范围与提交：严格只实现四类 Hooks、本地 Skill 渐进加载和最小 MCP 适配/mock；没有实现子 Agent、自动传感器、Checkpoint、生产 MCP 客户端、真实远端连接或动态插件。首提交为 `b6531c3`，RED 测试为 `c61348a`，扩展边界与运行时整合为 `98d56af`、`7a895ef`，最终总提交数保持在 7 条上限内。
+- TDD：先加入 Hook 顺序/幂等/阻断/脱敏、Skill 名片/命中/路径与损坏边界、MCP 发现/成功/失败/超时/无效结果共 9 项测试，在实现缺失时全部 RED；随后由最小实现转 GREEN。补充端到端测试用 `ScriptedMockLLM`、`MockMcpConnection` 和临时工作区确定性证明渐进加载、统一治理、结果回灌及零副作用阻断。
+- Hooks：`SessionStart`、`PreToolUse`、`PostToolUse`、`SessionEnd` 按注册顺序串行运行且会话边界至多一次；Policy 决策和必要 Approval 先完成，Pre 仍在 Dispatcher 副作用前阻断。Post 只接收脱敏结果，异常映射为固定错误；四类事件以 sessionId、状态和收尾原因写入独立 Hook Trace。
+- Skill：启动只读取限长 frontmatter 并暴露稳定排序名片；显式 `load_skill` 后才读取完整正文，同一会话不重复注入。名称、大小、严格元数据、fatal UTF-8、符号链接与 realpath 工作区边界均由代码校验；Skill 在 Provider 中明确低于系统安全约束、规则、Policy 与 Approval。
+- MCP：自研 `McpConnection`/Registry/请求/结果边界只连接注入式 mock。工具名片稳定限长并标记 `external`；`call_mcp` 参数是限长 JSON 对象，固定进入逐次 `ask`，再经过 Pre/Dispatcher/Post。本地 PathGuard 和命令白名单没有被错误描述为远端沙箱。
+- 会话与兼容：`/new`、`/exit`、EOF 和可控异常先运行一次 SessionEnd，再 consolidate T14 Memory；T13 的完整消息上下文、压缩与真实 Provider 提示均能携带能力菜单和已命中 Skill。秘密不会进入普通输出、上下文、Trace 或 Memory。
+- 最终门禁：PowerShell 执行策略要求仅对子进程使用 `ExecutionPolicy Bypass`，所有命令仍通过 `scripts/project-env.ps1`。统一 test、lint、typecheck、build、demo 和 audit 均退出 0；demo 4/4，Vite 静态构建 17 modules，最终审计确认当前受控文件、完整 Git 历史与静态 Web artifact 无凭据命中。
+- 交付状态：分支保持 `feat/t15-skills-mcp-hooks`，不合并 `dev`、不创建或合并 MR、不发布版本，等待项目负责人检查与手动合并。未读取 `.ai4se/temp-api-key.txt`，未使用真实 Provider，未读取、记录或提交任何真实凭据。
+
+### 2026-07-31 · T16 受限子 Agent、反馈传感器与 Checkpoint
+
+- 范围与提交：严格只实现串行受限子 Harness、写后结构化 Sensor 和教学级单文件 Checkpoint；没有实现并行 Agent、Git worktree、网络/操作系统沙箱、生产调度器、版本发布或 T17 提交材料。首提交为 `a5659c2`，核心实现与离线测试为 `db82a78`，Provider 提示契约审查修复为 `0c5204a`，分支总提交数保持在 7 条上限内。
+- TDD：新增 Checkpoint、Sensor、Subagent 三组单元测试时，9 个用例中 8 个因构造器/导出缺失得到有效 RED，既有 383 项全部通过；最小实现转为 GREEN。端到端再用 `ScriptedMockLLM`、mock Sensor 与隔离临时工作区覆盖写后通过、Sensor 失败恢复、工具失败恢复、恢复失败、Pre Hook 零快照、只读委派、工具越权和父子预算。收尾审查新增 Provider 委派 schema 契约，得到 404 项中单一 RED 后修复为 GREEN。
+- 子 Agent：`delegate_agent` 只串行进入 `SubagentManager`。每个子 Agent 新建 `SessionContext`，只获得请求任务和父级允许的最小工具集；最大深度、单子步骤上限和 `SharedStepBudget` 由代码强制。父会话只接收统一 Redactor 处理并限长的状态摘要，不接收内部消息或大段输出；子模型请求未授权写入时 handler 调用保持为零。
+- Sensor：`FeedbackSensorSuite` 只接受稳定名称、`executable`、`args` 与可选启用状态，拒绝 Shell、删除类命令、NUL 和重复名称。生产装配复用既有 `CommandTool` 白名单、超时与输出上限；只有成功 `write_file` 触发，按 test、lint、typecheck 稳定顺序运行，分类、截断和脱敏结果回灌 Observation 与 Trace。
+- Checkpoint：`WorkspaceCheckpoint` 只保存明确目标的存在状态、受限 UTF-8 正文和必要元数据；拒绝目录、符号链接、敏感路径、敏感正文和超限文件。工具、Sensor 或 Post Hook 失败时逐个恢复既有文件；原文件不存在时只删除本次创建的那个已确认普通文件。目标被替换为目录时固定返回 `CHECKPOINT_RESTORE_UNSAFE`，不递归清理；成功写入后立即丢弃内存快照正文。
+- 外部边界与 Trace：命令和 MCP 的任意外部副作用不在单文件快照能力内，Trace 写入 `external_side_effect_not_snapshot_capable`，不声称已回滚。Trace 同时记录父子 session、深度、步骤/共享预算、Sensor 分类、Checkpoint 创建/恢复及恢复失败，所有内容统一脱敏。
+- 最终统一门禁：仅通过 `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\project-env.ps1 all` 运行；42/42 测试文件、404/404 用例通过，lint、typecheck、Harness/API/Web build、4/4 demo 和最终 audit 全部退出 0，Vite 静态构建为 17 modules。审计确认当前受控文件、完整 Git 历史和可用静态 Web artifact 未发现凭据命中。
+- 交付状态：分支保持 `feat/t16-subagent-feedback-checkpoint`，不合并 `dev`、不创建或合并 MR、不发布版本，等待项目负责人检查与手动合并。未读取 `.ai4se/temp-api-key.txt`，未使用真实 Provider，未读取、记录或提交任何真实凭据。
+
+### 2026-07-31 · T17 Trace、最终离线验收与 v2.0.0 候选
+
+- Trace：文档版本升级为 v3，新增会话 ID、脱敏限长的用户输入/模型输出摘要和审批结果；完整回放同时返回轮次与 Hook 事件。v1/v2 保持兼容读取并在下一次写入迁移；文件上限 1 MiB、摘要上限 512 字符、轮次与 Hook 数量均有界。
+- 验收矩阵：新增从空工作区三项初始化、连续会话、Memory 固化与新实例恢复的端到端用例；并将 Skill、Mock MCP、Hook、子 Agent、Sensor、Checkpoint、Trace 与失败停机映射到既有确定性测试。阶段结果为 43/43 测试文件、409/409 用例通过。
+- 分发：`@ai4se/harness` 升级为 2.0.0；统一 `pack` 生成 `ai4se-harness-2.0.0.tgz`。分发测试在新临时目录离线安装、导入并运行 CLI smoke，且断言包内无 `src`、`.ai4se`、凭据、Memory、Trace 或 TypeScript 源文件。
+- 文档：README、SPEC、PLAN、包说明和 Release 材料统一到 v2.0.0；公开 Release URL 与最终 CI artifact SHA-256 保持“总控发布后填写”，未伪造地址。
+- 边界：全程未读取 `.ai4se/temp-api-key.txt`，未使用真实 Provider 或真实凭据，未合并、打标签、推送或创建 Release。
+- 最终门禁：严格依次运行统一入口 `all`、`pack`、`test`、`audit`；两次完整测试均为 43/43 文件、409/409 用例，lint、typecheck、三模块 build、4/4 demo 和审计全部退出 0。工作分支本地候选包为 55,001 bytes，SHA-256 `7A336954FE20B74B8A5F544C215DF2F9C119B1D18A8354BB197E276D0A37A252`，只作本地证据，不替代最终 CI artifact。

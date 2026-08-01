@@ -1,4 +1,3 @@
-import type { DispatchResult } from "./dispatcher.js";
 import type { Redactor } from "./redactor.js";
 
 export type FeedbackCategory = "pass" | "fail" | "timeout" | "environment_error";
@@ -23,6 +22,8 @@ interface ToolSuccess {
   ok: true;
   value: unknown;
 }
+
+type GovernedToolResult = ToolSuccess | ToolFailure;
 
 const MAX_OBSERVATION_LENGTH = 160;
 
@@ -83,7 +84,7 @@ function fromFailure(
   };
 }
 
-export function classifyFeedback(result: DispatchResult, redactor: Redactor): FeedbackResult {
+export function classifyFeedback(result: GovernedToolResult, redactor: Redactor): FeedbackResult {
   if (!result.ok) {
     return fromFailure(redactor, result.error.code);
   }

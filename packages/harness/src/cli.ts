@@ -1,7 +1,16 @@
 import { isAbsolute, join, resolve } from "node:path";
 
 import type { ApprovalHandler, ApprovalRequest } from "./approval.js";
-import { CredentialStore, type CredentialResult } from "./credential-store.js";
+import {
+  CredentialStore,
+  type CredentialResult,
+  type CredentialStoreFactory
+} from "./credential-store.js";
+import {
+  initializeFirstRun,
+  type FirstRunInputValidator,
+  type SystemCredentialVaultFactory
+} from "./first-run.js";
 import {
   runInteractiveSession,
   type InteractiveSessionDependencies
@@ -11,6 +20,10 @@ import { preflightHarnessTaskConfig, runHarnessTask } from "./run-task.js";
 
 export interface CliDependencies {
   readonly cwd: string;
+  readonly isTty?: boolean;
+  readonly credentialStoreFactory?: CredentialStoreFactory;
+  readonly systemCredentialVaultFactory?: SystemCredentialVaultFactory;
+  readonly validateFirstRunInput?: FirstRunInputValidator;
   readonly readSecret: (prompt: string) => Promise<string>;
   readonly readLine?: InteractiveSessionDependencies["readLine"];
   readonly askApproval?: ApprovalHandler;
@@ -23,6 +36,7 @@ const HELP = [
   "AI4SE Coding Agent Harness",
   "",
   "用法：",
+  "  ai4se-harness",
   "  ai4se-harness start [--config <path>]",
   "  ai4se-harness --task <task> [--config <path>]",
   "  ai4se-harness credentials <init|status|update|clear>",
@@ -60,7 +74,7 @@ async function runCredentialCommand(
   command: string,
   dependencies: CliDependencies
 ): Promise<number> {
-  const store = new CredentialStore(join(dependencies.cwd, ".ai4se", "credentials.json"));
+  const store = createCredentialStore(dependencies);
   if (command === "status") {
     const result = await store.status();
     if (!result.ok) {
@@ -92,6 +106,11 @@ async function runCredentialCommand(
   }
   dependencies.writeOut(command === "init" ? "凭据初始化成功" : "凭据更新成功");
   return 0;
+}
+
+function createCredentialStore(dependencies: CliDependencies) {
+  const path = join(dependencies.cwd, ".ai4se", "credentials.json");
+  return dependencies.credentialStoreFactory?.(path) ?? new CredentialStore(path);
 }
 
 interface TaskArguments {
@@ -182,7 +201,7 @@ async function runTask(
     );
     return 1;
   }
-  const store = new CredentialStore(join(dependencies.cwd, ".ai4se", "credentials.json"));
+  const store = createCredentialStore(dependencies);
   const masterPassword = await dependencies.readSecret("主密码");
   const credential = await store.read(masterPassword);
   if (!credential.ok) {
@@ -226,7 +245,7 @@ export async function runCli(
   }
 
   try {
-    if (args.length === 0 || args[0] === "smoke") {
+    if (args[0] === "smoke") {
       if (args.length > 1) {
         dependencies.writeError("命令参数无效");
         return 2;
@@ -245,12 +264,50 @@ export async function runCli(
       }
       return await runCredentialCommand(args[1], dependencies);
     }
-    if (args[0] === "start") {
-      if (dependencies.readLine === undefined) {
+    if (args.length === 0) {
+      if (dependencies.isTty === false || dependencies.readLine === undefined) {
         dependencies.writeError("交互会话需要 TTY");
         return 1;
       }
-      const configPath = configPathFromArgs(args.slice(1), dependencies);
+      const initialized = await initializeFirstRun(
+        { cwd: dependencies.cwd },
+        {
+          readLine: dependencies.readLine,
+          readSecret: dependencies.readSecret,
+          systemCredentialVaultFactory: dependencies.systemCredentialVaultFactory,
+          validateInput: dependencies.validateFirstRunInput
+        }
+      );
+      if (!initialized.ok) {
+        dependencies.writeError(`首次初始化失败：${initialized.error.code}`);
+        return 1;
+      }
+      return await runInteractiveSession(
+        {
+          cwd: dependencies.cwd,
+          configPath: join(dependencies.cwd, ".ai4se", "config.json"),
+          credentialMode: "system"
+        },
+        {
+          readSecret: dependencies.readSecret,
+          systemCredentialVaultFactory: dependencies.systemCredentialVaultFactory,
+          readLine: dependencies.readLine,
+          askApproval: dependencies.askApproval,
+          clearScreen: dependencies.clearScreen,
+          writeOut: dependencies.writeOut,
+          writeError: dependencies.writeError
+        }
+      );
+    }
+    if (args[0] === "start") {
+      if (dependencies.isTty === false || dependencies.readLine === undefined) {
+        dependencies.writeError("交互会话需要 TTY");
+        return 1;
+      }
+      const configPath = configPathFromArgs(
+        args.slice(1),
+        dependencies
+      );
       if (typeof configPath === "number") {
         return configPath;
       }
@@ -258,6 +315,7 @@ export async function runCli(
         { cwd: dependencies.cwd, configPath },
         {
           readSecret: dependencies.readSecret,
+          credentialStoreFactory: dependencies.credentialStoreFactory,
           readLine: dependencies.readLine,
           askApproval: dependencies.askApproval,
           clearScreen: dependencies.clearScreen,

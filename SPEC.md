@@ -1,15 +1,17 @@
 # Coding Agent Harness 课程最小交付规约
 
+> **2026-07-31 T17 候选：** 路线 B 已完成 Trace v3、最终离线验收矩阵与 `@ai4se/harness` 2.0.0 全新目录 tarball smoke。真实 Provider 最终验收、合并、标签、推送与公开 Release 仍由总控完成。
+
 ## 0. 文档控制
 
 | 字段 | 值 |
 | --- | --- |
-| 文档版本 | 2.2.0 |
-| 批准日期 | 2026-07-22 |
+| 文档版本 | 2.7.0 |
+| 批准日期 | 2026-07-31 |
 | 项目负责人 | 徐黄浩 |
 | 权威需求来源 | 本文件；`guide/AI4SE_Final_Project_通用要求.md` 与 `guide/AI4SE_Final_Project_A_Coding_Agent_Harness.md` 是不可删减的上位要求 |
-| 当前 Gate | G1、G2、G3 与 T01–T12 均已完成；`main` 的最终 Pages 试验 Pipeline `#313989` 已通过，但学校 GitLab 未生成公开 Pages 地址；最终交付改用 `v1.0.0` GitLab Release |
-| 实现范围 | T05–T12，一周内完成最低可用课程作业 |
+| 当前 Gate | v2.0.0 离线候选已准备；等待总控真实 Provider 验收与公开发布 |
+| 实现范围 | T05–T17；T17 只补完整 Trace、离线验收、分发与 Release 材料 |
 
 本版本取代 SPEC 1.0.0 的实现承诺。旧版本保留为 Git 历史和过程证据，不再要求实现数据库、多用户平台、复杂决策版本、SSE、Docker 或线上后端。任何删减都不得违反上述两份课程原始要求。
 
@@ -37,7 +39,9 @@
 5. 作为重复使用者，我希望项目约定和最近结果写入本地记忆，并只把相关条目加入上下文。
 6. 作为真实模型使用者，我希望安全录入、查看状态、更新和清除学校 OpenAI-compatible API Key；本地 WebUI 可为单次运行临时接收 Key，但明文不得进入源码、Git、日志、Trace、Memory、URL 或浏览器持久化存储。
 7. 作为评审者，我希望一条命令运行全部离线测试和三项机制演示，并能从 README 理解静态 mock 运行轨迹。
-8. 作为新用户，我希望从 GitLab `v1.0.0` Release 下载 npm tarball，在全新目录安装并按照 README 完成配置与运行。
+8. 作为新用户，我希望从 GitLab `v2.0.0` Release 下载 npm tarball，在全新目录安装并按照 README 完成配置与运行。
+9. 作为 CLI 用户，我希望后一题能引用前文，并能用 `/new` 重置短期对话、用 `/model` 查看或保存模型；超出预算时仍保留安全约束、规则、目标、摘要和近期消息。
+10. 作为复杂任务使用者，我希望父 Agent 能串行委派受限子 Agent，并在写入后自动验证；若工具或 Sensor 失败，只恢复明确快照的单文件且不伪称回滚外部副作用。
 
 这些故事可独立验收，均有明确用户、价值和可观察结果。
 
@@ -84,6 +88,9 @@ type Action =
   | { type: "read_file"; path: string }
   | { type: "write_file"; path: string; content: string }
   | { type: "run_command"; executable: string; args: readonly string[] }
+  | { type: "load_skill"; name: string }
+  | { type: "call_mcp"; server: string; tool: string; arguments: Readonly<Record<string, unknown>> }
+  | { type: "delegate_agent"; task: string; allowedTools: readonly string[] }
   | { type: "finish"; summary: string };
 ```
 
@@ -102,6 +109,7 @@ type Action =
 
 - `deny`：路径逃逸、敏感文件、删除类命令、Shell 启动器、白名单外程序。
 - `ask`：工作区文件写入和其他配置为需批准的副作用。
+- 外部 MCP 调用固定为 `ask`；本地 PathGuard 与命令白名单不延伸到远端实现。
 - `allow`：安全读取和已允许的只读验证命令。
 
 `ask` 必须暂停并生成结构化批准请求；没有批准时不得调用工具。最小版本只支持当前 CLI 会话中的一次批准，不实现持久化审批平台。
@@ -120,12 +128,45 @@ JSON 配置通过运行时 schema 校验，至少包含工作区路径、允许�
 
 工具分发、路径检查、策略、反馈分类、记忆读写和停机判断均由项目源码实现。替换真实 Provider 为 `ScriptedMockLLM` 后，全部机制仍可用单元测试验证；Prompt、配置和 Skill 只作为输入内容，不计为 Harness 内核。
 
+### 4.8 T13 会话上下文与规则
+
+- `SessionContext` 按顺序保存 user、assistant、Action 和 Observation；Trace 只承担审计，不充当模型历史。
+- `/new` 仅重置当前进程内短期上下文；`/model` 查看当前模型，或校验后原子保存新模型名称。
+- 启动装配按浅到深的作用域祖先链加载 `CLAUDE.md`、`AGENTS.md`；同层后加载的 `AGENTS.md` 优先。规则带来源和作用域，且不能覆盖路径围栏、Policy、Approval 或凭据隔离。
+- `contextBudgetChars` 达到阈值后执行确定性压缩，保留系统约束、规则、当前目标、脱敏摘要和近期消息；摘要省略写入正文、命令参数及大段工具输出。
+- T13 不写入长期 Memory，不实现 `/memory`、Skill、MCP、Hooks、子 Agent、传感器或 Checkpoint。
+
+### 4.9 T14 长期 Memory 生命周期
+
+- 每项任务在首次 Provider 调用前按当前目标检索一次相关 Memory，后续步骤复用同一检索结果；无关条目不注入。
+- 只有已完成任务的限长摘要生成 `recent_result`；只有用户使用明确“记住约定：…”前缀表达的稳定约定生成 `convention`，不从普通对话推断个人信息。
+- 候选统一拒绝凭据和个人标识，进行脱敏、320 字符限长、稳定标签提取、确定性 ID 去重与排序；不复制完整消息、Action、Observation、命令输出或文件正文。
+- 候选在会话内暂存，由 `/new`、`/exit`、输入结束和可控异常边界调用最小明确收尾；批量合并使用单次原子替换，不引入通用 Hook。
+- 新进程从当前工作区 `.ai4se/memory.json` 恢复检索；`/memory` 只显示安全摘要，`/memory clear` 必须在用户确认后执行。`/new` 先固化候选并只重置短期上下文。
+
+### 4.10 T15 Skill、MCP 与生命周期 Hooks
+
+- Skill 从工作区 `.ai4se/skills/<name>/SKILL.md` 发现；平时只提供稳定排序、限长的名称和简介，显式 `load_skill` 后才读取并注入完整指令。同一会话不重复注入。
+- Skill 名称、真实路径、符号链接、文件大小、UTF-8 与严格 frontmatter 均由代码校验；失败返回固定脱敏错误。Skill 指令低于系统安全约束、Policy、Approval 和工作区规则。
+- MCP 仅定义自研连接/工具/请求/结果接口与离线 mock；工具名片标注 `external`。`call_mcp` 通过统一 Policy、逐次 Approval、Pre/Post Hook 和 Dispatcher，不实现生产协议客户端或真实外部连接。
+- Hook 固定为 `SessionStart`、`PreToolUse`、`PostToolUse`、`SessionEnd`，按注册顺序串行执行。Pre 可在副作用前阻断；Post 只接收脱敏结果；异常统一映射为固定错误。
+- Hook 事件使用会话 ID 写入 Trace 的独立有序事件列表；`SessionEnd` 在 `/new`、`/exit`、EOF 和可控异常边界至多执行一次，并先于 Memory consolidate。
+
+### 4.11 T16 受限子 Agent、Sensor 与 Checkpoint
+
+- `delegate_agent` 只串行启动子 Harness；子 Agent 使用新建的 `SessionContext`，只接收任务、规则/Skill 名片和父级允许的最小工具集，不复用父会话历史。
+- 深度、每个子 Agent 步骤数和父子共享总步骤预算由代码强制；耗尽时确定性停止。子 Agent 只返回脱敏、限长摘要，不回灌完整内部消息或大段输出。
+- Sensor 配置只包含稳定名称、`executable`、`args` 和可选启用状态，复用既有 `CommandTool` 的无 Shell、白名单、超时与输出边界；只有成功的 `write_file` 自动触发。
+- `WorkspaceCheckpoint` 只快照明确写入目标的受限 UTF-8 单文件。目录、符号链接、敏感路径、凭据正文和超限文件均拒绝；失败时逐个恢复原文件，或只删除本次创建的一个已确认普通文件。
+- 命令与 MCP 的任意外部副作用不在教学级 Checkpoint 能力内；Trace 明确记录不可快照限制，不声称已经回滚。
+- Trace 条目补充父子会话关系、共享预算、Sensor 分类、Checkpoint 创建/恢复和外部回滚限制，全部经过统一 Redactor。
+
 ## 5. 功能规约
 
 ### 5.1 Mock LLM 与动作解析
 
 - 输入：任务、记忆摘要和 Observation 历史。
-- 行为：脚本化 mock 按顺序返回结果；解析器只接受四类 Action 和精确字段。
+- 行为：脚本化 mock 按顺序返回结果；解析器只接受六类 Action 和精确字段。
 - 输出：Action 或结构化解析错误。
 - 边界：脚本耗尽、未知动作、缺失字段和多余字段均失败；测试不联网。
 
@@ -139,9 +180,9 @@ JSON 配置通过运行时 schema 校验，至少包含工作区路径、允许�
 ### 5.3 Memory 与配置
 
 - 输入：合法配置、Memory 查询或更新。
-- 行为：schema 校验、原子写入单个 JSON 文件、按标签筛选。
+- 行为：schema 校验、批量候选原子写入单个 JSON 文件、按任务标签与关键词筛选、会话末固化和重启恢复。
 - 输出：相关 MemoryItem 或明确错误。
-- 边界：损坏 JSON 不静默覆盖；敏感内容拒绝写入；缺少配置快速失败。
+- 边界：损坏 JSON 不静默覆盖；凭据、个人标识、完整对话和大段正文拒绝写入；重复固化不增加重复项；缺少配置快速失败。
 
 ### 5.4 Agent Loop 与反馈
 
@@ -176,10 +217,17 @@ JSON 配置通过运行时 schema 校验，至少包含工作区路径、允许�
 
 ### 5.8 分发与文档
 
-- `pnpm pack` 生成 Harness/CLI npm tarball。
+- `pnpm pack` 生成 `ai4se-harness-2.0.0.tgz` Harness/CLI npm tarball。
 - 在全新临时目录安装 tarball并运行离线 smoke。
 - README 必须包含项目简介、架构/主要贡献、安装、运行、测试、三项演示、本地 WebUI、GitLab Release URL、凭据录入/状态/更新/清除、目录、安全边界、分发和已知限制、第三方许可证。
 - `REFLECTION.md` 1500–2500 字，由项目负责人本人撰写；AI 仅可润色并标注。
+
+### 5.9 T16 扩展闭环
+
+- 输入：委派动作、结构化 Sensor 配置和明确单文件写入目标。
+- 行为：父 Agent 串行委派 → 子上下文受限执行 → 摘要回灌；写前快照 → 写入 → Sensor → 成功提交或失败恢复。
+- 输出：脱敏 Observation，以及包含父子、预算、Sensor、Checkpoint 和回滚限制的 Trace 细节。
+- 边界：不并行、不使用 worktree/操作系统快照；不递归复制或删除工作区；不回滚未声明的外部副作用。
 
 ## 6. 架构与数据流
 
@@ -260,7 +308,7 @@ Memory 和 Trace 使用本地 JSON；加密凭据单独存储，三者不得混�
 | 3 个以上模块 | API、Web、Harness、tests | T05 |
 | CI | `.gitlab-ci.yml` 精确 `unit-test`，最后 Pipeline passed | T05/T12 |
 | 分发 | npm tarball 全新目录安装 smoke | T12 |
-| 托管部署 | 助教补充说明允许 CLI 项目提供托管平台 Release；使用 GitLab `v1.0.0` Release | T12/最终收尾 |
+| 托管部署 | 助教补充说明允许 CLI 项目提供托管平台 Release；使用 GitLab `v2.0.0` Release | T17/总控发布 |
 | 过程证据 | SPEC/PLAN/SPEC_PROCESS/AGENT_LOG、分支/MR/评审记录 | 全程 |
 | README | 必需章节完整 | T12 |
 | 反思 | 本人撰写 1500–2500 字 | T12 |
@@ -277,6 +325,6 @@ Memory 和 Trace 使用本地 JSON；加密凭据单独存储，三者不得混�
 
 - 学校 API 的实际模型名、配额和兼容差异在 T10 由负责人本地验证；失败不允许伪造成功。
 - 学校 GitLab 的 Pages 作业能够构建静态产物，但实例没有生成可访问地址；依据助教部署补充说明，最终采用 CLI + GitLab Release。真实 Web 模式必须由用户在本机显式启动，且 Key 仍会短暂存在于浏览器和 Node 进程内存。
-- 加密文件安全依赖主密码强度；README 必须说明遗忘主密码无法恢复、进程内存仍可能暴露明文。
+- 普通 Windows 流程使用当前用户系统保护，不询问主密码；旧式兼容加密文件仍依赖主密码强度，两种方式都无法消除进程内存中的短暂明文暴露。
 - npm tarball 首版只承诺 Node 24 和文档列出的主要平台。
 - 项目负责人已接受功能广度和企业级扩展性下降，以换取在课程截止前形成完整、可运行、可解释的交付物。

@@ -1,14 +1,25 @@
 # Coding Agent Harness 课程最小实现计划
 
+> **状态修正（2026-08-01）：** T17 已完成 Trace v3、最终离线验收矩阵、`@ai4se/harness` 2.0.0 打包与全新目录 smoke；真实 Provider 只读验收已通过，T17 已合入 `dev`，当前只剩 `main`、`v2.0.0` 标签与 GitLab Release 发布。
+
+> **路线 B 初始化边界（2026-07-24）：** 首次运行只允许向用户收集服务地址、隐藏 API Key 和模型名称；三项均由用户直接填写。当前目录自动成为工作区，其余配置全部由程序内部生成。普通流程不得要求选择 Provider、选择预设模型、编辑 JSON、指定路径或设置本地保护密码；`v1.1.0` 的主密码流程仅作为历史兼容实现。
+
 > **For agentic workers:** 按 T06–T12 串行执行；每个 Task 使用独立 branch/worktree、一次新鲜 subagent、TDD、Spec 检查、质量检查和 MR Pipeline。步骤用 `guiding.md` 细化，不扩展本计划范围。
 
-**版本：** 2.4.0
+**版本：** 2.9.0
 
-**SPEC 基线：** `SPEC.md` 2.2.0
+**SPEC 基线：** `SPEC.md` 2.7.0
 
 **目标日期：** 2026-07-25
 
-**当前状态：** G1–G3 与 T01–T12 均已完成；`main` Pipeline `#313989` 已通过。学校 GitLab 未生成公开 Pages 地址，最终交付按助教补充说明改为 `v1.0.0` GitLab Release，当前执行最后的文档、标签和附件收尾。
+**当前状态：** G1–G3、T01–T17 已完成并合入 `dev`；代码、测试和提交材料已收尾，等待完成正式发布。
+
+### 路线 B 剩余任务（简化）
+
+1. 受限子 Agent、自动反馈传感器和 Checkpoint 恢复。
+2. 完整 Trace、真实 Provider、tarball 与 `v2.0.0` Release 验收。
+
+执行纪律：一次只做上述一个单项，默认最多一个提交；每项通过统一 `all` 门禁后停止并由负责人决定是否继续。
 
 ## 1. 目标与最小边界
 
@@ -75,6 +86,11 @@ pnpm build
 | T10 | 安全凭据、真实 Provider、CLI 与三演示 | `feat/t10-cli-provider-demo` | 已合入 `dev`（MR !12，merge `64458b8`） | 7 |
 | T11 | 双模式 WebUI、本地 API 与静态 mock | `feat/t11-static-web` | 已合入 `dev`（MR !13，merge `7c68221`）；学校 Pages 不可用，托管交付由 Release 取代 | 7 |
 | T12 | npm 分发、README、反思与最终审计 | `docs/t12-final-delivery` | 已合入 `dev`（MR !14，merge `6f8b5d6`） | 7 |
+| T13 | 完整短期会话、命令、规则与压缩 | `feat/t13-session-context-rules` | 已合入 `dev`（merge `32006ec`） | 7 |
+| T14 | 长期 Memory 生命周期、重启恢复与管理 | `feat/t14-memory-lifecycle` | 已合入 `dev`（merge `e9a6e2a`） | 7 |
+| T15 | Skill、MCP 与生命周期 Hooks | `feat/t15-skills-mcp-hooks` | 已合入 `dev`（merge `77e9e78`） | 7 |
+| T16 | 受限子 Agent、Sensor 与 Checkpoint | `feat/t16-subagent-feedback-checkpoint` | 已合入 `dev`（merge `76252af`） | 7 |
+| T17 | Trace、最终离线验收与 v2.0.0 分发准备 | `release/t17-harness-v2` | 离线候选已准备，等待总控外部步骤 | 7 |
 
 ## 5. T05：工程骨架与最小 CI（已完成）
 
@@ -317,7 +333,7 @@ pnpm demo
 pnpm pack
 ```
 
-本地 npm tarball 全新目录 smoke 已通过；`main` Pipeline `#313989` 已通过。最终只需合并本次 Release 文档收尾、创建 `v1.0.0` 标签并上传经过 CI 验证的 tarball。
+本节记录 T12 历史基线；当前最终候选已升级为 T17 的 `v2.0.0`，不得沿用旧标签或附件名。
 
 **建议提交：** 规划；打包/smoke；README/许可证；负责人反思；最终审计；清空 guiding。
 
@@ -353,10 +369,40 @@ pnpm pack
 - 不在测试、CI 或仓库中使用真实 Key。
 - 不为形式重复无新增信息的验证，但课程要求的 TDD、一次双检查、MR 和 Pipeline 不能省略。
 
-## 15. 最终托管交付决议（2026-07-22）
+## 15. 历史托管交付决议（2026-07-22，已由 v2.0.0 候选取代）
 
 - `main` Pipeline `#313980` 和补充新版 Pages 声明后的 `#313989` 均通过，证明测试与静态 Web 构建正常。
 - 学校 GitLab 没有生成 Pages 管理入口、`CI_PAGES_URL` 或可访问公开域名；该能力缺口不能由项目代码修复。
 - 根据助教“CLI 项目可提供托管平台 Release 链接”的补充说明，最终交付入口固定为 `https://git.nju.edu.cn/HuanghaoXu/ai4se-coding-agent-harness/-/releases/v1.0.0`。
 - Release 附件固定为 CI 已验证的 `ai4se-harness-0.1.0.tgz`；WebUI 只保留本地运行和静态 mock 源码。
-- 本节是最终状态；T11/T12 执行证据中保留的“Pages 待核验”属于当时的历史事实，不再是当前待办。
+- 本节只记录 v1.0.0 历史状态；T11/T12 执行证据中保留的“Pages 待核验”属于当时事实，当前交付以第 18 节 v2.0.0 候选为准。
+
+## 18. T17：最终离线验收与 v2.0.0 候选
+
+- Trace 升级到 v3，增加会话 ID、脱敏限长的用户/模型摘要与审批结果；保留 v1/v2 兼容读取和迁移，文件上限 1 MiB，摘要上限 512 字符。
+- 最终验收矩阵覆盖全新初始化、连续对话、重启 Memory、规则/Skill、Mock MCP、Hook、子 Agent、Sensor、Checkpoint、Trace 脱敏与失败停机；全部使用确定性 mock/stub。
+- `@ai4se/harness` 版本为 2.0.0；统一 `pack` 生成 `ai4se-harness-2.0.0.tgz`，自动化在全新目录离线安装、导入并运行 CLI smoke，包内无源码、凭据、Memory 或 Trace。
+- Release 标题、说明、附件名、校验说明和助教验收步骤见 `docs/releases/v2.0.0-release-notes.md`；正式入口为 `https://git.nju.edu.cn/HuanghaoXu/ai4se-coding-agent-harness/-/releases/v2.0.0`。
+- 本分支不得执行真实 Provider、合并、标签、推送或公开发布。
+
+**最终离线门禁（2026-07-31）：** 严格依次通过统一入口的 `all`、`pack`、包含全新临时目录分发安装/导入/CLI smoke 的 `test` 和末次 `audit`。两次完整测试均为 43/43 文件、409/409 用例；lint、typecheck、Harness/API/Web build、4/4 demo 和两次最终审计均退出 0，Vite 静态构建为 17 modules。包清单只含 `dist`、`bin`、`package.json` 和 `README.md`。本地候选 `ai4se-harness-2.0.0.tgz` 为 55,001 bytes，SHA-256 为 `7A336954FE20B74B8A5F544C215DF2F9C119B1D18A8354BB197E276D0A37A252`；该哈希只记录工作分支本地验收，不得替代最终标签提交的 CI artifact 校验。
+
+**总控验收进展（2026-08-01）：** 已使用本地测试 Key 完成真实 Provider 只读任务，Agent 按 `read_file → finish` 完成，Trace 未包含 Key；临时验收文件已删除。T17 已合入 `dev`，完整门禁为 43/43 文件、409/409 用例，加入临时真实 Provider 用例时为 44/44 文件、410/410 用例。当前只剩合并 `main`、创建并推送 `v2.0.0` 标签、创建 GitLab Release、上传最终 tarball，并从 Release 重新下载做 smoke。
+
+## 16. T15：Skill、MCP 与生命周期 Hooks（已完成）
+
+- `HookManager` 只实现 `SessionStart`、`PreToolUse`、`PostToolUse`、`SessionEnd`，按注入顺序串行执行；Pre 阻断发生在副作用前，职责不替代 Policy/Approval。
+- `SkillRegistry` 在工作区约定目录安全发现名片，显式 `load_skill` 后才读取正文；拒绝路径逃逸、符号链接、工作区外真实路径、超大、损坏 UTF-8 与无效元数据。
+- `McpRegistry` 和 `MockMcpConnection` 只提供自研适配边界、稳定发现和离线调用；`call_mcp` 固定视为外部信任边界并逐次审批，不连接真实服务。
+- `AgentLoop` 每轮提供限长统一能力菜单，Skill/MCP/Hook 接入脱敏上下文、Observation 与 Trace；T13 会话和 T14 Memory 收尾保持兼容。
+- TDD 从 9 个缺失边界用例 RED 开始；最终统一 test、lint、typecheck、build、demo 和 audit 均退出 0，demo 4/4，Vite 构建 17 modules。未使用真实 Provider、网络或凭据。
+
+## 17. T16：受限子 Agent、Sensor 与 Checkpoint（已完成）
+
+- `delegate_agent` 由 `SubagentManager` 串行执行；子 Harness 使用独立 `SessionContext`、父级最小工具授权、最大深度、单子步骤上限和 `SharedStepBudget`。父会话只接收脱敏限长摘要。
+- `FeedbackSensorSuite` 严格接收 `executable`/`args`，生产装配复用 `CommandTool` 安全边界；成功写入后按 test、lint、typecheck 稳定顺序运行，结果回灌 Observation。
+- `WorkspaceCheckpoint` 只快照明确的受限 UTF-8 单文件；工具/Sensor/Post Hook 失败时逐个恢复。新文件只删除本次创建的单个已确认文件，恢复目标变成目录或符号链接时固定失败且不递归清理。
+- Trace 记录父子关系、共享预算、Sensor、Checkpoint 和外部副作用不可快照限制；命令/MCP 不会被虚假描述为已回滚。
+- TDD 从缺失构造器的 8 项有效 RED 开始；完整离线测试最终覆盖写后通过、Sensor/工具失败恢复、恢复失败、Pre Hook 零快照、工具越权、深度/预算和外部限制。未使用真实 Provider、网络或凭据。
+- 收尾审查发现真实 Provider 的系统提示仍只列出 T15 六类 Action；新增契约测试得到 404 项中单一 RED，补入第七类 `delegate_agent` 精确 JSON schema 后恢复 404/404 GREEN。
+- 最终统一 `all` 门禁为 42/42 测试文件、404/404 用例；lint、typecheck、Harness/API/Web build、4/4 demo 和 audit 全部退出 0，Vite 构建 17 modules。分支核心提交为 `db82a78`，提示契约修复为 `0c5204a`。

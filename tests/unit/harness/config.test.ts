@@ -24,6 +24,24 @@ describe("parseHarnessConfig", () => {
     expect(result).toEqual({ ok: true, value: validConfig });
   });
 
+  it("接受可选的确定性上下文字符预算", () => {
+    const input = { ...validConfig, contextBudgetChars: 24_000 };
+
+    expect(parseHarnessConfig(input)).toEqual({ ok: true, value: input });
+  });
+
+  it("接受严格的结构化 Sensor executable/args 配置", () => {
+    const input = {
+      ...validConfig,
+      sensors: [
+        { name: "test", executable: "pnpm", args: ["test"] },
+        { name: "lint", executable: "pnpm", args: ["lint"], enabled: false }
+      ]
+    };
+
+    expect(parseHarnessConfig(input)).toEqual({ ok: true, value: input });
+  });
+
   it.each([
     "https://provider.example/v1",
     "http://localhost:11434/v1",
@@ -77,6 +95,25 @@ describe("parseHarnessConfig", () => {
       code: "CONFIG_UNKNOWN_FIELD"
     },
     {
+      name: "Sensor 中的未知字段",
+      input: {
+        ...validConfig,
+        sensors: [{ name: "test", executable: "pnpm", args: ["test"], command: "pnpm test" }]
+      },
+      code: "CONFIG_UNKNOWN_FIELD"
+    },
+    {
+      name: "重复 Sensor 名称",
+      input: {
+        ...validConfig,
+        sensors: [
+          { name: "test", executable: "pnpm", args: ["test"] },
+          { name: "test", executable: "pnpm", args: ["lint"] }
+        ]
+      },
+      code: "CONFIG_INVALID_VALUE"
+    },
+    {
       name: "相对 Provider base URL",
       input: {
         ...validConfig,
@@ -103,6 +140,11 @@ describe("parseHarnessConfig", () => {
     {
       name: "越界的最大步数",
       input: { ...validConfig, maxSteps: 0 },
+      code: "CONFIG_INVALID_VALUE"
+    },
+    {
+      name: "过小的上下文预算",
+      input: { ...validConfig, contextBudgetChars: 255 },
       code: "CONFIG_INVALID_VALUE"
     },
     {

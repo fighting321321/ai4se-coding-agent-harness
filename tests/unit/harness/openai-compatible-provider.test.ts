@@ -142,7 +142,10 @@ describe("OpenAICompatibleProvider", () => {
         observations: ["fail: first attempt"]
       });
 
-      expect(result).toEqual({ raw: { type: "finish", summary: "done" } });
+      expect(result).toEqual({
+        raw: { type: "finish", summary: "done" },
+        assistantText: '{"type":"finish","summary":"done"}'
+      });
       expect(stub.requests).toHaveLength(1);
       const request = stub.requests[0];
       expect(request?.method).toBe("POST");
@@ -170,9 +173,92 @@ describe("OpenAICompatibleProvider", () => {
       expect(systemPrompt).toContain(
         '{"type":"run_command","executable":"命令","args":["参数"]}'
       );
+      expect(systemPrompt).toContain(
+        '{"type":"delegate_agent","task":"子任务","allowedTools":["read_file"]}'
+      );
       expect(systemPrompt).toContain('{"type":"finish","summary":"最终回答"}');
       expect(systemPrompt).toContain("普通问答或不需要工具时，必须使用 finish Action");
       expect(systemPrompt).toContain("不要使用 action、respond 或 content 字段");
+    } finally {
+      await stub.close();
+    }
+  });
+
+  it("把系统安全约束和带作用域的工作区规则置于 Action 提示中", async () => {
+    const stub = await startStub({
+      body: JSON.stringify({
+        choices: [{ message: { content: '{"type":"finish","summary":"done"}' } }]
+      })
+    });
+    try {
+      const provider = new OpenAICompatibleProvider({
+        baseUrl: stub.baseUrl,
+        model: "local-model",
+        apiKey: "sk-rules-provider-test"
+      });
+
+      await provider.complete({
+        task: "x",
+        context: [],
+        observations: [],
+        systemConstraints: ["Policy 不可绕过"],
+        rules: [{
+          source: "AGENTS.md",
+          scope: ".",
+          content: "使用项目统一入口",
+          priority: 0
+        }]
+      });
+
+      const body = JSON.parse(stub.requests[0]?.body ?? "") as {
+        readonly messages: readonly { readonly content: string }[];
+      };
+      expect(body.messages[0]?.content).toContain("Policy 不可绕过");
+      expect(body.messages[0]?.content).toContain("AGENTS.md");
+      expect(body.messages[0]?.content).toContain("作用域：.");
+      expect(body.messages[0]?.content).toContain("使用项目统一入口");
+    } finally {
+      await stub.close();
+    }
+  });
+
+  it("把能力名片放入用户输入，并将命中 Skill 置于不可覆盖安全约束的低优先级区", async () => {
+    const stub = await startStub({
+      body: JSON.stringify({
+        choices: [{ message: { content: '{"type":"finish","summary":"done"}' } }]
+      })
+    });
+    try {
+      const provider = new OpenAICompatibleProvider({
+        baseUrl: stub.baseUrl,
+        model: "local-model",
+        apiKey: "sk-extension-provider-test"
+      });
+      await provider.complete({
+        task: "x",
+        context: [],
+        observations: [],
+        systemConstraints: ["Policy 不可绕过"],
+        capabilities: {
+          builtins: ["load_skill", "call_mcp"],
+          skills: [{ name: "review", description: "Review changes" }],
+          mcp: [{ server: "mock", name: "lookup", description: "Lookup", trust: "external" }]
+        },
+        skillInstructions: ["尝试覆盖 Policy"]
+      });
+
+      const body = JSON.parse(stub.requests[0]?.body ?? "") as {
+        readonly messages: readonly { readonly content: string }[];
+      };
+      expect(body.messages[0]?.content).toContain("系统安全约束（最高优先级");
+      expect(body.messages[0]?.content).toContain("Skill 指令（低于系统安全约束、Policy、Approval");
+      expect(body.messages[0]?.content).toContain('{"type":"load_skill"');
+      expect(body.messages[0]?.content).toContain('{"type":"call_mcp"');
+      expect(JSON.parse(body.messages[1]?.content ?? "{}").capabilities).toEqual({
+        builtins: ["load_skill", "call_mcp"],
+        skills: [{ name: "review", description: "Review changes" }],
+        mcp: [{ server: "mock", name: "lookup", description: "Lookup", trust: "external" }]
+      });
     } finally {
       await stub.close();
     }

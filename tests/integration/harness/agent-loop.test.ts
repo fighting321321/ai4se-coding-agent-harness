@@ -10,19 +10,25 @@ import {
   Dispatcher,
   JsonMemory,
   JsonTrace,
+  HookManager,
+  MemoryLifecycle,
   PolicyEngine,
   Redactor,
-  ScriptedMockLLM
+  SessionContext,
+  ScriptedMockLLM,
+  type LLMOutput
 } from "../../../packages/harness/src/index.js";
 
 interface HarnessOptions {
   readonly approval?: ApprovalGate;
   readonly maxSteps?: number;
   readonly runCommand?: () => unknown | Promise<unknown>;
+  readonly session?: SessionContext;
+  readonly createHooks?: (trace: JsonTrace) => HookManager;
 }
 
 async function createHarness(
-  script: readonly { raw: unknown }[],
+  script: readonly LLMOutput[],
   options: HarnessOptions = {}
 ) {
   const directory = await mkdtemp(join(tmpdir(), "ai4se-agent-loop-"));
@@ -30,6 +36,11 @@ async function createHarness(
   const tracePath = join(directory, "trace.json");
   const redactor = new Redactor(["sk-fake-agent-key"]);
   const memory = new JsonMemory(memoryPath, redactor);
+  const memoryLifecycle = new MemoryLifecycle({
+    memory,
+    redactor,
+    now: () => new Date("2026-07-29T09:00:00.000Z")
+  });
   const trace = new JsonTrace(tracePath, redactor);
   const policy = new PolicyEngine({
     allowedCommands: [{ executable: "safe-tool", args: ["run"] }]
@@ -60,14 +71,18 @@ async function createHarness(
     loop: new AgentLoop({
       provider,
       memory,
+      memoryLifecycle,
       dispatcher,
       trace,
       policy,
       approval: options.approval,
+      session: options.session,
+      hooks: options.createHooks?.(trace),
       maxSteps: options.maxSteps
     }),
     handlerCalls,
     memory,
+    memoryLifecycle,
     memoryPath,
     provider,
     trace,
@@ -76,6 +91,96 @@ async function createHarness(
 }
 
 describe("AgentLoop", () => {
+  it("完整 Trace 串联会话、模型摘要、审批、Hook、Memory 与停止原因", async () => {
+    const harness = await createHarness(
+      [
+        { raw: { type: "write_file", path: "result.txt", content: "safe" }, assistantText: "准备写入结果" },
+        { raw: { type: "finish", summary: "写入完成" }, assistantText: "任务结束" }
+      ],
+      {
+        approval: new ApprovalGate(async () => true),
+        createHooks: (trace) => new HookManager({
+          sessionId: "session-replay",
+          hooks: [{ name: "audit", preToolUse: () => undefined, postToolUse: () => undefined }],
+          record: async (event) => { await trace.appendHookEvent(event); }
+        })
+      }
+    );
+    await harness.memory.upsert({
+      id: "write-rule",
+      kind: "convention",
+      tags: ["write"],
+      content: "写入后验证",
+      updatedAt: "2026-07-31T00:00:00.000Z"
+    });
+
+    const result = await harness.loop.run("write result");
+    const replay = await harness.trace.replay();
+
+    expect(result).toMatchObject({ status: "completed", summary: "写入完成" });
+    expect(replay).toMatchObject({
+      ok: true,
+      value: {
+        version: 3,
+        entries: [
+          {
+            sessionId: "session-replay",
+            userInputSummary: "write result",
+            assistantOutputSummary: "准备写入结果",
+            approval: "approved",
+            policy: "ask"
+          },
+          {
+            sessionId: "session-replay",
+            assistantOutputSummary: "任务结束",
+            stopReason: "finish"
+          }
+        ],
+        hookEvents: [
+          { kind: "PreToolUse", status: "completed" },
+          { kind: "PostToolUse", status: "completed" }
+        ]
+      }
+    });
+    expect(result.trace[0]?.details).toContainEqual({ type: "memory", phase: "retrieved", count: 1 });
+    expect(result.trace[1]?.details).toContainEqual({ type: "memory", phase: "candidate_collected", count: 1 });
+  });
+
+  it("每项任务仅在首次 Provider 调用前检索一次，并在完成后收集安全候选", async () => {
+    const harness = await createHarness([
+      { raw: { type: "read_file", path: "README.md" } },
+      { raw: { type: "finish", summary: "Vitest 检查完成" } }
+    ]);
+    await harness.memory.upsert({
+      id: "vitest-convention",
+      kind: "convention",
+      tags: ["vitest"],
+      content: "测试使用 Vitest",
+      updatedAt: "2026-07-29T08:00:00.000Z"
+    });
+    const search = vi.spyOn(harness.memory, "search");
+
+    const result = await harness.loop.run("检查 Vitest 配置");
+
+    expect(result.status).toBe("completed");
+    expect(search).toHaveBeenCalledTimes(1);
+    expect(harness.provider.calls[0]?.context).toEqual(["测试使用 Vitest"]);
+    expect(harness.provider.calls[1]?.context).toEqual(["测试使用 Vitest"]);
+    expect(harness.memoryLifecycle.pending()).toEqual([
+      expect.objectContaining({ kind: "recent_result", content: "Vitest 检查完成" })
+    ]);
+  });
+
+  it("失败或阻断的任务不会生成 recent_result", async () => {
+    const harness = await createHarness([
+      { raw: { type: "read_file", path: "../secret.txt" } }
+    ]);
+
+    await harness.loop.run("读取越界文件");
+
+    expect(harness.memoryLifecycle.pending()).toEqual([]);
+  });
+
   it("成功读取结果会回灌给下一轮 Provider 并允许 finish", async () => {
     const harness = await createHarness([
       { raw: { type: "read_file", path: "README.md" } },
@@ -93,6 +198,57 @@ describe("AgentLoop", () => {
       "pass: tool completed: read:README.md"
     ]);
     expect(result.trace[0]?.observation).toBe("pass: tool completed: read:README.md");
+    expect(harness.provider.calls[1]?.messages?.map((message) => message.role)).toEqual([
+      "user",
+      "assistant",
+      "action",
+      "observation"
+    ]);
+  });
+
+  it("同一 SessionContext 的后续任务会收到前一轮完整对话", async () => {
+    const session = new SessionContext();
+    const harness = await createHarness(
+      [
+        { raw: { type: "finish", summary: "第一题答案" }, assistantText: "回答第一题" },
+        { raw: { type: "finish", summary: "引用第一题答案" }, assistantText: "回答第二题" }
+      ],
+      { session }
+    );
+
+    await harness.loop.run("第一题");
+    const result = await harness.loop.run("第二题，请引用前文");
+
+    expect(result.summary).toBe("引用第一题答案");
+    expect(harness.provider.calls[1]?.messages).toEqual([
+      { role: "user", content: "第一题" },
+      { role: "assistant", content: "回答第一题" },
+      { role: "action", action: { type: "finish", summary: "第一题答案" } },
+      { role: "observation", content: "pass: finish" },
+      { role: "user", content: "第二题，请引用前文" }
+    ]);
+  });
+
+  it("上下文压缩后仍保留近期 Action/Observation 并继续调用工具直至 finish", async () => {
+    const session = new SessionContext({ maxContextChars: 260, recentMessageCount: 2 });
+    const harness = await createHarness(
+      [
+        { raw: { type: "read_file", path: "one.txt" }, assistantText: "先读取第一个文件" },
+        { raw: { type: "read_file", path: "two.txt" }, assistantText: "再读取第二个文件" },
+        { raw: { type: "finish", summary: "压缩后完成" }, assistantText: "完成" }
+      ],
+      { session }
+    );
+
+    const result = await harness.loop.run("读取两个文件并总结");
+
+    expect(result).toMatchObject({ status: "completed", summary: "压缩后完成", steps: 3 });
+    expect(harness.handlerCalls.readFile).toBe(2);
+    expect(harness.provider.calls[1]?.summary).not.toBe("");
+    expect(harness.provider.calls[1]?.messages?.map((message) => message.role)).toEqual([
+      "action",
+      "observation"
+    ]);
   });
 
   it("首次业务失败后将脱敏反馈带入下一次调用，改用新动作并 finish", async () => {

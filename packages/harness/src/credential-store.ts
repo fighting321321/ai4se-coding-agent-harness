@@ -46,6 +46,16 @@ export interface CredentialStoreOptions {
   lockRetryDelayMs?: number;
 }
 
+export interface CredentialStoreBoundary {
+  status(): Promise<CredentialResult<CredentialStatus>>;
+  init(masterPassword: string, apiKey: string): Promise<CredentialResult<void>>;
+  read(masterPassword: string): Promise<CredentialResult<string>>;
+  update(masterPassword: string, apiKey: string): Promise<CredentialResult<void>>;
+  clear(masterPassword: string): Promise<CredentialResult<void>>;
+}
+
+export type CredentialStoreFactory = (path: string) => CredentialStoreBoundary;
+
 interface CredentialDocument {
   version: 1;
   salt: string;
@@ -233,7 +243,7 @@ async function atomicWrite(
   }
 }
 
-export class CredentialStore {
+export class CredentialStore implements CredentialStoreBoundary {
   readonly #path: string;
   readonly #lockPath: string;
   readonly #fileSystem: CredentialStoreFileSystem;

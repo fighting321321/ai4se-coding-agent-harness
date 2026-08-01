@@ -1,5 +1,7 @@
 # Coding Agent Harness
 
+> **v2.0.0 最终交付状态：** 教学级完整 Harness、Trace v3、最终离线验收矩阵、全新目录 tarball smoke 与真实 Provider 只读验收均已通过；代码已合入 `dev`，正式分发入口为 [GitLab v2.0.0 Release](https://git.nju.edu.cn/HuanghaoXu/ai4se-coding-agent-harness/-/releases/v2.0.0)。离线证据见 [`T17_OFFLINE_ACCEPTANCE_MATRIX.md`](docs/assessments/T17_OFFLINE_ACCEPTANCE_MATRIX.md)。
+
 一个面向课程学习的、可确定性验证的 Coding Agent Harness。它把可替换的 LLM 补全放进由 TypeScript 代码实现的工具边界、策略、记忆、反馈和 Trace 中，并提供可连续输入任务的终端 Agent；它不是线上多用户平台。
 
 ## 30 秒了解项目
@@ -23,28 +25,30 @@ apps/web
   本地模式：一次运行请求
 ```
 
-真实本地运行的数据流为：CLI 从本地配置读取限制并从加密凭据存储读取 Key，或本地 Web 为一次运行临时提交 Key；Harness 检索相关 Memory，调用一次 OpenAI-compatible Provider，严格解析 Action，再经策略、审批与工具执行；反馈摘要、脱敏 Trace 和停机原因决定下一轮或结束。
+真实本地运行的数据流为：CLI 从本地配置读取限制并从系统凭据保险库读取 Key，自动装配当前作用域的规则、Skill 名片、内建工具和 MCP 名片；Skill 正文只有在模型明确发出 `load_skill` 后才进入上下文。每项任务只在首次 Provider 调用前检索相关长期 Memory，再把它与完整短期消息序列交给 Provider。工具 Action 依次经过 Policy、必要 Approval、`PreToolUse`、统一分发和 `PostToolUse`；明确的单文件写入在执行前建立受控 Checkpoint，成功写入后按稳定顺序运行结构化 Sensor，失败时只恢复已纳入快照的文件。父 Agent 可串行委派使用独立短期上下文和最小工具集的子 Agent，父子共享总步骤预算且父会话只接收脱敏限长摘要。`SessionStart` / `SessionEnd` 覆盖会话边界。达到字符预算时上下文确定性压缩，完成结果在会话收尾时原子固化。
 
 Harness 的六个维度及其对应实现是：
 
 | 维度 | 主要职责 |
 | --- | --- |
-| 决策封装 | `AgentLoop` 组织任务、相关记忆和 Observation，并调用单次 Provider 补全。 |
+| 决策封装 | `AgentLoop` 组织完整会话消息、相关记忆和 Observation，并调用单次 Provider 补全。 |
 | 工具 | 受限文件读写与命令执行；命令使用可执行文件和参数数组，不拼接 Shell 字符串。 |
-| 记忆 | 本地 JSON Memory 只按关键词注入相关约定或最近结果。 |
+| 记忆 | 完整短期会话与确定性压缩；本地 JSON 长期 Memory 按任务检索，只固化脱敏、限长、去重的明确约定和完成摘要。 |
 | 治理 | `PolicyEngine` 对动作给出 `allow`、`ask` 或 `deny`，审批在副作用前发生。 |
-| 反馈 | 验证结果分类为可供下一轮使用的简短 Observation。 |
-| 配置 | JSON 配置校验工作区、白名单、步数、超时、输出上限、Memory 和 Provider；其中不允许 API Key。 |
+| 反馈 | 工具结果及写后 test/lint/typecheck Sensor 分类为可供下一轮使用的脱敏 Observation；失败写入触发对应单文件恢复。 |
+| 配置 | JSON 配置校验工作区、白名单、结构化 Sensor、步数、超时、输出上限、上下文预算、Memory 和 Provider；其中不允许 API Key。 |
+
+扩展能力采用教学级最小边界：`.ai4se/skills/<name>/SKILL.md` 只在命中后安全读取；MCP 仅提供可注入连接、发现、调用和离线 `MockMcpConnection`，没有生产协议客户端，也不会连接真实外部服务。MCP 名片始终标记为 `external`，每次调用固定进入 `ask`，不会伪称受本地 PathGuard 或命令白名单保护。
 
 项目的主要贡献是反馈闭环：第一次业务失败的脱敏 Observation 会回灌给下一次决策；最多允许一次自动修正，第二次连续业务失败立即停止。因此「失败类型、失败证据、修正次数和停机条件」都由代码强制，而不是由提示词约定。
 
 ## 作业交付清单
 
 - 设计与计划：[`SPEC.md`](SPEC.md)、[`PLAN.md`](PLAN.md)、[`SPEC_PROCESS.md`](SPEC_PROCESS.md)。
-- 过程与反思：[`AGENT_LOG.md`](AGENT_LOG.md)、[`COLD_START_VALIDATION.md`](COLD_START_VALIDATION.md)、[`REFLECTION.md`](REFLECTION.md)。
+- 过程与反思：[`AGENT_LOG.md`](AGENT_LOG.md)、[`COLD_START_VALIDATION.md`](docs/assessments/COLD_START_VALIDATION.md)、[`REFLECTION.md`](REFLECTION.md)。
 - 实现与测试：`packages/harness` 自研内核、`apps/api` CLI/本地 API、`apps/web` 本地 WebUI，以及 mock LLM 单元测试和三项机制演示。
 - 持续集成：`.gitlab-ci.yml` 中精确名为 `unit-test` 的作业，执行测试、lint、类型检查、构建、演示、打包和凭据审计。
-- 托管分发：[GitLab v1.1.0 Release](https://git.nju.edu.cn/HuanghaoXu/ai4se-coding-agent-harness/-/releases/v1.1.0) 与 `ai4se-harness-0.2.0.tgz`；原 v1.0.0 Release 保留为首版交付记录。
+- 托管分发：[GitLab v2.0.0 Release](https://git.nju.edu.cn/HuanghaoXu/ai4se-coding-agent-harness/-/releases/v2.0.0) 与 `ai4se-harness-2.0.0.tgz`。旧 v1.x Release 只作为历史基线保留。
 
 ## 前提与源码安装
 
@@ -73,54 +77,134 @@ powershell -NoProfile -File .\scripts\project-env.ps1 all
 2. 第一次允许的验证命令失败后，失败摘要回灌给 mock LLM；它选择修正动作并以 `finish` 完成。
 3. 两次连续业务失败后立即以既定原因停止，不请求第三次 Provider，也不发生第三次工具调用。
 
-## CLI：凭据与真实任务
+## CLI：普通使用
 
-先构建，再直接调用本地 CLI 入口：
+进入希望 Agent 操作的项目目录，直接运行：
 
 ```powershell
-pnpm build
-node apps/api/dist/cli-entry.js credentials init
-node apps/api/dist/cli-entry.js credentials status
-node apps/api/dist/cli-entry.js credentials update
-node apps/api/dist/cli-entry.js credentials clear
+ai4se-harness
 ```
 
-`init` 和 `update` 依次以隐藏输入读取主密码和 API Key；`clear` 以隐藏输入读取主密码；`status` 只输出 `configured` 或 `unconfigured`，不读取或显示秘密。主密码去除首尾空白后必须至少 12 个字符。请使用可恢复的密码管理方式保存主密码：遗忘后无法恢复已加密的 Key。
+当前目录会自动成为工作区。首次启动只会依次要求直接填写以下三项：
 
-凭据文件位于当前工作目录的 `.ai4se/credentials.json`，以 scrypt 派生密钥和 AES-256-GCM 加密存储。不要把 Key、主密码或等价秘密放进命令行参数：CLI 会拒绝 `--api-key`、`--password`、`--master-password`、`--secret` 和 `--token`。加密不改变运行时内存风险，主密码和 Key 在处理期间仍可能短暂以明文存在于进程内存中。
+1. 服务地址；
+2. API Key（隐藏输入）；
+3. 模型名称。
 
-真实任务还需要一个不含秘密的 `.ai4se/config.json`。下面是可复制的最小结构；将 Provider 地址、模型、工作区与白名单替换为你的本地环境，但不要加入 API Key：
+初始化成功后，程序自动写入不含秘密的 `.ai4se/config.json`，并使用 Windows 当前用户范围的系统保护保存 API Key。后续在同一目录再次运行 `ai4se-harness` 会直接进入会话，不再询问主密码或重复询问 API Key。API Key 不会写入普通配置、命令参数、输出或 Trace。
+
+服务地址必须是 HTTPS 地址，或指向本机回环地址的 HTTP 地址；地址不得包含用户名、密码、查询参数或片段。API Key 和模型名称必须是无首尾空白的非空值。当前版本只执行这些严格本地校验，**不声称已完成 Provider 网络联通性或鉴权验证**；真实 Provider 会在首次任务请求时返回网络或鉴权结果。
+
+普通无参数流程在非 Windows 平台会安全拒绝，不会退回明文凭据。`credentials`、`start --config` 和一次性 `--task` 仍作为旧式高级维护入口保留。
+
+## CLI：高级兼容入口
+
+以下流程只用于维护和验证旧式配置、主密码凭据及显式命令，不是普通用户的启动方式。
+
+### 1. 仓库内打包、安装与离线检查
+
+在仓库根目录运行：
+
+```powershell
+powershell -NoProfile -File .\scripts\project-env.ps1 pack
+$tarball = (Get-ChildItem .\.ai4se\submission-output\ai4se-harness-*.tgz | Select-Object -First 1).FullName
+pnpm add --global $tarball
+ai4se-harness smoke
+```
+
+预期输出：
+
+```text
+AI4SE Harness 离线 smoke：completed
+```
+
+`smoke` 完全离线，不读取配置或 API Key。如果 pnpm 报 `ERR_PNPM_NO_GLOBAL_BIN_DIR`，先运行 `pnpm setup`，关闭并重新打开终端，再重新安装；不要因此把 Key 写入命令行。
+
+### 2. 准备真实 Provider 测试
+
+进入希望 Agent 操作的项目目录。这个目录会自动成为工作区：
+
+```powershell
+cd D:\path\to\your-project
+New-Item -ItemType Directory -Force .ai4se | Out-Null
+```
+
+创建 `.ai4se/config.json`，只替换 `baseUrl` 和 `model`；`workspace` 是过渡兼容字段，当前开发版不会用它切换工作区。配置中严禁填写 API Key：
 
 ```json
 {
   "workspace": ".",
-  "allowedCommands": [
-    { "executable": "pnpm", "args": ["test"] }
-  ],
+  "allowedCommands": [],
   "maxSteps": 8,
   "commandTimeoutMs": 60000,
   "maxOutputBytes": 32768,
   "memoryPath": ".ai4se/memory.json",
   "provider": {
     "baseUrl": "https://your-provider.example/v1",
-    "model": "your-model"
+    "model": "your-model-name"
   }
 }
 ```
 
-随后在 TTY 中启动会话式 Agent。程序只在启动时隐藏询问一次主密码，之后可连续输入多个任务；Memory 和 Trace 在同一工作区持续保存。每一个写文件动作都会单独显示动作类型与目标并要求人工批准，不会复用上一次批准。
+旧式兼容入口需要初始化主密码加密凭据：
 
 ```powershell
-node apps/api/dist/cli-entry.js start --config ".ai4se/config.json"
+ai4se-harness credentials init
 ```
 
-进入 `ai4se>` 后可直接输入自然语言任务，也可使用 `/help`、`/status`、`/trace`、`/clear` 和 `/exit`。空输入不会调用 Provider。一次性兼容入口仍可使用：
+程序会隐藏询问主密码和 API Key。主密码至少 12 个字符；API Key 和主密码都不要写入命令参数、配置、日志或 Git。普通无参数流程不使用这一凭据文件，也不会询问主密码。
+
+### 3. 启动并验证真实 Agent
+
+保持终端位于刚才的项目目录，直接运行：
 
 ```powershell
-node apps/api/dist/cli-entry.js --task "为当前工作区运行允许的检查" --config ".ai4se/config.json"
+ai4se-harness
 ```
 
-配置中的 `workspace`、命令白名单、最大步数、超时、输出上限和 Memory 路径由本地文件控制；任务请求不能覆盖这些边界。
+启动后应显示当前工作区和模型。建议依次测试：
+
+```text
+/status
+请先使用 read_file 读取 README.md，然后用 finish 总结项目名称和用途。不要写文件，不要运行命令。
+请引用上一题的项目名称，并说明你刚才使用了什么信息。
+/model
+/model 新模型名称
+/memory
+/new
+/memory clear
+/trace
+/exit
+```
+
+验收结果应满足：
+
+1. `/status` 显示的工作区等于启动命令所在目录。
+2. Agent 能调用读取工具并以 `completed` 结束，Trace 不包含 API Key。
+3. 无参数 `ai4se-harness` 进入会话；只有显式 `ai4se-harness smoke` 才运行离线检查。
+4. 同一会话的第二个问题能引用第一题及其回答；`/new` 后短期历史为空。
+5. `/model` 能查看当前模型，填写新名称后保存并用于后续请求。
+6. `/memory` 只显示安全摘要；`/memory clear` 经确认后清空长期 Memory；`/new` 会先固化候选但只重置短期历史。
+7. 退出并重新启动后，相关新任务能检索上次会话的完成摘要，无关任务不会注入该摘要。
+8. 普通任务输出不展开 Action JSON、底层工具名或内部错误码；需要诊断时显式使用 `/trace`。
+
+兼容入口 `ai4se-harness start --config .ai4se/config.json` 和一次性 `--task` 仍然保留，但不属于最终普通用户流程。
+
+## v2.0.0 能力验收速查
+
+| 能力 | 助教可验证方式 | 教学级限制 |
+| --- | --- | --- |
+| 连续会话 | 连续提两项相关任务，后一题应能引用前文；`/new` 后短期上下文重置 | 单进程、单用户 |
+| Memory | 完成任务后 `/exit`，重新启动并对相关主题提问；`/memory` 只显示脱敏摘要 | 关键词/标签检索，不是向量库 |
+| Skill | 在测试仓库运行统一 `test`，查看渐进加载用例；运行时未命中只暴露名片，明确 `load_skill` 后才读正文 | 仅工作区本地 Skill，无远程市场 |
+| MCP | 运行统一 `test` 的 `extensions.test.ts` 场景，观察 Mock MCP 发现、逐次审批和结果回灌 | 只有适配接口与离线 mock，无生产协议客户端 |
+| Hook | `/trace` 查看生命周期结果；离线测试证明 Pre 在副作用前阻断、Post/SessionEnd 稳定执行 | 固定四类串行 Hook |
+| 子 Agent | 离线测试证明独立上下文、最小工具授权、深度和共享预算停止 | 只串行，不使用 worktree 或生产调度 |
+| Sensor | 允许写入动作后，配置的 test/lint/typecheck 结果进入下一轮 Observation | 只在成功写入后运行结构化命令 |
+| Checkpoint | 离线失败场景验证原文件恢复；Trace 显示创建/恢复结果 | 只处理明确 UTF-8 单文件，不回滚外部副作用 |
+| Trace | `/trace` 查看本次轮次；离线 `JsonTrace.replay()` 验证完整 v3、v1/v2 迁移、脱敏和大小边界 | 文件上限 1 MiB，摘要限长，不保存凭据或不必要正文 |
+
+仓库内所有上述测试统一通过 `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\project-env.ps1 test` 运行；Release 用户无需仓库源码即可完成普通 CLI、Memory 与 Trace 验收。
 
 ## 本地 Web：一次运行的临时 Key
 
@@ -134,24 +218,22 @@ pnpm web:local
 
 本地表单一次提交任务、Provider Base URL、模型和 Key 到相对 `/api/runs`。Key 使用 password 输入框，只用于这一次请求：前端无论成功或失败都会清空它，后端不落盘、不回显、不记录，也不重试。页面不会使用浏览器持久化存储。该模式默认没有人工审批，因此 `ask` 写入动作会被阻断；需要持久化加密凭据或逐项审批时，请改用 CLI。
 
-## 托管交付：GitLab Release
+## 托管交付：GitLab v2.0.0 Release
 
-课程检查入口：[v1.1.0 Release](https://git.nju.edu.cn/HuanghaoXu/ai4se-coding-agent-harness/-/releases/v1.1.0)。学校 GitLab 当前没有为本项目提供可用的公开 Pages 地址，因此依据助教补充说明，本项目采用“CLI + 托管平台 Release”方式交付，不迁移到 GitHub。
+课程检查入口：[GitLab v2.0.0 Release](https://git.nju.edu.cn/HuanghaoXu/ai4se-coding-agent-harness/-/releases/v2.0.0)。学校 GitLab 当前没有为本项目提供可用的公开 Pages 地址，因此依据助教补充说明，本项目采用“CLI + 托管平台 Release”方式交付，不迁移到 GitHub。
 
-从 Release 下载 `ai4se-harness-0.2.0.tgz` 后，在 Node.js 24 与 pnpm 11.14.0 环境中安装并验证：
+从 Release 下载 `ai4se-harness-2.0.0.tgz` 后，在 Node.js 24 与 pnpm 11.14.0 环境中全局安装：
 
 ```powershell
-pnpm add --global .\ai4se-harness-0.2.0.tgz
+pnpm add --global .\ai4se-harness-2.0.0.tgz
 ai4se-harness smoke
-ai4se-harness credentials init
-ai4se-harness start --config .ai4se/config.json
 ```
 
-`smoke` 成功时输出 `AI4SE Harness 离线 smoke：completed`。`start` 会打开持续运行的 `ai4se>` 终端会话。WebUI 仍可通过仓库统一入口在本地运行；`apps/web` 的静态页面只用于脱敏架构演示，不接收 API Key，也不连接线上后端。
+`smoke` 成功时输出 `AI4SE Harness 离线 smoke：completed`，且不会读取配置或凭据。随后进入任意待检查项目目录，直接运行 `ai4se-harness`；首次只填写服务地址、隐藏 API Key 和模型名称。连续输入两项任务验证上下文，用 `/exit` 安全退出，再次在同一目录运行 `ai4se-harness` 验证无需重复填写 Key，并用 `/memory` 检查脱敏长期记忆。普通验收不需要 `credentials`、`start --config`、手工 JSON 或本地保护密码。WebUI 仍可通过仓库统一入口在本地运行；静态页面只用于脱敏架构演示。
 
 ## npm tarball 分发 smoke
 
-`@ai4se/harness` 0.2.0 是可安装的 ESM 包，提供类型入口、共享任务运行器、会话运行器、`runOfflineSmoke` 和 `ai4se-harness` CLI。以下 PowerShell 命令会构建 tarball，在新目录离线安装，然后分别验证 ESM 导入和已安装 CLI：
+`@ai4se/harness` 2.0.0 是可安装的 ESM 包，提供类型入口、共享任务运行器、会话运行器、`runOfflineSmoke` 和 `ai4se-harness` CLI。以下 PowerShell 命令会构建 tarball，在新目录离线安装，然后分别验证 ESM 导入和已安装 CLI：
 
 ```powershell
 pnpm --filter @ai4se/harness build
@@ -196,7 +278,16 @@ scripts/             本地 Web 启动器
 ## 安全与分发边界
 
 - API Key 不应进入配置、命令行参数、源码、Git、日志、Trace、Memory、URL 或浏览器持久化存储。
+- `AGENTS.md` / `CLAUDE.md` 只作为带来源和作用域的工作区规则注入，不能覆盖路径围栏、Policy、Approval 或凭据隔离。
+- 上下文摘要会脱敏并省略写入正文、命令参数和大段工具输出；字符预算默认 24,000，可在内部配置中设置 `contextBudgetChars`。
+- 长期 Memory 只接受显式“记住约定：…”约定和已完成任务的简短摘要；候选会拒绝凭据与个人标识、限制为 320 字符、稳定提取标签并按确定性 ID 去重。
 - 路径逃逸、敏感路径、Shell 启动器、删除类命令和白名单外命令由策略拒绝；写入需要当前 CLI 会话批准。
+- Skill 拒绝路径逃逸、符号链接文件、工作区外真实路径、无效元数据、损坏 UTF-8 和超大文件；发现阶段只读取限长头部名片，命中后才读取正文，且 Skill 不能覆盖系统安全约束。
+- MCP 是外部信任边界：本项目只内置自研适配接口和离线 mock，调用仍须经过 Policy/Approval 与 Pre/Post Hooks；本地文件和命令沙箱不保护远端实现。
+- 生命周期只包含 `SessionStart`、`PreToolUse`、`PostToolUse`、`SessionEnd`；Hook 可阻断但不替代 Policy 或 Approval，结果和错误统一脱敏后写入独立 Hook Trace。
+- 子 Agent 只串行运行，使用独立 `SessionContext`、父级允许的最小工具集、最大深度、单子步骤上限和父子共享总预算；只把脱敏限长摘要写回父会话。
+- Sensor 只接受结构化 `executable`/`args` 并复用 `CommandTool` 的白名单、无 Shell、超时和输出上限；只在成功写入后运行，不在读取、Skill、MCP 或 finish 后无条件触发。
+- Checkpoint 只保存明确写入目标的受限 UTF-8 单文件状态；拒绝目录、符号链接、敏感路径、敏感正文和超限文件。恢复逐个覆盖原文件，或只删除本次创建的那个已确认普通文件。
 - 本地 API 限制为回环监听并校验本地 Web Origin；它不是线上后端。
 - 静态 mock 与本地 Web 是不同入口：静态内容不连接 API，本地 Web 才能连接本机回环服务。
 - tarball 仅承诺 Node 24 与本 README 明确的平台范围；它通过 GitLab Release 分发，不是公共 npm registry 发布声明。
@@ -204,9 +295,13 @@ scripts/             本地 Web 启动器
 ## 已知限制
 
 - 仅支持一个 OpenAI-compatible Provider 接口；不提供多 Provider、凭据轮换或线上服务。
+- MCP 只支持教学级适配边界和 mock，不实现生产级协议、认证、远端连接、市场或动态安装。
+- Skill 只从当前工作区约定目录加载；不提供远程 Skill 市场。子 Agent 不并行运行，也不使用 Git worktree、网络沙箱或生产级调度器。
+- Checkpoint 不回滚未声明写集的命令、MCP、网络或系统副作用；这类动作只记录 `external_side_effect_not_snapshot_capable` 限制，绝不声称已恢复。
 - 不提供数据库、向量检索、Docker、SSE、多用户、RBAC、团队协作或浏览器端到端测试。
 - 自动修正只允许一次，默认最多运行 8 步；复杂或高风险任务应由人工拆分与审核。
-- 加密凭据依赖主密码质量，且无法消除进程内存中的短暂明文暴露风险。
+- 长期 Memory 使用关键词和标签的轻量确定性检索，不提供向量数据库、语义嵌入或跨工作区共享。
+- 旧式兼容凭据依赖主密码质量；普通流程使用 Windows 当前用户保护。两者都无法消除进程内存中的短暂明文暴露风险。
 
 ## 第三方许可证
 

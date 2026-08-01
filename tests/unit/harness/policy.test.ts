@@ -3,6 +3,17 @@ import { describe, expect, it } from "vitest";
 import { PolicyEngine, type Action } from "../../../packages/harness/src/index.js";
 
 describe("PolicyEngine", () => {
+  it("允许本地 Skill 选择，但把外部 MCP 调用固定交给逐次批准", () => {
+    const policy = new PolicyEngine({ allowedCommands: [] });
+
+    expect(policy.evaluate({ type: "load_skill", name: "review" })).toBe("allow");
+    expect(policy.evaluate({
+      type: "call_mcp",
+      server: "mock",
+      tool: "lookup",
+      arguments: {}
+    })).toBe("ask");
+  });
   const allowedExecutable = process.execPath;
   const policy = new PolicyEngine({
     allowedCommands: [{ executable: allowedExecutable, args: ["--version"] }]
