@@ -25,7 +25,7 @@ describe("项目统一环境入口", () => {
     expect(instructions).toContain(".\\scripts\\project-env.ps1 <task>");
     expect(instructions).toContain("Node 24.14.0");
     expect(instructions).toContain("pnpm 11.14.0");
-    expect(instructions).toContain("`v2.0.1`");
-    expect(instructions).toContain("CLI 提示符同行与输入输出留白");
+    expect(instructions).toContain("`v2.0.2`");
+    expect(instructions).toContain("普通命令的逐次人工审批");
   });
 });

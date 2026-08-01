@@ -10,6 +10,6 @@
 ## 当前开发状态
 
 - T01–T17 单项任务均已结束；T17 已由 `release/t17-harness-v2` 合入 `dev`，真实 Provider 只读验收已经通过。
-- `v2.0.1` 只修复 CLI 提示符同行与输入输出留白，并更新对应测试、文档、包和 Release；不得继续扩张功能范围。
-- 学校 GitLab 未提供可用的公开 Pages 地址；最终托管交付采用助教允许的“CLI + GitLab `v2.0.1` Release”，WebUI 仅保留本地模式与静态 mock 源码。
+- `v2.0.2` 补充普通命令的逐次人工审批：未预授权的非危险命令进入 `ask`，Shell、删除类命令与越界动作仍固定拒绝。
+- 学校 GitLab 未提供可用的公开 Pages 地址；最终托管交付采用助教允许的“CLI + GitLab `v2.0.2` Release”，WebUI 仅保留本地模式与静态 mock 源码。
 - 不得把真实 API Key、密码、token 或其他凭据写入聊天、命令参数、源码、日志、测试输出或 Git。

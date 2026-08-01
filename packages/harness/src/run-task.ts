@@ -171,7 +171,9 @@ export async function runHarnessTask(options: RunHarnessTaskOptions): Promise<Ru
   const dispatcher = new Dispatcher();
   dispatcher.register("read_file", (action) => files.readText(action.path));
   dispatcher.register("write_file", (action) => files.writeText(action.path, action.content));
-  dispatcher.register("run_command", (action) => command.execute(action.executable, action.args));
+  dispatcher.register("run_command", (action) =>
+    command.executeApproved(action.executable, action.args)
+  );
   dispatcher.register("load_skill", (action) => skills.load(action.name));
   dispatcher.register("call_mcp", (action) => mcp.call({
     server: action.server,

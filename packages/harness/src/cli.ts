@@ -183,7 +183,10 @@ export function formatApprovalRequest(request: ApprovalRequest): string {
     return `动作 ${action.type}，目标 ${JSON.stringify(action.path)}`;
   }
   if (action.type === "run_command") {
-    return `动作 run_command，可执行文件 ${JSON.stringify(action.executable)}`;
+    const command = [action.executable, ...action.args]
+      .map((part) => JSON.stringify(part))
+      .join(" ");
+    return `动作 run_command，命令 ${command}`;
   }
   return "动作 finish";
 }

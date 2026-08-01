@@ -38,27 +38,21 @@ describe("PolicyEngine", () => {
     { type: "read_file", path: "../secret.txt" },
     { type: "write_file", path: ".env", content: "TOKEN=secret" },
     { type: "run_command", executable: "cmd.exe", args: ["/c", "echo unsafe"] },
-    { type: "run_command", executable: allowedExecutable, args: ["rm", "-rf", "."] },
-    { type: "run_command", executable: "not-allowed", args: [] }
+    { type: "run_command", executable: "rm", args: ["-rf", "."] }
   ])("确定性拒绝危险动作 $type", (action) => {
     expect(policy.evaluate(action)).toBe("deny");
   });
 
-  it.each([
-    {
-      executable: allowedExecutable,
-      args: ["-e", "require('node:fs').rmSync('README.md')"]
-    },
-    { executable: "git", args: ["clean", "-fdx"] }
-  ])("拒绝未精确批准的调用 $executable $args", ({ executable, args }) => {
+  it("未预授权的普通命令改为逐次询问", () => {
     const exactPolicy = new PolicyEngine({
-      allowedCommands: [
-        { executable: allowedExecutable, args: ["--version"] },
-        { executable: "git", args: ["status", "--short"] }
-      ]
+      allowedCommands: [{ executable: allowedExecutable, args: ["--version"] }]
     });
 
-    expect(exactPolicy.evaluate({ type: "run_command", executable, args })).toBe("deny");
+    expect(exactPolicy.evaluate({
+      type: "run_command",
+      executable: "python",
+      args: ["add.py"]
+    })).toBe("ask");
   });
 
   it.each([

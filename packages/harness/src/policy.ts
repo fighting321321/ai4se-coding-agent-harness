@@ -46,12 +46,13 @@ export class PolicyEngine {
       case "run_command":
         if (
           isShellExecutable(action.executable) ||
-          isDestructiveCommand(action.executable, action.args) ||
-          !isCommandAllowed(this.#allowedCommands, action.executable, action.args)
+          isDestructiveCommand(action.executable, action.args)
         ) {
           return "deny";
         }
-        return "allow";
+        return isCommandAllowed(this.#allowedCommands, action.executable, action.args)
+          ? "allow"
+          : "ask";
       case "load_skill":
         return "allow";
       case "call_mcp":

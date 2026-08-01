@@ -48,6 +48,18 @@ describe("CommandTool", () => {
     expect(result).toMatchObject({ ok: false, error: { code: "COMMAND_NOT_ALLOWED" } });
   });
 
+  it("逐次批准后允许执行未写入持久白名单的普通命令", async () => {
+    const args = ["-e", "process.stdout.write('approved')"] as const;
+    const tool = new CommandTool({ allowedCommands: [] });
+
+    const result = await tool.executeApproved(process.execPath, args);
+
+    expect(result).toEqual({
+      ok: true,
+      value: { exitCode: 0, stdout: "approved", stderr: "", truncated: false }
+    });
+  });
+
   it.each([
     "cmd",
     "cmd.exe",

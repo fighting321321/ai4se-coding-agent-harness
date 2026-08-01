@@ -2,10 +2,10 @@
 
 课程项目使用的 Coding Agent Harness 内核分发包。它提供动作解析、工具分发、治理、反馈、记忆、Trace、LLM 抽象和 Agent 主循环。
 
-本包要求 Node.js 24。课程交付包文件名为 `ai4se-harness-2.0.1.tgz`，正式入口为 GitLab v2.0.1 Release。下载后安装并运行完全离线且不读取凭据的 smoke：
+本包要求 Node.js 24。课程交付包文件名为 `ai4se-harness-2.0.2.tgz`，正式入口为 GitLab v2.0.2 Release。下载后安装并运行完全离线且不读取凭据的 smoke：
 
 ```powershell
-npm install --global .\ai4se-harness-2.0.1.tgz
+npm install --global .\ai4se-harness-2.0.2.tgz
 ai4se-harness smoke
 ```
 
@@ -19,7 +19,7 @@ ai4se-harness
 
 服务地址、API Key 和模型名称会经过严格本地格式及非空校验；当前版本不声称执行 Provider 网络联通性或鉴权预检。真实连接结果在首次任务请求时确定。
 
-进入 `ai4se>` 后可连续输入自然语言任务，并使用 `/help`、`/status`、`/model`、`/memory`、`/trace`、`/clear`、`/new`、`/exit`；每个写入动作仍会单独请求批准。
+进入 `ai4se>` 后可连续输入自然语言任务，并使用 `/help`、`/status`、`/model`、`/memory`、`/trace`、`/clear`、`/new`、`/exit`。写文件和未预授权的普通命令都会显示目标或完整命令并逐次请求批准；Shell 与删除类命令仍直接拒绝。
 
 `credentials`、`start --config` 与一次性 `--task` 是旧式高级兼容入口，它们继续使用主密码凭据与显式配置，不属于普通流程。
 

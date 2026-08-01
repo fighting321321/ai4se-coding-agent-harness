@@ -50,6 +50,21 @@ export class CommandTool {
   }
 
   async execute(executable: string, args: readonly string[]): Promise<CommandToolResult> {
+    return await this.#execute(executable, args, false);
+  }
+
+  async executeApproved(
+    executable: string,
+    args: readonly string[]
+  ): Promise<CommandToolResult> {
+    return await this.#execute(executable, args, true);
+  }
+
+  async #execute(
+    executable: string,
+    args: readonly string[],
+    approved: boolean
+  ): Promise<CommandToolResult> {
     if (isShellExecutable(executable)) {
       return {
         ok: false,
@@ -64,7 +79,7 @@ export class CommandTool {
       };
     }
 
-    if (!isCommandAllowed(this.#allowedCommands, executable, args)) {
+    if (!approved && !isCommandAllowed(this.#allowedCommands, executable, args)) {
       return {
         ok: false,
         error: { code: "COMMAND_NOT_ALLOWED", message: "可执行文件不在允许列表中" }

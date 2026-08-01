@@ -247,6 +247,14 @@ describe("runCli", () => {
     expect(prompt).not.toContain("must-stay-hidden");
   });
 
+  it("命令审批提示显示完整的可执行文件和参数", () => {
+    const prompt = formatApprovalRequest({
+      action: { type: "run_command", executable: "python", args: ["add.py"] }
+    });
+
+    expect(prompt).toBe('动作 run_command，命令 "python" "add.py"');
+  });
+
   it.each(["--api-key", "--password", "--master-password", "--secret", "--token"])(
     "立即拒绝敏感命令参数 %s 且不回显值",
     async (option) => {
