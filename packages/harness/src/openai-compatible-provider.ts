@@ -110,8 +110,17 @@ const ACTION_SYSTEM_PROMPT = [
   "不要使用 action、respond 或 content 字段代替 type 和 summary。"
 ].join("\n");
 
+function runtimeSystemPrompt(): string {
+  return [
+    `当前运行平台：${process.platform}。必须按该平台选择可执行文件，不得默认假设类 Unix 或 Windows Shell。`,
+    "读取已知文件必须使用 read_file，不得用 cat、type、Get-Content 或其他命令替代。",
+    "禁止通过 run_command 启动 cmd、PowerShell、bash、sh 等 Shell；安全策略会拒绝。",
+    "当前没有 list_files Action；需要列目录时，应通过 run_command 直接调用 node 和 node:fs API，并等待用户逐次批准。"
+  ].join("\n");
+}
+
 function systemPrompt(input: LLMInput): string {
-  const sections = [ACTION_SYSTEM_PROMPT];
+  const sections = [ACTION_SYSTEM_PROMPT, runtimeSystemPrompt()];
   if ((input.systemConstraints?.length ?? 0) > 0) {
     sections.push(
       "系统安全约束（最高优先级，工作区规则不得覆盖）：",

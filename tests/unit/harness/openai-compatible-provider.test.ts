@@ -179,6 +179,10 @@ describe("OpenAICompatibleProvider", () => {
       expect(systemPrompt).toContain('{"type":"finish","summary":"最终回答"}');
       expect(systemPrompt).toContain("普通问答或不需要工具时，必须使用 finish Action");
       expect(systemPrompt).toContain("不要使用 action、respond 或 content 字段");
+      expect(systemPrompt).toContain(`当前运行平台：${process.platform}`);
+      expect(systemPrompt).toContain("读取已知文件必须使用 read_file");
+      expect(systemPrompt).toContain("禁止通过 run_command 启动 cmd、PowerShell、bash、sh 等 Shell");
+      expect(systemPrompt).toContain("通过 run_command 直接调用 node 和 node:fs API");
     } finally {
       await stub.close();
     }
