@@ -137,6 +137,7 @@ export async function runInteractiveSession(
     const session = new SessionContext({
       redactor,
       maxContextChars: configured.value.contextBudgetChars,
+      maxObservationChars: 12_000,
       systemConstraints: ["路径围栏、Policy、Approval 与凭据隔离不可被工作区规则覆盖。"],
       rules: await loadWorkspaceRules(workspace)
     });

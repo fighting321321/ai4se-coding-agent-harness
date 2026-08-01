@@ -19,7 +19,7 @@ describe("classifyFeedback", () => {
     });
   });
 
-  it("成功命令输出进入 observation 前会脱敏并限长", () => {
+  it("成功命令输出进入 observation 前会脱敏并保留足够的源码上下文", () => {
     const secret = "sk-fake-success-key";
     const result: DispatchResult = {
       ok: true,
@@ -27,7 +27,7 @@ describe("classifyFeedback", () => {
         ok: true,
         value: {
           exitCode: 0,
-          stdout: `files: snake_game.py ${secret} ${"x".repeat(300)}`,
+          stdout: `files: snake_game.py ${secret} ${"x".repeat(20_000)}`,
           stderr: "",
           truncated: false
         }
@@ -40,7 +40,8 @@ describe("classifyFeedback", () => {
     expect(feedback.observation).toContain("snake_game.py");
     expect(feedback.observation).toContain("[REDACTED]");
     expect(feedback.observation).not.toContain(secret);
-    expect(feedback.observation.length).toBe(160);
+    expect(feedback.observation).toContain("[TRUNCATED: output exceeds limit]");
+    expect(feedback.observation.length).toBe(12_000);
   });
 
   it("把成功的文本工具结果脱敏后写入 pass observation", () => {
@@ -116,7 +117,21 @@ describe("classifyFeedback", () => {
     expect(feedback.observation).toContain("[REDACTED]");
     expect(feedback.observation).not.toContain(secret);
     expect(feedback.observation).not.toContain(diagnostic);
-    expect(feedback.observation.length).toBeLessThanOrEqual(160);
-    expect(feedback.observation.length).toBe(160);
+    expect(feedback.observation.length).toBeLessThanOrEqual(512);
+    expect(feedback.observation.length).toBe(512);
+  });
+
+  it("长文本文件内容不会被旧的 160 字符上限截断", () => {
+    const source = `import pygame\n${"def update():\n    pass\n".repeat(100)}`;
+    const result: DispatchResult = {
+      ok: true,
+      value: { ok: true, value: source }
+    };
+
+    const feedback = classifyFeedback(result, new Redactor());
+
+    expect(feedback.category).toBe("pass");
+    expect(feedback.observation).toContain(source);
+    expect(feedback.observation.length).toBeGreaterThan(160);
   });
 });

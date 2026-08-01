@@ -206,6 +206,26 @@ describe("AgentLoop", () => {
     ]);
   });
 
+  it("连续重复读取同一文件时不再次执行工具，并提示 Provider 使用已有 Observation", async () => {
+    const harness = await createHarness([
+      { raw: { type: "read_file", path: "README.md" } },
+      { raw: { type: "read_file", path: "README.md" } },
+      { raw: { type: "finish", summary: "已使用首次读取结果完成总结" } }
+    ]);
+
+    const result = await harness.loop.run("读取 README 后总结");
+
+    expect(result).toMatchObject({
+      status: "completed",
+      summary: "已使用首次读取结果完成总结",
+      steps: 3
+    });
+    expect(harness.handlerCalls.readFile).toBe(1);
+    expect(harness.provider.calls[2]?.observations).toEqual([
+      "fail: duplicate read_file; use the previous Observation or read a different file"
+    ]);
+  });
+
   it("同一 SessionContext 的后续任务会收到前一轮完整对话", async () => {
     const session = new SessionContext();
     const harness = await createHarness(
@@ -482,6 +502,7 @@ describe("AgentLoop", () => {
       status: "failed",
       stopReason: "provider_rate_limited"
     });
+    expect(result.summary).toBe("Provider 请求受限，请稍后重试");
     expect(JSON.stringify(result)).not.toContain("secret remote body");
   });
 

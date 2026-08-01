@@ -71,6 +71,21 @@ function providerStopReason(error: unknown): string {
     : "provider_error";
 }
 
+function providerFailureSummary(error: unknown): string {
+  switch (providerStopReason(error)) {
+    case "provider_rate_limited":
+      return "Provider 请求受限，请稍后重试";
+    case "provider_authentication_failed":
+      return "Provider 凭据无效，请检查 API Key";
+    case "provider_network_error":
+      return "Provider 网络连接失败";
+    case "provider_server_error":
+      return "Provider 服务暂时不可用";
+    default:
+      return "Provider 调用失败";
+  }
+}
+
 function isApprovalBlock(code: string): boolean {
   return code === "POLICY_DENIED" || code === "APPROVAL_REQUIRED" || code === "APPROVAL_DENIED";
 }
@@ -200,6 +215,7 @@ export class AgentLoop {
     this.#memoryLifecycle.collectExplicitConvention(task);
     let observations: readonly string[] = [];
     let businessFailures = 0;
+    let lastSuccessfulReadPath: string | undefined;
 
     const memory = await this.#memoryLifecycle.retrieve(task);
     if (!memory.ok) {
@@ -286,7 +302,7 @@ export class AgentLoop {
           stopReason: providerStopReason(error)
         });
         return appended
-          ? await this.#result("failed", "Provider 调用失败", iteration, traceStartStep)
+          ? await this.#result("failed", providerFailureSummary(error), iteration, traceStartStep)
           : await this.#result("failed", "Trace 写入失败", iteration, traceStartStep);
       }
 
@@ -315,6 +331,30 @@ export class AgentLoop {
 
       const action = parsed.value;
       this.#session.appendAction(action);
+      if (action.type === "read_file" && action.path === lastSuccessfulReadPath) {
+        const duplicateObservation =
+          "fail: duplicate read_file; use the previous Observation or read a different file";
+        this.#session.appendObservation(duplicateObservation);
+        businessFailures += 1;
+        const secondBusinessFailure = businessFailures >= 2;
+        const appended = await this.#append({
+          step,
+          action,
+          policy: "allow",
+          observation: duplicateObservation,
+          status: secondBusinessFailure ? "failed" : "running",
+          ...(secondBusinessFailure ? { stopReason: "second_business_failure" } : {}),
+          details: [{ type: "budget", used: this.#budget.used, remaining: this.#budget.remaining }]
+        });
+        if (!appended) {
+          return await this.#result("failed", "Trace 写入失败", iteration, traceStartStep);
+        }
+        if (secondBusinessFailure) {
+          return await this.#result("failed", "连续两次重复读取同一文件", iteration, traceStartStep);
+        }
+        observations = [duplicateObservation];
+        continue;
+      }
       if (this.#allowedActions !== undefined && !this.#allowedActions.has(action.type)) {
         this.#session.appendObservation("blocked: SUBAGENT_TOOL_DENIED");
         await this.#append({
@@ -542,6 +582,9 @@ export class AgentLoop {
       }
       details.push({ type: "budget", used: this.#budget.used, remaining: this.#budget.remaining });
       this.#session.appendObservation(feedback.observation);
+      lastSuccessfulReadPath = feedback.category === "pass" && action.type === "read_file"
+        ? action.path
+        : undefined;
       if (feedback.category === "fail") {
         businessFailures += 1;
       }

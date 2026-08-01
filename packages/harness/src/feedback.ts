@@ -25,7 +25,8 @@ interface ToolSuccess {
 
 type GovernedToolResult = ToolSuccess | ToolFailure;
 
-const MAX_OBSERVATION_LENGTH = 160;
+const MAX_TOOL_OBSERVATION_LENGTH = 12_000;
+const MAX_DIAGNOSTIC_OBSERVATION_LENGTH = 512;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -67,8 +68,12 @@ function successfulCommandOutput(value: CommandOutput): string | undefined {
   return parts.length === 0 ? undefined : parts.join(" | ");
 }
 
-function observation(redactor: Redactor, value: string): string {
-  return redactor.redactText(value).slice(0, MAX_OBSERVATION_LENGTH);
+function observation(redactor: Redactor, value: string, limit: number): string {
+  const redacted = redactor.redactText(value);
+  const marker = "\n[TRUNCATED: output exceeds limit]";
+  return redacted.length <= limit
+    ? redacted
+    : `${redacted.slice(0, Math.max(0, limit - marker.length))}${marker}`;
 }
 
 function fromFailure(
@@ -77,7 +82,10 @@ function fromFailure(
   diagnostic?: string
 ): FeedbackResult {
   if (code === "COMMAND_TIMEOUT") {
-    return { category: "timeout", observation: observation(redactor, "timeout: COMMAND_TIMEOUT") };
+    return {
+      category: "timeout",
+      observation: observation(redactor, "timeout: COMMAND_TIMEOUT", MAX_DIAGNOSTIC_OBSERVATION_LENGTH)
+    };
   }
 
   return {
@@ -86,7 +94,8 @@ function fromFailure(
       redactor,
       diagnostic === undefined
         ? `environment_error: ${code}`
-        : `environment_error: ${code}: ${diagnostic}`
+        : `environment_error: ${code}: ${diagnostic}`,
+      MAX_DIAGNOSTIC_OBSERVATION_LENGTH
     )
   };
 }
@@ -109,7 +118,8 @@ export function classifyFeedback(result: GovernedToolResult, redactor: Redactor)
         redactor,
         diagnostic === undefined
           ? `fail: command exited ${value.exitCode}`
-          : `fail: command exited ${value.exitCode}: ${diagnostic}`
+          : `fail: command exited ${value.exitCode}: ${diagnostic}`,
+        MAX_DIAGNOSTIC_OBSERVATION_LENGTH
       )
     };
   }
@@ -117,7 +127,11 @@ export function classifyFeedback(result: GovernedToolResult, redactor: Redactor)
   if (isCommandOutput(value) && value.exitCode === null) {
     return {
       category: "environment_error",
-      observation: observation(redactor, "environment_error: command exit code unavailable")
+      observation: observation(
+        redactor,
+        "environment_error: command exit code unavailable",
+        MAX_DIAGNOSTIC_OBSERVATION_LENGTH
+      )
     };
   }
 
@@ -129,7 +143,8 @@ export function classifyFeedback(result: GovernedToolResult, redactor: Redactor)
         redactor,
         output === undefined
           ? "pass: command exited 0"
-          : `pass: command exited 0: ${output}`
+          : `pass: command exited 0: ${output}`,
+        MAX_TOOL_OBSERVATION_LENGTH
       )
     };
   }
@@ -137,9 +152,16 @@ export function classifyFeedback(result: GovernedToolResult, redactor: Redactor)
   if (typeof value === "string" && value.length > 0) {
     return {
       category: "pass",
-      observation: observation(redactor, `pass: tool completed: ${value}`)
+      observation: observation(
+        redactor,
+        `pass: tool completed: ${value}`,
+        MAX_TOOL_OBSERVATION_LENGTH
+      )
     };
   }
 
-  return { category: "pass", observation: observation(redactor, "pass: tool completed") };
+  return {
+    category: "pass",
+    observation: observation(redactor, "pass: tool completed", MAX_TOOL_OBSERVATION_LENGTH)
+  };
 }

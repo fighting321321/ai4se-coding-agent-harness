@@ -2,10 +2,10 @@
 
 课程项目使用的 Coding Agent Harness 内核分发包。它提供动作解析、工具分发、治理、反馈、记忆、Trace、LLM 抽象和 Agent 主循环。
 
-本包要求 Node.js 24。课程交付包文件名为 `ai4se-harness-2.0.4.tgz`，正式入口为 GitLab v2.0.4 Release。下载后安装并运行完全离线且不读取凭据的 smoke：
+本包要求 Node.js 24。课程交付包文件名为 `ai4se-harness-2.1.0.tgz`，正式入口为 GitLab v2.1.0 Release。下载后安装并运行完全离线且不读取凭据的 smoke：
 
 ```powershell
-npm install --global .\ai4se-harness-2.0.4.tgz
+npm install --global .\ai4se-harness-2.1.0.tgz
 ai4se-harness smoke
 ```
 
