@@ -222,12 +222,14 @@ pnpm web:local
 
 课程检查入口：[GitLab v2.0.0 Release](https://git.nju.edu.cn/HuanghaoXu/ai4se-coding-agent-harness/-/releases/v2.0.0)。学校 GitLab 当前没有为本项目提供可用的公开 Pages 地址，因此依据助教补充说明，本项目采用“CLI + 托管平台 Release”方式交付，不迁移到 GitHub。
 
-从 Release 下载 `ai4se-harness-2.0.0.tgz` 后，在 Node.js 24 与 pnpm 11.14.0 环境中全局安装：
+从 Release 下载 `ai4se-harness-2.0.0.tgz` 后，推荐直接使用 Node.js 24 自带的 npm 全局安装：
 
 ```powershell
-pnpm add --global .\ai4se-harness-2.0.0.tgz
+npm install --global .\ai4se-harness-2.0.0.tgz
 ai4se-harness smoke
 ```
+
+如果已经配置好 pnpm 11.14.0，也可以使用 `pnpm add --global .\ai4se-harness-2.0.0.tgz`。若 pnpm 报 `ERR_PNPM_NO_GLOBAL_BIN_DIR`，可改用上面的 npm 命令，或执行一次 `pnpm setup` 并重新打开终端。
 
 `smoke` 成功时输出 `AI4SE Harness 离线 smoke：completed`，且不会读取配置或凭据。随后进入任意待检查项目目录，直接运行 `ai4se-harness`；首次只填写服务地址、隐藏 API Key 和模型名称。连续输入两项任务验证上下文，用 `/exit` 安全退出，再次在同一目录运行 `ai4se-harness` 验证无需重复填写 Key，并用 `/memory` 检查脱敏长期记忆。普通验收不需要 `credentials`、`start --config`、手工 JSON 或本地保护密码。WebUI 仍可通过仓库统一入口在本地运行；静态页面只用于脱敏架构演示。
 
