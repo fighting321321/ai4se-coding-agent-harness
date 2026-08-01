@@ -1,6 +1,6 @@
 # Coding Agent Harness
 
-> **v2.0.0 候选状态（T17）：** 教学级完整 Harness、Trace v3、最终离线验收矩阵与全新目录 tarball smoke 已准备；本分支尚未合并、打标签或公开发布。真实 Provider 最终验收和 GitLab v2.0.0 Release 由总控完成。离线证据见 [`T17_OFFLINE_ACCEPTANCE_MATRIX.md`](docs/assessments/T17_OFFLINE_ACCEPTANCE_MATRIX.md)。
+> **v2.0.0 最终交付状态：** 教学级完整 Harness、Trace v3、最终离线验收矩阵、全新目录 tarball smoke 与真实 Provider 只读验收均已通过；代码已合入 `dev`，正式分发入口为 [GitLab v2.0.0 Release](https://git.nju.edu.cn/HuanghaoXu/ai4se-coding-agent-harness/-/releases/v2.0.0)。离线证据见 [`T17_OFFLINE_ACCEPTANCE_MATRIX.md`](docs/assessments/T17_OFFLINE_ACCEPTANCE_MATRIX.md)。
 
 一个面向课程学习的、可确定性验证的 Coding Agent Harness。它把可替换的 LLM 补全放进由 TypeScript 代码实现的工具边界、策略、记忆、反馈和 Trace 中，并提供可连续输入任务的终端 Agent；它不是线上多用户平台。
 
@@ -48,7 +48,7 @@ Harness 的六个维度及其对应实现是：
 - 过程与反思：[`AGENT_LOG.md`](AGENT_LOG.md)、[`COLD_START_VALIDATION.md`](docs/assessments/COLD_START_VALIDATION.md)、[`REFLECTION.md`](REFLECTION.md)。
 - 实现与测试：`packages/harness` 自研内核、`apps/api` CLI/本地 API、`apps/web` 本地 WebUI，以及 mock LLM 单元测试和三项机制演示。
 - 持续集成：`.gitlab-ci.yml` 中精确名为 `unit-test` 的作业，执行测试、lint、类型检查、构建、演示、打包和凭据审计。
-- 托管分发：GitLab `v2.0.0` Release（公开地址由总控发布后填写）与 `ai4se-harness-2.0.0.tgz`。旧 v1.x Release 只作为历史基线保留。
+- 托管分发：[GitLab v2.0.0 Release](https://git.nju.edu.cn/HuanghaoXu/ai4se-coding-agent-harness/-/releases/v2.0.0) 与 `ai4se-harness-2.0.0.tgz`。旧 v1.x Release 只作为历史基线保留。
 
 ## 前提与源码安装
 
@@ -220,7 +220,7 @@ pnpm web:local
 
 ## 托管交付：GitLab v2.0.0 Release
 
-课程检查入口：**【总控发布后填写 GitLab v2.0.0 Release URL】**。学校 GitLab 当前没有为本项目提供可用的公开 Pages 地址，因此依据助教补充说明，本项目采用“CLI + 托管平台 Release”方式交付，不迁移到 GitHub，也不伪造尚不存在的公开 URL。
+课程检查入口：[GitLab v2.0.0 Release](https://git.nju.edu.cn/HuanghaoXu/ai4se-coding-agent-harness/-/releases/v2.0.0)。学校 GitLab 当前没有为本项目提供可用的公开 Pages 地址，因此依据助教补充说明，本项目采用“CLI + 托管平台 Release”方式交付，不迁移到 GitHub。
 
 从 Release 下载 `ai4se-harness-2.0.0.tgz` 后，在 Node.js 24 与 pnpm 11.14.0 环境中全局安装：
 

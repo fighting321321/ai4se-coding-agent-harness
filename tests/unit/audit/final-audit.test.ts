@@ -163,7 +163,7 @@ const historicalCanaries = [
 ] as const;
 
 describe("最终交付审计", () => {
-  it("将 v2.0.0 Release 候选和普通交互 CLI 作为托管交付入口", () => {
+  it("将 v2.0.0 Release 和普通交互 CLI 作为托管交付入口", () => {
     const readme = readFileSync(join(repositoryRoot, "README.md"), "utf8");
     const spec = readFileSync(join(repositoryRoot, "SPEC.md"), "utf8");
     const plan = readFileSync(join(repositoryRoot, "PLAN.md"), "utf8");
@@ -177,7 +177,8 @@ describe("最终交付审计", () => {
     expect(readme).toContain("ai4se-harness-2.0.0.tgz");
     expect(readme).toContain("ai4se-harness smoke");
     expect(readme).toContain("直接运行 `ai4se-harness`");
-    expect(readme).toContain("总控发布后填写");
+    expect(readme).toContain("/-/releases/v2.0.0");
+    expect(readme).not.toContain("总控发布后填写");
     expect(readme).not.toContain("真实 Pages URL：**待最终审计核验**");
     expect(spec).toContain("GitLab Release");
     expect(plan).toContain("v2.0.0");

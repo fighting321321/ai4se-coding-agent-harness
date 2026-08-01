@@ -1,6 +1,6 @@
 # Coding Agent Harness 课程最小实现计划
 
-> **状态修正（2026-07-31）：** T17 已完成 Trace v3、最终离线验收矩阵、`@ai4se/harness` 2.0.0 打包与全新目录 smoke；真实 Provider 验收、合并、标签、推送和公开 Release 仍待总控完成。
+> **状态修正（2026-08-01）：** T17 已完成 Trace v3、最终离线验收矩阵、`@ai4se/harness` 2.0.0 打包与全新目录 smoke；真实 Provider 只读验收已通过，T17 已合入 `dev`，当前只剩 `main`、`v2.0.0` 标签与 GitLab Release 发布。
 
 > **路线 B 初始化边界（2026-07-24）：** 首次运行只允许向用户收集服务地址、隐藏 API Key 和模型名称；三项均由用户直接填写。当前目录自动成为工作区，其余配置全部由程序内部生成。普通流程不得要求选择 Provider、选择预设模型、编辑 JSON、指定路径或设置本地保护密码；`v1.1.0` 的主密码流程仅作为历史兼容实现。
 
@@ -12,7 +12,7 @@
 
 **目标日期：** 2026-07-25
 
-**当前状态：** G1–G3、T01–T16 已完成并合入 `dev`；T17 离线候选已准备，等待总控完成外部验收和发布。
+**当前状态：** G1–G3、T01–T17 已完成并合入 `dev`；代码、测试和提交材料已收尾，等待完成正式发布。
 
 ### 路线 B 剩余任务（简化）
 
@@ -382,12 +382,12 @@ pnpm pack
 - Trace 升级到 v3，增加会话 ID、脱敏限长的用户/模型摘要与审批结果；保留 v1/v2 兼容读取和迁移，文件上限 1 MiB，摘要上限 512 字符。
 - 最终验收矩阵覆盖全新初始化、连续对话、重启 Memory、规则/Skill、Mock MCP、Hook、子 Agent、Sensor、Checkpoint、Trace 脱敏与失败停机；全部使用确定性 mock/stub。
 - `@ai4se/harness` 版本为 2.0.0；统一 `pack` 生成 `ai4se-harness-2.0.0.tgz`，自动化在全新目录离线安装、导入并运行 CLI smoke，包内无源码、凭据、Memory 或 Trace。
-- Release 标题、说明、附件名、校验说明和助教验收步骤见 `docs/releases/v2.0.0-release-notes.md`；公开 URL 保持待总控发布后填写，不伪造地址。
+- Release 标题、说明、附件名、校验说明和助教验收步骤见 `docs/releases/v2.0.0-release-notes.md`；正式入口为 `https://git.nju.edu.cn/HuanghaoXu/ai4se-coding-agent-harness/-/releases/v2.0.0`。
 - 本分支不得执行真实 Provider、合并、标签、推送或公开发布。
 
 **最终离线门禁（2026-07-31）：** 严格依次通过统一入口的 `all`、`pack`、包含全新临时目录分发安装/导入/CLI smoke 的 `test` 和末次 `audit`。两次完整测试均为 43/43 文件、409/409 用例；lint、typecheck、Harness/API/Web build、4/4 demo 和两次最终审计均退出 0，Vite 静态构建为 17 modules。包清单只含 `dist`、`bin`、`package.json` 和 `README.md`。本地候选 `ai4se-harness-2.0.0.tgz` 为 55,001 bytes，SHA-256 为 `7A336954FE20B74B8A5F544C215DF2F9C119B1D18A8354BB197E276D0A37A252`；该哈希只记录工作分支本地验收，不得替代最终标签提交的 CI artifact 校验。
 
-**仍待总控：** 在不记录凭据的前提下执行真实 Provider 读取型验收；检查并合并到 `dev`；完成最终目标分支合并与流水线；创建并推送 `v2.0.0` 标签；从该提交成功流水线下载 tarball、计算并回填正式 SHA-256；创建 GitLab Release、上传附件、回填公开 URL，并从 Release 重新下载做最终全新目录 smoke。本任务未执行上述任何外部或远端步骤。
+**总控验收进展（2026-08-01）：** 已使用本地测试 Key 完成真实 Provider 只读任务，Agent 按 `read_file → finish` 完成，Trace 未包含 Key；临时验收文件已删除。T17 已合入 `dev`，完整门禁为 43/43 文件、409/409 用例，加入临时真实 Provider 用例时为 44/44 文件、410/410 用例。当前只剩合并 `main`、创建并推送 `v2.0.0` 标签、创建 GitLab Release、上传最终 tarball，并从 Release 重新下载做 smoke。
 
 ## 16. T15：Skill、MCP 与生命周期 Hooks（已完成）
 
