@@ -60,6 +60,13 @@ function commandDiagnostic(value: CommandOutput): string | undefined {
   return parts.length === 0 ? undefined : parts.join(" | ");
 }
 
+function successfulCommandOutput(value: CommandOutput): string | undefined {
+  const parts = [value.stdout, value.stderr]
+    .filter((part): part is string => typeof part === "string" && part.trim().length > 0)
+    .map((part) => part.trim());
+  return parts.length === 0 ? undefined : parts.join(" | ");
+}
+
 function observation(redactor: Redactor, value: string): string {
   return redactor.redactText(value).slice(0, MAX_OBSERVATION_LENGTH);
 }
@@ -115,9 +122,15 @@ export function classifyFeedback(result: GovernedToolResult, redactor: Redactor)
   }
 
   if (isCommandOutput(value)) {
+    const output = successfulCommandOutput(value);
     return {
       category: "pass",
-      observation: observation(redactor, "pass: command exited 0")
+      observation: observation(
+        redactor,
+        output === undefined
+          ? "pass: command exited 0"
+          : `pass: command exited 0: ${output}`
+      )
     };
   }
 

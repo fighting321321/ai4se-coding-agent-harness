@@ -15,8 +15,32 @@ describe("classifyFeedback", () => {
 
     expect(classifyFeedback(result, new Redactor())).toEqual({
       category: "pass",
-      observation: "pass: command exited 0"
+      observation: "pass: command exited 0: ok"
     });
+  });
+
+  it("成功命令输出进入 observation 前会脱敏并限长", () => {
+    const secret = "sk-fake-success-key";
+    const result: DispatchResult = {
+      ok: true,
+      value: {
+        ok: true,
+        value: {
+          exitCode: 0,
+          stdout: `files: snake_game.py ${secret} ${"x".repeat(300)}`,
+          stderr: "",
+          truncated: false
+        }
+      }
+    };
+
+    const feedback = classifyFeedback(result, new Redactor([secret]));
+
+    expect(feedback.category).toBe("pass");
+    expect(feedback.observation).toContain("snake_game.py");
+    expect(feedback.observation).toContain("[REDACTED]");
+    expect(feedback.observation).not.toContain(secret);
+    expect(feedback.observation.length).toBe(160);
   });
 
   it("把成功的文本工具结果脱敏后写入 pass observation", () => {

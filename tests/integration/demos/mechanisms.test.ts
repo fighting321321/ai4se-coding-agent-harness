@@ -171,7 +171,9 @@ describe("T10 三项完全离线机制演示", () => {
     expect(feedback).toContain("target legacy invalid");
     expect(feedback).toContain("[REDACTED]");
     expect(feedback).not.toContain(sensitiveOutput);
-    expect(harness.provider.calls[2]?.observations).toEqual(["pass: command exited 0"]);
+    expect(harness.provider.calls[2]?.observations).toEqual([
+      "pass: command exited 0: fixed"
+    ]);
     expect(harness.commandActions).toEqual([
       { type: "run_command", ...legacyRule },
       { type: "run_command", ...fixedRule }
