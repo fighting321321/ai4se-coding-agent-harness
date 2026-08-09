@@ -25,7 +25,7 @@ describe("项目统一环境入口", () => {
     expect(instructions).toContain(".\\scripts\\project-env.ps1 <task>");
     expect(instructions).toContain("Node 24.14.0");
     expect(instructions).toContain("pnpm 11.14.0");
-    expect(instructions).toContain("`v2.1.1`");
-    expect(instructions).toContain("最终公开托管入口迁移到 GitHub");
+    expect(instructions).toContain("`v2.1.2`");
+    expect(instructions).toContain("CLI + GitHub `v2.1.2` Release");
   });
 });

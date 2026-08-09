@@ -163,26 +163,26 @@ const historicalCanaries = [
 ] as const;
 
 describe("最终交付审计", () => {
-  it("将 GitHub v2.1.1 Release 和普通交互 CLI 作为托管交付入口", () => {
+  it("将 GitHub v2.1.2 Release 和普通交互 CLI 作为托管交付入口", () => {
     const readme = readFileSync(join(repositoryRoot, "README.md"), "utf8");
     const spec = readFileSync(join(repositoryRoot, "SPEC.md"), "utf8");
     const plan = readFileSync(join(repositoryRoot, "PLAN.md"), "utf8");
 
     const releaseNotes = readFileSync(
-      join(repositoryRoot, "docs/releases/v2.1.1-release-notes.md"),
+      join(repositoryRoot, "docs/releases/v2.1.2-release-notes.md"),
       "utf8"
     );
 
-    expect(readme).toContain("GitHub v2.1.1 Release");
-    expect(readme).toContain("ai4se-harness-2.1.1.tgz");
+    expect(readme).toContain("GitHub v2.1.2 Release");
+    expect(readme).toContain("ai4se-harness-2.1.2.tgz");
     expect(readme).toContain("ai4se-harness smoke");
     expect(readme).toContain("直接运行 `ai4se-harness`");
-    expect(readme).toContain("github.com/fighting321321/ai4se-coding-agent-harness/releases/tag/v2.1.1");
+    expect(readme).toContain("github.com/fighting321321/ai4se-coding-agent-harness/releases/tag/v2.1.2");
     expect(readme).not.toContain("总控发布后填写");
     expect(readme).not.toContain("真实 Pages URL：**待最终审计核验**");
     expect(spec).toContain("GitHub Release");
-    expect(plan).toContain("v2.1.1");
-    expect(releaseNotes).toContain("AI4SE Coding Agent Harness v2.1.1");
+    expect(plan).toContain("v2.1.2");
+    expect(releaseNotes).toContain("AI4SE Coding Agent Harness v2.1.2");
     expect(releaseNotes).toContain("SHA-256");
     expect(releaseNotes).toContain("验收重点");
     expect(spec).not.toContain(
