@@ -578,6 +578,86 @@ describe("AgentLoop", () => {
     expect(JSON.stringify(result)).not.toContain("secret remote body");
   });
 
+  it("Action JSON 无效时反馈一次格式纠正并继续，且不沿用上一步审批状态", async () => {
+    const harness = await createHarness([]);
+    const writeFile = vi.fn(async () => "written");
+    const dispatcher = new Dispatcher();
+    dispatcher.register("write_file", writeFile);
+    dispatcher.register("finish", (action) => action.summary);
+    const provider = {
+      complete: vi.fn()
+        .mockResolvedValueOnce({
+          raw: { type: "write_file", path: "game.py", content: "class Game: pass" }
+        })
+        .mockRejectedValueOnce(Object.assign(new Error("invalid remote body"), {
+          code: "PROVIDER_ACTION_INVALID"
+        }))
+        .mockResolvedValueOnce({ raw: { type: "finish", summary: "已修正格式并完成" } })
+    };
+    const loop = new AgentLoop({
+      provider,
+      memory: harness.memory,
+      dispatcher,
+      trace: harness.trace,
+      policy: new PolicyEngine({ allowedCommands: [] }),
+      approval: new ApprovalGate(async () => true),
+      maxSteps: 3
+    });
+
+    const result = await loop.run("创建 game.py");
+
+    expect(result).toMatchObject({ status: "completed", steps: 3, summary: "已修正格式并完成" });
+    expect(provider.complete).toHaveBeenCalledTimes(3);
+    expect(writeFile).toHaveBeenCalledTimes(1);
+    expect(provider.complete.mock.calls[2]?.[0].observations).toEqual([
+      expect.stringContaining("PROVIDER_ACTION_INVALID")
+    ]);
+    expect(result.trace[1]).toMatchObject({
+      policy: "allow",
+      approval: "not_required",
+      status: "running",
+      observation: expect.stringContaining("只包含一个合法 JSON 对象")
+    });
+    expect(result.trace[1]?.stopReason).toBeUndefined();
+    expect(JSON.stringify(result)).not.toContain("invalid remote body");
+  });
+
+  it("Action JSON 连续两次无效时停止且不继续请求", async () => {
+    const harness = await createHarness([]);
+    const provider = {
+      complete: vi.fn(async () => {
+        throw Object.assign(new Error("invalid remote body"), {
+          code: "PROVIDER_ACTION_INVALID"
+        });
+      })
+    };
+    const loop = new AgentLoop({
+      provider,
+      memory: harness.memory,
+      dispatcher: new Dispatcher(),
+      trace: harness.trace,
+      policy: new PolicyEngine({ allowedCommands: [] }),
+      maxSteps: 8
+    });
+
+    const result = await loop.run("创建 game.py");
+
+    expect(result).toMatchObject({
+      status: "failed",
+      steps: 2,
+      summary: "模型 Action JSON 格式无效"
+    });
+    expect(provider.complete).toHaveBeenCalledTimes(2);
+    expect(result.trace).toHaveLength(2);
+    expect(result.trace[0]).toMatchObject({ status: "running" });
+    expect(result.trace[1]).toMatchObject({
+      status: "failed",
+      stopReason: "provider_action_invalid",
+      approval: "not_required"
+    });
+    expect(JSON.stringify(result)).not.toContain("invalid remote body");
+  });
+
   it("同一 AgentLoop 可以连续运行并追加唯一 Trace step", async () => {
     const harness = await createHarness([
       { raw: { type: "finish", summary: "first" } },

@@ -81,10 +81,22 @@ function providerFailureSummary(error: unknown): string {
       return "Provider 网络连接失败";
     case "provider_server_error":
       return "Provider 服务暂时不可用";
+    case "provider_action_invalid":
+      return "模型 Action JSON 格式无效";
+    case "provider_response_invalid":
+      return "Provider 响应格式无效";
+    case "provider_http_error":
+      return "Provider HTTP 请求失败";
     default:
       return "Provider 调用失败";
   }
 }
+
+const ACTION_FORMAT_CORRECTION = [
+  "recoverable_error: PROVIDER_ACTION_INVALID;",
+  "下一次响应必须只包含一个合法 JSON 对象，不得包含 Markdown、代码围栏或解释文字。",
+  "write_file 的多行 content 必须是合法 JSON 字符串并正确转义。"
+].join(" ");
 
 function isCredentialFixturePath(path: string): boolean {
   return path
@@ -241,6 +253,7 @@ export class AgentLoop {
     }
     const memoryContext = memory.value.map((item) => item.content);
     this.#traceMemoryRetrieved = memory.value.length;
+    let actionFormatCorrectionUsed = false;
     const skillCards = this.#skills === undefined
       ? { ok: true as const, value: [] }
       : await this.#skills.discover();
@@ -283,6 +296,8 @@ export class AgentLoop {
         });
         return await this.#result("max_steps", "父子共享步骤预算已耗尽", iteration - 1, traceStartStep);
       }
+      this.#traceAssistantOutput = undefined;
+      this.#traceApproval = undefined;
       let output: LLMOutput;
       try {
         output = await this.#provider.complete(this.#session.toExtendedLLMInput(
@@ -301,10 +316,33 @@ export class AgentLoop {
           }
         ));
       } catch (error) {
+        const canCorrectActionFormat =
+          providerStopReason(error) === "provider_action_invalid" &&
+          !actionFormatCorrectionUsed &&
+          iteration < this.#maxSteps &&
+          this.#budget.remaining > 0;
+        if (canCorrectActionFormat) {
+          actionFormatCorrectionUsed = true;
+          observations = [ACTION_FORMAT_CORRECTION];
+          this.#session.appendObservation(ACTION_FORMAT_CORRECTION);
+          const appended = await this.#append({
+            step,
+            policy: "allow",
+            approval: "not_required",
+            observation: ACTION_FORMAT_CORRECTION,
+            status: "running",
+            details: [{ type: "budget", used: this.#budget.used, remaining: this.#budget.remaining }]
+          });
+          if (!appended) {
+            return await this.#result("failed", "Trace 写入失败", iteration, traceStartStep);
+          }
+          continue;
+        }
         this.#session.appendObservation("environment_error: Provider failed");
         const appended = await this.#append({
           step,
           policy: "allow",
+          approval: "not_required",
           observation: "environment_error: Provider failed",
           status: "failed",
           stopReason: providerStopReason(error)

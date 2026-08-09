@@ -1,6 +1,6 @@
 # Coding Agent Harness
 
-> **v2.1.2 最终交付状态：** 教学级完整 Harness、Trace v3、最终离线验收矩阵、全新目录 tarball smoke 与真实 Provider 验收均已通过；本补丁修复 Agent 恢复、敏感动作误判、重复恢复停机保护与无 `dist` 冷启动测试。正式分发入口为 [GitHub v2.1.2 Release](https://github.com/fighting321321/ai4se-coding-agent-harness/releases/tag/v2.1.2)。
+> **v2.1.3 最终交付状态：** 教学级完整 Harness、Trace v3、最终离线验收矩阵、全新目录 tarball smoke 与真实 Provider 验收均已通过；本补丁在 v2.1.2 基础上增加无效 Action JSON 的一次受限纠正重试，修正 Provider 错误提示与跨步骤 Trace 审批状态污染。正式分发入口为 [GitHub v2.1.3 Release](https://github.com/fighting321321/ai4se-coding-agent-harness/releases/tag/v2.1.3)。
 
 一个面向课程学习的、可确定性验证的 Coding Agent Harness。它把可替换的 LLM 补全放进由 TypeScript 代码实现的工具边界、策略、记忆、反馈和 Trace 中，并提供可连续输入任务的终端 Agent；它不是线上多用户平台。
 
@@ -48,7 +48,7 @@ Harness 的六个维度及其对应实现是：
 - 过程与反思：[`AGENT_LOG.md`](AGENT_LOG.md)、[`COLD_START_VALIDATION.md`](docs/assessments/COLD_START_VALIDATION.md)、[`REFLECTION.md`](REFLECTION.md)。
 - 实现与测试：`packages/harness` 自研内核、`apps/api` CLI/本地 API、`apps/web` 本地 WebUI，以及 mock LLM 单元测试和三项机制演示。
 - 持续集成：`.gitlab-ci.yml` 中精确名为 `unit-test` 的作业，执行测试、lint、类型检查、构建、演示、打包和凭据审计。
-- 托管分发：[GitHub v2.1.2 Release](https://github.com/fighting321321/ai4se-coding-agent-harness/releases/tag/v2.1.2) 与 `ai4se-harness-2.1.2.tgz`。学校 GitLab 仅保留开发历史备份。
+- 托管分发：[GitHub v2.1.3 Release](https://github.com/fighting321321/ai4se-coding-agent-harness/releases/tag/v2.1.3) 与 `ai4se-harness-2.1.3.tgz`。学校 GitLab 仅保留开发历史备份。
 
 ## 前提与源码安装
 
@@ -195,7 +195,7 @@ ai4se-harness
 
 兼容入口 `ai4se-harness start --config .ai4se/config.json` 和一次性 `--task` 仍然保留，但不属于最终普通用户流程。
 
-## v2.1.2 能力验收速查
+## v2.1.3 能力验收速查
 
 | 能力 | 助教可验证方式 | 教学级限制 |
 | --- | --- | --- |
@@ -223,24 +223,24 @@ pnpm web:local
 
 本地表单一次提交任务、Provider Base URL、模型和 Key 到相对 `/api/runs`。Key 使用 password 输入框，只用于这一次请求：前端无论成功或失败都会清空它，后端不落盘、不回显、不记录，也不重试。页面不会使用浏览器持久化存储。该模式默认没有人工审批，因此 `ask` 写入动作会被阻断；需要持久化加密凭据或逐项审批时，请改用 CLI。
 
-## 托管交付：GitHub v2.1.2 Release
+## 托管交付：GitHub v2.1.3 Release
 
-课程检查入口：[GitHub v2.1.2 Release](https://github.com/fighting321321/ai4se-coding-agent-harness/releases/tag/v2.1.2)。依据助教补充说明，本项目采用“CLI + 托管平台 Release”方式交付；学校 GitLab 因网络稳定性仅保留开发历史备份。
+课程检查入口：[GitHub v2.1.3 Release](https://github.com/fighting321321/ai4se-coding-agent-harness/releases/tag/v2.1.3)。依据助教补充说明，本项目采用“CLI + 托管平台 Release”方式交付；学校 GitLab 因网络稳定性仅保留开发历史备份。
 
-从 Release 下载 `ai4se-harness-2.1.2.tgz` 后，推荐直接使用 Node.js 24 自带的 npm 全局安装：
+从 Release 下载 `ai4se-harness-2.1.3.tgz` 后，推荐直接使用 Node.js 24 自带的 npm 全局安装：
 
 ```powershell
-npm install --global .\ai4se-harness-2.1.2.tgz
+npm install --global .\ai4se-harness-2.1.3.tgz
 ai4se-harness smoke
 ```
 
-如果已经配置好 pnpm 11.14.0，也可以使用 `pnpm add --global .\ai4se-harness-2.1.2.tgz`。若 pnpm 报 `ERR_PNPM_NO_GLOBAL_BIN_DIR`，可改用上面的 npm 命令，或执行一次 `pnpm setup` 并重新打开终端。
+如果已经配置好 pnpm 11.14.0，也可以使用 `pnpm add --global .\ai4se-harness-2.1.3.tgz`。若 pnpm 报 `ERR_PNPM_NO_GLOBAL_BIN_DIR`，可改用上面的 npm 命令，或执行一次 `pnpm setup` 并重新打开终端。
 
 `smoke` 成功时输出 `AI4SE Harness 离线 smoke：completed`，且不会读取配置或凭据。随后进入任意待检查项目目录，直接运行 `ai4se-harness`；首次只填写服务地址、隐藏 API Key 和模型名称。连续输入两项任务验证上下文，用 `/exit` 安全退出，再次在同一目录运行 `ai4se-harness` 验证无需重复填写 Key，并用 `/memory` 检查脱敏长期记忆。普通验收不需要 `credentials`、`start --config`、手工 JSON 或本地保护密码。WebUI 仍可通过仓库统一入口在本地运行；静态页面只用于脱敏架构演示。
 
 ## npm tarball 分发 smoke
 
-`@ai4se/harness` 2.1.2 是可安装的 ESM 包，提供类型入口、共享任务运行器、会话运行器、`runOfflineSmoke` 和 `ai4se-harness` CLI。以下 PowerShell 命令会构建 tarball，在新目录离线安装，然后分别验证 ESM 导入和已安装 CLI：
+`@ai4se/harness` 2.1.3 是可安装的 ESM 包，提供类型入口、共享任务运行器、会话运行器、`runOfflineSmoke` 和 `ai4se-harness` CLI。以下 PowerShell 命令会构建 tarball，在新目录离线安装，然后分别验证 ESM 导入和已安装 CLI：
 
 ```powershell
 pnpm --filter @ai4se/harness build

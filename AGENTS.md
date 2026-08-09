@@ -10,6 +10,6 @@
 ## 当前开发状态
 
 - T01–T17 单项任务均已结束；T17 已由 `release/t17-harness-v2` 合入 `dev`，真实 Provider 只读验收已经通过。
-- `v2.1.2` 在 v2.1.1 基础上修复 Agent 恢复、敏感动作判断与无构建产物冷启动测试问题。
-- 最终交付采用助教允许的“CLI + GitHub `v2.1.2` Release”；学校 GitLab 只保留开发历史备份，WebUI 仅保留本地模式与静态 mock 源码。
+- `v2.1.3` 在 v2.1.2 基础上修复无效 Action JSON 的一次受限纠正重试、准确错误提示与跨步骤 Trace 审批状态污染问题。
+- 最终交付采用助教允许的“CLI + GitHub `v2.1.3` Release”；学校 GitLab 只保留开发历史备份，WebUI 仅保留本地模式与静态 mock 源码。
 - 不得把真实 API Key、密码、token 或其他凭据写入聊天、命令参数、源码、日志、测试输出或 Git。
