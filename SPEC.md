@@ -1,6 +1,6 @@
 # Coding Agent Harness 课程最小交付规约
 
-> **2026-08-09 最终交付：** T01–T17 已完成，真实 Provider 验收通过；`@ai4se/harness` 2.1.3 已通过全新目录 tarball smoke，并准备发布至 GitHub Release。
+> **2026-08-09 最终交付：** T01–T17 已完成，真实 Provider 验收通过；`@ai4se/harness` 2.1.3 已通过全新目录 tarball smoke 与真实 Provider 回归，并发布至 GitHub Release。
 
 ## 0. 文档控制
 
@@ -10,7 +10,7 @@
 | 批准日期 | 2026-08-01 |
 | 项目负责人 | 徐黄浩 |
 | 权威需求来源 | 本文件；`guide/AI4SE_Final_Project_通用要求.md` 与 `guide/AI4SE_Final_Project_A_Coding_Agent_Harness.md` 是不可删减的上位要求 |
-| 当前 Gate | v2.1.3 已完成测试，待补丁 tarball smoke、真实 Provider 验收与 GitHub Release 发布 |
+| 当前 Gate | v2.1.3 已完成测试、补丁 tarball smoke、真实 Provider 验收与 GitHub Release 发布 |
 | 实现范围 | T05–T17；T17 只补完整 Trace、离线验收、分发与 Release 材料 |
 
 本版本取代 SPEC 1.0.0 的实现承诺。旧版本保留为 Git 历史和过程证据，不再要求实现数据库、多用户平台、复杂决策版本、SSE、Docker 或线上后端。任何删减都不得违反上述两份课程原始要求。
