@@ -1,6 +1,11 @@
 import type { Redactor } from "./redactor.js";
 
-export type FeedbackCategory = "pass" | "fail" | "timeout" | "environment_error";
+export type FeedbackCategory =
+  | "pass"
+  | "fail"
+  | "recoverable_error"
+  | "timeout"
+  | "environment_error";
 
 export interface FeedbackResult {
   category: FeedbackCategory;
@@ -27,6 +32,7 @@ type GovernedToolResult = ToolSuccess | ToolFailure;
 
 const MAX_TOOL_OBSERVATION_LENGTH = 12_000;
 const MAX_DIAGNOSTIC_OBSERVATION_LENGTH = 512;
+const RECOVERABLE_ERROR_CODES = new Set(["PATH_NOT_FOUND"]);
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -85,6 +91,19 @@ function fromFailure(
     return {
       category: "timeout",
       observation: observation(redactor, "timeout: COMMAND_TIMEOUT", MAX_DIAGNOSTIC_OBSERVATION_LENGTH)
+    };
+  }
+
+  if (RECOVERABLE_ERROR_CODES.has(code)) {
+    return {
+      category: "recoverable_error",
+      observation: observation(
+        redactor,
+        diagnostic === undefined
+          ? `recoverable_error: ${code}`
+          : `recoverable_error: ${code}: ${diagnostic}`,
+        MAX_DIAGNOSTIC_OBSERVATION_LENGTH
+      )
     };
   }
 

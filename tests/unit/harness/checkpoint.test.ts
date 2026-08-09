@@ -38,6 +38,45 @@ describe("WorkspaceCheckpoint", () => {
     await expect(readFile(join(workspace, "created.txt"), "utf8")).rejects.toMatchObject({ code: "ENOENT" });
   });
 
+  it("允许快照凭据管理源码但仍拒绝真实会话 Key", async () => {
+    const workspace = await mkdtemp(join(tmpdir(), "ai4se-checkpoint-credential-source-"));
+    const secret = "sk-live-checkpoint-key-123456";
+    await writeFile(
+      join(workspace, "cli.ts"),
+      "interface Options { apiKey: string }\nconst apiKey = credential.value;",
+      "utf8"
+    );
+    await writeFile(join(workspace, "leak.txt"), secret, "utf8");
+    const checkpoints = new WorkspaceCheckpoint({
+      workspace,
+      redactor: new Redactor([secret])
+    });
+
+    await expect(checkpoints.capture("cli.ts")).resolves.toMatchObject({ ok: true });
+    await expect(checkpoints.capture("leak.txt")).resolves.toMatchObject({
+      ok: false,
+      error: { code: "CHECKPOINT_SENSITIVE" }
+    });
+  });
+
+  it("测试文件快照允许假凭据夹具，但仍拒绝当前会话真实 Key", async () => {
+    const workspace = await mkdtemp(join(tmpdir(), "ai4se-checkpoint-test-fixture-"));
+    const secret = "sk-live-checkpoint-key-123456";
+    await mkdir(join(workspace, "tests"));
+    await writeFile(join(workspace, "tests", "fixture.test.ts"), "sk-cli-provider-key", "utf8");
+    await writeFile(join(workspace, "tests", "leak.test.ts"), secret, "utf8");
+    const checkpoints = new WorkspaceCheckpoint({
+      workspace,
+      redactor: new Redactor([secret])
+    });
+
+    await expect(checkpoints.capture("tests/fixture.test.ts")).resolves.toMatchObject({ ok: true });
+    await expect(checkpoints.capture("tests/leak.test.ts")).resolves.toMatchObject({
+      ok: false,
+      error: { code: "CHECKPOINT_SENSITIVE" }
+    });
+  });
+
   it("拒绝目录、符号链接、敏感内容、敏感路径和超限文件", async () => {
     const workspace = await mkdtemp(join(tmpdir(), "ai4se-checkpoint-bounds-"));
     await mkdir(join(workspace, "folder"));

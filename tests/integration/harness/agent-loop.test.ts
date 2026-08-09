@@ -23,6 +23,7 @@ interface HarnessOptions {
   readonly approval?: ApprovalGate;
   readonly maxSteps?: number;
   readonly runCommand?: () => unknown | Promise<unknown>;
+  readonly readFile?: (path: string) => unknown | Promise<unknown>;
   readonly session?: SessionContext;
   readonly createHooks?: (trace: JsonTrace) => HookManager;
 }
@@ -49,7 +50,7 @@ async function createHarness(
   const handlerCalls = { readFile: 0, writeFile: 0, runCommand: 0 };
   dispatcher.register("read_file", (action) => {
     handlerCalls.readFile += 1;
-    return `read:${action.path}`;
+    return options.readFile?.(action.path) ?? `read:${action.path}`;
   });
   dispatcher.register("write_file", () => {
     handlerCalls.writeFile += 1;
@@ -78,6 +79,7 @@ async function createHarness(
       approval: options.approval,
       session: options.session,
       hooks: options.createHooks?.(trace),
+      redactor,
       maxSteps: options.maxSteps
     }),
     handlerCalls,
@@ -376,6 +378,76 @@ describe("AgentLoop", () => {
     expect(approvalResult.trace[0]).toMatchObject({ policy: "ask", status: "blocked" });
   });
 
+  it("凭据管理源码可以通过审批写入，不会被敏感动作规则误报", async () => {
+    const credentialSource = [
+      "interface Options { apiKey: string }",
+      "const apiKey = credential.value;",
+      "await readSecret(\"API Key\");"
+    ].join("\n");
+    const harness = await createHarness(
+      [
+        { raw: { type: "write_file", path: "cli.ts", content: credentialSource } },
+        { raw: { type: "finish", summary: "源码写入完成" } }
+      ],
+      { approval: new ApprovalGate(async () => true) }
+    );
+
+    const result = await harness.loop.run("更新凭据管理源码");
+
+    expect(result).toMatchObject({ status: "completed", steps: 2 });
+    expect(harness.handlerCalls.writeFile).toBe(1);
+  });
+
+  it("真实会话 Key 仍在写入 handler 调用前被阻断", async () => {
+    const harness = await createHarness(
+      [{
+        raw: {
+          type: "write_file",
+          path: "leak.txt",
+          content: "sk-fake-agent-key"
+        }
+      }],
+      { approval: new ApprovalGate(async () => true) }
+    );
+
+    const result = await harness.loop.run("写入结果");
+
+    expect(result).toMatchObject({ status: "blocked", steps: 1 });
+    expect(result.trace.at(-1)).toMatchObject({ stopReason: "sensitive_action" });
+    expect(harness.handlerCalls.writeFile).toBe(0);
+  });
+
+  it("测试文件允许假凭据夹具，但真实会话 Key 仍被阻断", async () => {
+    const fixtureHarness = await createHarness(
+      [
+        {
+          raw: {
+            type: "write_file",
+            path: "tests/cli.test.ts",
+            content: 'const apiKey = "sk-cli-provider-key";'
+          }
+        },
+        { raw: { type: "finish", summary: "测试夹具写入完成" } }
+      ],
+      { approval: new ApprovalGate(async () => true) }
+    );
+    const secretHarness = await createHarness(
+      [{
+        raw: {
+          type: "write_file",
+          path: "tests/leak.test.ts",
+          content: "sk-fake-agent-key"
+        }
+      }],
+      { approval: new ApprovalGate(async () => true) }
+    );
+
+    expect(await fixtureHarness.loop.run("补测试")).toMatchObject({ status: "completed" });
+    expect(fixtureHarness.handlerCalls.writeFile).toBe(1);
+    expect(await secretHarness.loop.run("写入真实 Key")).toMatchObject({ status: "blocked" });
+    expect(secretHarness.handlerCalls.writeFile).toBe(0);
+  });
+
   it("ask 动作仅在明确批准后执行一次", async () => {
     const approve = vi.fn(async () => true);
     const harness = await createHarness(
@@ -545,6 +617,58 @@ describe("AgentLoop", () => {
     expect(result.trace).toEqual([
       expect.objectContaining({ status: "failed", stopReason: "environment_error" })
     ]);
+  });
+
+  it("PATH_NOT_FOUND 会反馈给下一轮并允许模型改读正确路径", async () => {
+    const harness = await createHarness(
+      [
+        { raw: { type: "read_file", path: "missing.ts" } },
+        { raw: { type: "read_file", path: "README.md" } },
+        { raw: { type: "finish", summary: "已纠正路径" } }
+      ],
+      {
+        maxSteps: 3,
+        readFile: (path) => path === "missing.ts"
+          ? { ok: false, error: { code: "PATH_NOT_FOUND", message: "文件不存在" } }
+          : { ok: true, value: "项目说明" }
+      }
+    );
+
+    const result = await harness.loop.run("先定位再读取文件");
+
+    expect(result).toMatchObject({ status: "completed", steps: 3, summary: "已纠正路径" });
+    expect(harness.provider.calls).toHaveLength(3);
+    expect(harness.provider.calls[1]?.observations).toContain(
+      "recoverable_error: PATH_NOT_FOUND: 文件不存在"
+    );
+    expect(result.trace[0]).toMatchObject({
+      status: "running",
+      observation: "recoverable_error: PATH_NOT_FOUND: 文件不存在"
+    });
+  });
+
+  it("同一动作连续两次 PATH_NOT_FOUND 后停止以避免循环", async () => {
+    const harness = await createHarness(
+      [
+        { raw: { type: "read_file", path: "missing.ts" } },
+        { raw: { type: "read_file", path: "missing.ts" } }
+      ],
+      {
+        readFile: () => ({
+          ok: false,
+          error: { code: "PATH_NOT_FOUND", message: "文件不存在" }
+        })
+      }
+    );
+
+    const result = await harness.loop.run("读取文件");
+
+    expect(result).toMatchObject({ status: "failed", steps: 2 });
+    expect(harness.provider.calls).toHaveLength(2);
+    expect(result.trace.at(-1)).toMatchObject({
+      status: "failed",
+      stopReason: "repeated_recoverable_error"
+    });
   });
 
   it("COMMAND_TIMEOUT 在第一轮失败，不重试 Provider 或命令 handler", async () => {

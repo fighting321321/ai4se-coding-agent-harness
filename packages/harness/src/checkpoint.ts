@@ -44,6 +44,12 @@ interface StoredSnapshot extends CheckpointSnapshot {
   readonly content?: string;
 }
 
+function isCredentialFixturePath(path: string): boolean {
+  return path
+    .split(/[\\/]+/u)
+    .some((segment) => ["test", "tests", "__tests__"].includes(segment.toLocaleLowerCase()));
+}
+
 function failure<Value>(code: CheckpointErrorCode, message: string): CheckpointResult<Value> {
   return { ok: false, error: { code, message } };
 }
@@ -104,7 +110,9 @@ export class WorkspaceCheckpoint {
       } catch {
         return failure("CHECKPOINT_NOT_FILE", "Checkpoint 只支持 UTF-8 文本文件");
       }
-      if (this.#redactor.containsSensitive(content)) {
+      if (this.#redactor.containsSensitiveAction(content, {
+        allowCredentialFixtures: isCredentialFixturePath(path)
+      })) {
         return failure("CHECKPOINT_SENSITIVE", "Checkpoint 不保存敏感内容");
       }
       const snapshot: StoredSnapshot = Object.freeze({

@@ -86,6 +86,12 @@ function providerFailureSummary(error: unknown): string {
   }
 }
 
+function isCredentialFixturePath(path: string): boolean {
+  return path
+    .split(/[\\/]+/u)
+    .some((segment) => ["test", "tests", "__tests__"].includes(segment.toLocaleLowerCase()));
+}
+
 function isApprovalBlock(code: string): boolean {
   return code === "POLICY_DENIED" || code === "APPROVAL_REQUIRED" || code === "APPROVAL_DENIED";
 }
@@ -216,6 +222,8 @@ export class AgentLoop {
     let observations: readonly string[] = [];
     let businessFailures = 0;
     let lastSuccessfulReadPath: string | undefined;
+    let lastRecoverableAction: string | undefined;
+    let repeatedRecoverableErrors = 0;
 
     const memory = await this.#memoryLifecycle.retrieve(task);
     if (!memory.ok) {
@@ -368,7 +376,12 @@ export class AgentLoop {
         });
         return await this.#result("blocked", "子 Agent 工具未获授权", iteration, traceStartStep);
       }
-      if (action.type !== "finish" && this.#redactor.containsSensitive(action)) {
+      const allowCredentialFixtures =
+        action.type === "write_file" && isCredentialFixturePath(action.path);
+      if (
+        action.type !== "finish" &&
+        this.#redactor.containsSensitiveAction(action, { allowCredentialFixtures })
+      ) {
         this.#session.appendObservation("blocked: SENSITIVE_ACTION");
         const appended = await this.#append({
           step,
@@ -589,10 +602,25 @@ export class AgentLoop {
         businessFailures += 1;
       }
 
+      const recoverableAction = feedback.category === "recoverable_error"
+        ? JSON.stringify(action)
+        : undefined;
+      if (recoverableAction === undefined) {
+        lastRecoverableAction = undefined;
+        repeatedRecoverableErrors = 0;
+      } else if (recoverableAction === lastRecoverableAction) {
+        repeatedRecoverableErrors += 1;
+      } else {
+        lastRecoverableAction = recoverableAction;
+        repeatedRecoverableErrors = 1;
+      }
+
       const secondBusinessFailure = businessFailures >= 2;
+      const repeatedRecoverableFailure = repeatedRecoverableErrors >= 2;
       const limitReached = iteration === this.#maxSteps;
       const traceStatus =
         secondBusinessFailure ||
+        repeatedRecoverableFailure ||
         feedback.category === "timeout" ||
         feedback.category === "environment_error" ||
         limitReached
@@ -600,13 +628,15 @@ export class AgentLoop {
           : "running";
       const stopReason = secondBusinessFailure
         ? "second_business_failure"
-        : feedback.category === "timeout"
-          ? "timeout"
-          : feedback.category === "environment_error"
-            ? "environment_error"
-            : limitReached
-              ? "max_steps"
-              : undefined;
+        : repeatedRecoverableFailure
+          ? "repeated_recoverable_error"
+          : feedback.category === "timeout"
+            ? "timeout"
+            : feedback.category === "environment_error"
+              ? "environment_error"
+              : limitReached
+                ? "max_steps"
+                : undefined;
       const appended = await this.#append({
         step,
         action,
@@ -622,6 +652,9 @@ export class AgentLoop {
 
       if (secondBusinessFailure) {
         return await this.#result("failed", "连续两次业务失败", iteration, traceStartStep);
+      }
+      if (repeatedRecoverableFailure) {
+        return await this.#result("failed", "同一动作连续两次可恢复错误", iteration, traceStartStep);
       }
       if (feedback.category === "timeout") {
         return await this.#result("failed", "命令执行超时", iteration, traceStartStep);

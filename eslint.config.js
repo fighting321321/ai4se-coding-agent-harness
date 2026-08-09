@@ -3,7 +3,13 @@ import tseslint from "typescript-eslint";
 
 export default tseslint.config(
   {
-    ignores: [".superpowers/**", "**/node_modules/**", "**/dist/**", "**/coverage/**"]
+    ignores: [
+      ".ai4se/**",
+      ".superpowers/**",
+      "**/node_modules/**",
+      "**/dist/**",
+      "**/coverage/**"
+    ]
   },
   js.configs.recommended,
   tseslint.configs.recommended

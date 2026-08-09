@@ -5,6 +5,9 @@
     "moduleResolution": "NodeNext",
     "jsx": "react-jsx",
     "noEmit": true,
+    "paths": {
+      "@ai4se/harness": ["../packages/harness/src/index.ts"]
+    },
     "types": ["node", "vitest/globals"]
   },
   "include": ["unit/**/*.ts", "integration/**/*.ts", "test-support/**/*.ts"]

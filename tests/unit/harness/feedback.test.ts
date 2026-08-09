@@ -121,6 +121,21 @@ describe("classifyFeedback", () => {
     expect(feedback.observation.length).toBe(512);
   });
 
+  it("把 PATH_NOT_FOUND 归类为可供下一轮纠正的 recoverable_error", () => {
+    const result: DispatchResult = {
+      ok: true,
+      value: {
+        ok: false,
+        error: { code: "PATH_NOT_FOUND", message: "文件不存在" }
+      }
+    };
+
+    expect(classifyFeedback(result, new Redactor())).toEqual({
+      category: "recoverable_error",
+      observation: "recoverable_error: PATH_NOT_FOUND: 文件不存在"
+    });
+  });
+
   it("长文本文件内容不会被旧的 160 字符上限截断", () => {
     const source = `import pygame\n${"def update():\n    pass\n".repeat(100)}`;
     const result: DispatchResult = {
