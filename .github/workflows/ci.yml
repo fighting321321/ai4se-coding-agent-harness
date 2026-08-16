@@ -1,0 +1,71 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  unit-test:
+    name: Unit test and release verification
+    runs-on: windows-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node.js 24.14.0
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24.14.0
+
+      - name: Install pinned pnpm runtime
+        shell: powershell
+        run: |
+          npm install --global pnpm@11.14.0
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+          $nodePath = (Get-Command node.exe -ErrorAction Stop).Source
+          $pnpmRoot = (& npm root --global).Trim()
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $pnpmCli = Join-Path $pnpmRoot "pnpm\bin\pnpm.cjs"
+
+          if (-not (Test-Path -LiteralPath $pnpmCli -PathType Leaf)) {
+            throw "Pinned pnpm CLI was not found at $pnpmCli"
+          }
+
+          "AI4SE_NODE=$nodePath" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "AI4SE_PNPM_CLI=$pnpmCli" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Verify pinned toolchain
+        shell: powershell
+        run: powershell -NoProfile -File .\scripts\project-env.ps1 versions
+
+      - name: Install dependencies
+        shell: powershell
+        run: powershell -NoProfile -File .\scripts\project-env.ps1 install
+
+      - name: Test, lint, typecheck, build, demo, and audit
+        shell: powershell
+        run: powershell -NoProfile -File .\scripts\project-env.ps1 all
+
+      - name: Build submission package
+        shell: powershell
+        run: powershell -NoProfile -File .\scripts\project-env.ps1 pack
+
+      - name: Upload submission package
+        uses: actions/upload-artifact@v4
+        with:
+          name: ai4se-harness-${{ github.sha }}
+          path: .ai4se/submission-output/*.tgz
+          if-no-files-found: error
+          retention-days: 90

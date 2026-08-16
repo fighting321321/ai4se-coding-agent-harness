@@ -1,5 +1,7 @@
 # Coding Agent Harness
 
+[![CI](https://github.com/fighting321321/ai4se-coding-agent-harness/actions/workflows/ci.yml/badge.svg)](https://github.com/fighting321321/ai4se-coding-agent-harness/actions/workflows/ci.yml)
+
 > **v2.1.3 最终交付状态：** 教学级完整 Harness、Trace v3、最终离线验收矩阵、全新目录 tarball smoke 与真实 Provider 验收均已通过；本补丁在 v2.1.2 基础上增加无效 Action JSON 的一次受限纠正重试，修正 Provider 错误提示与跨步骤 Trace 审批状态污染。正式分发入口为 [GitHub v2.1.3 Release](https://github.com/fighting321321/ai4se-coding-agent-harness/releases/tag/v2.1.3)。
 
 一个面向课程学习的、可确定性验证的 Coding Agent Harness。它把可替换的 LLM 补全放进由 TypeScript 代码实现的工具边界、策略、记忆、反馈和 Trace 中，并提供可连续输入任务的终端 Agent；它不是线上多用户平台。
@@ -47,12 +49,12 @@ Harness 的六个维度及其对应实现是：
 - 设计与计划：[`SPEC.md`](SPEC.md)、[`PLAN.md`](PLAN.md)、[`SPEC_PROCESS.md`](SPEC_PROCESS.md)。
 - 过程与反思：[`AGENT_LOG.md`](AGENT_LOG.md)、[`COLD_START_VALIDATION.md`](docs/assessments/COLD_START_VALIDATION.md)、[`REFLECTION.md`](REFLECTION.md)。
 - 实现与测试：`packages/harness` 自研内核、`apps/api` CLI/本地 API、`apps/web` 本地 WebUI，以及 mock LLM 单元测试和三项机制演示。
-- 持续集成：`.gitlab-ci.yml` 中精确名为 `unit-test` 的作业，执行测试、lint、类型检查、构建、演示、打包和凭据审计。
+- 持续集成：GitHub Actions 的 `.github/workflows/ci.yml` 与 GitLab 备份配置都提供 `unit-test` 作业，执行测试、lint、类型检查、构建、演示、审计和打包；公开的 GitHub Actions 记录为当前主验收入口。
 - 托管分发：[GitHub v2.1.3 Release](https://github.com/fighting321321/ai4se-coding-agent-harness/releases/tag/v2.1.3) 与 `ai4se-harness-2.1.3.tgz`。学校 GitLab 仅保留开发历史备份。
 
 ## 前提与源码安装
 
-首版只支持 Node.js `>=24.0.0 <25.0.0` 和 pnpm `11.14.0`。CI 使用 Linux Node 24；本地主要验收平台为 Windows 11。仓库提供统一的 PowerShell 环境入口，它会定位并校验 Node `24.14.0` 与 pnpm `11.14.0`，避免误用系统 Node 20：
+首版只支持 Node.js `>=24.0.0 <25.0.0` 和 pnpm `11.14.0`。GitHub CI 与本地主要验收平台均为 Windows，并固定使用 Node `24.14.0` 与 pnpm `11.14.0`。仓库提供统一的 PowerShell 环境入口，它会定位并校验这两个版本，避免误用系统运行时：
 
 ```powershell
 powershell -NoProfile -File .\scripts\project-env.ps1 versions
